@@ -23,21 +23,21 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 3. Button 'Newsletter jetzt erzeugen' klicken und Kartenanzeige sowie Verlauf sehen
 
 ## Aufgaben (je <= 20 Min.)
-- [ ] Flask-Projekt initialisieren (requirements.txt, app.py, Verzeichnisstruktur) – Ran
-- [ ] Startseite-Template mit Formular (freier Text + Mehrfachauswahl für Quellen) und Button erstellen – Ran
-- [ ] Mock-Webhook-Endpunkt /mock/newsletter implementieren, der den erwarteten Vertrag einhält – Ran
-- [ ] Frontend-Logik: Button-Klick → AJAX-Aufruf → Kartenanzeige + Verlauf aktualisieren – Ran
-- [ ] Fallback auf sample_newsletter.json bei Fehler implementieren – Ran
-- [ ] Mobile-first CSS und dunkles klares Design anwenden – Ran
-- [ ] PWA Manifest und Service Worker Grundgerüst setzen – Ran
-- [ ] Verlaufsspeicherung (z.B. in localStorage oder einfache Liste) implementieren – Ran
-- [ ] Offline Test: Anwesenheit von Formular und Button – Edgar
-- [ ] Offline Test: Mock-Endpunkt liefert erwartetes JSON – Edgar
-- [ ] Offline Test: Fallback lädt sample_newsletter.json – Edgar
-- [ ] Test: Modellname wird aus MODEL_PRIMARY gelesen (prüfen, dass kein harter Modellname vorkommt) – Edgar
-- [ ] Server-Konfiguration prüfen (127.0.0.1, debug aus) – Edgar
-- [ ] Server startet mit timeout und antwortet auf Health-Check – Edgar
-- [ ] Kleine Fehler beheben und commits nach jedem Schritt – Beide
+- [x] Flask-Projekt initialisieren (requirements.txt, app.py, Verzeichnisstruktur) – Ran
+- [x] Startseite-Template mit Formular (freier Text + Mehrfachauswahl für Quellen) und Button erstellen – Ran
+- [x] Mock-Webhook-Endpunkt /mock/newsletter implementieren, der den erwarteten Vertrag einhält – Ran
+- [x] Frontend-Logik: Button-Klick → AJAX-Aufruf → Kartenanzeige + Verlauf aktualisieren – Ran
+- [x] Fallback auf sample_newsletter.json bei Fehler implementieren – Ran
+- [x] Mobile-first CSS und dunkles klares Design anwenden – Ran
+- [x] PWA Manifest und Service Worker Grundgerüst setzen – Ran
+- [x] Verlaufsspeicherung (z.B. in localStorage oder einfache Liste) implementieren – Ran
+- [x] Offline Test: Anwesenheit von Formular und Button – Edgar
+- [x] Offline Test: Mock-Endpunkt liefert erwartetes JSON – Edgar
+- [x] Offline Test: Fallback lädt sample_newsletter.json – Edgar
+- [x] Test: Modellname wird aus MODEL_PRIMARY gelesen (prüfen, dass kein harter Modellname vorkommt) – Edgar
+- [x] Server-Konfiguration prüfen (127.0.0.1, debug aus) – Edgar
+- [x] Server startet mit timeout und antwortet auf Health-Check – Edgar
+- [x] Kleine Fehler beheben und commits nach jedem Schritt – Beide
 
 ## Zeitplan
 - 12:00-12:20  Idee schärfen, Planner erzeugt diesen Plan

@@ -12,7 +12,7 @@ Ein personalisierter KI-Newsletter im Retro-Pixel-Look. Nutzer geben Themen ein,
 
 | Modell | Lizenz | Anbieter |
 |---|---|---|
-| `{{ model_name }}` | OpenRouter Free | OpenRouter API |
+| `nvidia/nemotron-3-super-120b-a12b:free` | OpenRouter Free (Apache 2.0) | OpenRouter API |
 
 Das Modell wird aus der Umgebungsvariable `$MODEL_PRIMARY` gelesen — kein Modellname ist im Code hardgecodet.
 

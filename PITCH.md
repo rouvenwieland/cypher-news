@@ -10,7 +10,7 @@ Wir bieten einen KI-Newsletter, der beliebige Themen und öffentlich zugänglich
 [Demo-Pfad: App öffnen → Themen eingeben/Quellen auswählen → Newsletter erzeugen → Karten + Verlauf anzeigen]
 
 4. **Open-Source-KI** (30 s) - Welches Modell, welche Lizenz, warum offen, was läuft lokal?
-Verwendetes Modell: {{ model_name }} (aus $MODEL_PRIMARY gelesen)
+Verwendetes Modell: nvidia/nemotron-3-super-120b-a12b:free (aus $MODEL_PRIMARY gelesen)
 Lizenz: OpenRouter Free-Lizenz
 Warum offen: Wir nutzen das kostenlose OpenRouter-Modell, das explizit für den Hackathon mit dem Thema "Building with open-source AI" entwickelt wurde.
 Die App läuft lokal (Flask), die KI läuft in der Cloud über OpenRouter für Sicherheit und Datenschutz.
