@@ -56,6 +56,13 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 
 ## Tester-Status (Edgar)
 
+### Deck V2 Final (15:00, Build 6f903d7) — Pitch-Präsentation Englisch + Drei Pixel-Erklärer
+- pitch/script.js: 11 englische Texte (s01-s11, je 25-40 Wörter, gesamt ~195s), Sprecher Ran/Rufus/Jaro. ✓
+- pitch/content.js: Alle Folien, Überschriften, Beschriftungen auf Englisch. ✓
+- pitch/{deck.js, deck.css, index.html}: Drei Pixel-Erklärer (ran.png, rufus.png, jaro.png) mit Talk-Frames, PLAY TALK Auto-Play, Audio-Sync, Typewriter. ✓
+- pitch/audio/: 11 .ogg-Dateien + manifest.js (Piper TTS, lokal). ✓
+- browsertest.js: `FEHLER: keine`, `HTTP-Fehler: keine`, 367 Elemente, 0 JS-Fehler. ✓
+
 ### Live-Durchlauf 14:38 (Build e7f898f, ~6 Min.) — ECHTER n8n-Modellaufruf
 - GET `/` → HTTP 200, 57 KB. Modellname `nvidia/nemotron-3-super-120b-a12b:free` zweimal sichtbar. ✓
 - POST `/api/generate` (n8n LIVE!) → HTTP 200, **8 Items**, source=n8n, 7s Antwortzeit. ✓
@@ -99,3 +106,5 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - **Fallback intakt**: Bei n8n-Ausfall zeigt die App sample_newsletter.json + demo_social.json (8+12=20 Items). Demo bleibt immer funktionierend.
 - Dummy-URLs `https://example.com/...` in Mock-/Fallback-Daten. Bei echter n8n-Antwort kommen gültige URLs. Nicht demo-blockierend.
 - demo_social.json enthält 12 Beispieldaten — ausreichend für Demo, aber keine echten Live-Daten von Social-APIs (socialfetch baut Ran gerade).
+- **Pitch-Audio total ~195s (3:15)**, leicht über den gewünschten 180s. Noch vertretbar, Piper spricht zügig.
+- **Piper muss installiert sein** für Audio-Nachgenerierung vor Ort (Schul-Laptops?). Im Notfall: mute starten, Untertitel reichen.
