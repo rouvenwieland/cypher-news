@@ -22,7 +22,7 @@ Zugangsdaten bleiben NUR in `data/sessions/` und `data/connections.json` (in .gi
 - **Demo-Sicherheit:** `data/demo_social.json` enthält ~12 realistische, **klar als Beispieldaten markierte** Posts/Stories (Konzerte in Berlin, Giveaways, Kleidungsdrops, Tech) mit generierten Pixel-Thumbnails (ImageMagick, keine Personen). Wenn Live-Scraping fehlschlägt oder ein Demo-Schalter aktiv ist, nutzt Flask diese Daten; die UI zeigt dann dezent "Beispieldaten".
 
 ### Modell-Routing in n8n (macht Claude)
-Text: `nvidia/nemotron-3-ultra-550b-a55b:free` → bei Fehler/Leerantwort `deepseek/deepseek-v4-pro` (offen, billig) → `nvidia/nemotron-3-super-120b-a12b:free` → regelbasierter Fallback. Bilder: `qwen/qwen3.8-27b:free` → `google/gemma-4-31b-it:free` → `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`. Max. 6 Bilder pro Drop.
+Text (Vertrag-Feld `quality`: 'fast' Standard | 'high'): fast = `nvidia/nemotron-3-super-120b-a12b:free` (~6 s), high = `nvidia/nemotron-3-ultra-550b-a55b:free` (~20 s, genauer); bei Fehler/Leerantwort wechseln sie gegenseitig, dann `deepseek/deepseek-v4-pro` (offen, billig), zuletzt regelbasierter Fallback. Optional im UI ein Umschalter 'SCHNELL | GENAU', der `quality` mitsendet. Bilder: `qwen/qwen3.8-27b:free` → `google/gemma-4-31b-it:free` → `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`. Max. 6 Bilder pro Drop.
 
 ## Rechtliches/Ehrlichkeit (in README und UI-Hinweis)
 Instagram-Login-Scraping verstößt gegen die Nutzungsbedingungen der Plattform; nur eigenes (Zweit-)Konto, Zugangsdaten bleiben lokal. Im Pitch als "Prototyp-Connector" benennen; Produktionsweg wäre die offizielle Graph-API.

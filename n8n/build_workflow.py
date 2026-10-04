@@ -25,7 +25,7 @@ for (const s of sources.slice(0, 6)) {
 if (!social.length) for (const [plat, list] of Object.entries(accounts)) for (const h of (Array.isArray(list) ? list : []).slice(0, 2))
   feeds.push({ url: `https://www.bing.com/news/search?q=${enc(String(h).replace(/^@/, '') + ' ' + plat)}&format=rss&setlang=de`, label: plat + ':' + h });
 const out = feeds.slice(0, 10).map(f => ({ json: { url: f.url, label: f.label, prefs: prefsText, topics, date, sources } }));
-out[0].json.social_items = social; out[0].json.accounts = accounts;
+out[0].json.social_items = social; out[0].json.accounts = accounts; out[0].json.quality = (b.quality === 'high') ? 'high' : 'fast';
 return out;
 """
 
@@ -49,7 +49,7 @@ for (const it of $input.all()) {
 }
 const news = items.filter(x => x.kind === 'news').sort((a, b) => String(b.date).localeCompare(String(a.date)));
 const top = social.concat(news).slice(0, 34);
-return [{ json: { prefs: plan.prefs, date: plan.date, top, socialN: social.length } }];
+return [{ json: { prefs: plan.prefs, date: plan.date, top, socialN: social.length, quality: plan.quality || 'fast' } }];
 """
 
 VISION_JS = r"""
@@ -90,9 +90,10 @@ const first = $input.first().json;
 const key = $env.OPENROUTER_API_KEY;
 function content(r) { try { return (r.choices[0].message.content || '').trim(); } catch (e) { return ''; } }
 function valid(t) { try { const m = t.match(/\{[\s\S]*\}/); const d = JSON.parse(m[0]); return Array.isArray(d.items) && d.items.length > 0; } catch (e) { return false; } }
-let text = content(first); let used = 'nvidia/nemotron-3-ultra-550b-a55b:free';
+const ULTRA = 'nvidia/nemotron-3-ultra-550b-a55b:free'; const SUPER = 'nvidia/nemotron-3-super-120b-a12b:free';
+let text = content(first); let used = wp.quality === 'high' ? ULTRA : SUPER;
 if (!valid(text)) {
-  const chain = [$env.MODEL_PAID || 'deepseek/deepseek-v4-pro', 'nvidia/nemotron-3-super-120b-a12b:free', $env.MODEL_PRIMARY];
+  const chain = [used === SUPER ? ULTRA : SUPER, $env.MODEL_PAID || 'deepseek/deepseek-v4-pro'];
   for (const model of chain) {
     if (!model) continue;
     try {
@@ -141,7 +142,7 @@ nodes = [
      "method": "POST", "url": "https://openrouter.ai/api/v1/chat/completions", "sendHeaders": True,
      "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{ $env.OPENROUTER_API_KEY }}"}, {"name": "Content-Type", "value": "application/json"}]},
      "sendBody": True, "specifyBody": "json",
-     "jsonBody": "={{ JSON.stringify({ model: 'nvidia/nemotron-3-ultra-550b-a55b:free', max_tokens: 4000, temperature: 0.4, reasoning: { enabled: false }, messages: $json.messages }) }}",
+     "jsonBody": "={{ JSON.stringify({ model: ($json.quality === 'high' ? 'nvidia/nemotron-3-ultra-550b-a55b:free' : 'nvidia/nemotron-3-super-120b-a12b:free'), max_tokens: 4000, temperature: 0.4, reasoning: { enabled: false }, messages: $json.messages }) }}",
      "options": {"timeout": 60000}}, onError="continueRegularOutput"),
  node("Router", "n8n-nodes-base.code", 2, x(7), {"jsCode": ROUTER_JS}),
  node("Parse", "n8n-nodes-base.code", 2, x(8), {"jsCode": PARSE_JS}),

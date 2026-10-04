@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import json
-import time
 from datetime import datetime
 
 import requests
