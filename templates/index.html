@@ -713,14 +713,39 @@
         }
 
         // ── Push Button ──
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', e => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('btnPush').style.display = 'block';
+            document.getElementById('btnPush').textContent = '📲 AUF DEM HANDY ERHALTEN';
+        });
+        window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            document.getElementById('btnPush').textContent = '📲 INSTALLIERT ✓';
+            document.getElementById('btnPush').style.display = 'block';
+            showToast('App installiert!');
+        });
+
         const btnPush = document.getElementById('btnPush');
         btnPush.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                if (outcome === 'accepted') {
+                    showToast('App wird installiert …');
+                    btnPush.textContent = '📲 INSTALLIERT ✓';
+                    return;
+                }
+            }
+
             if (!('Notification' in window)) { showToast('Benachrichtigungen nicht unterstützt', true); return; }
             if (Notification.permission === 'granted') {
                 const reg = await navigator.serviceWorker.ready;
                 reg.showNotification('Cypher News – Dein Drop ist da!', { body: 'Persönlicher Newsletter mit ' + currentItems.length + ' Treffern bereit.', icon: '/static/icon-192.png', vibrate: [200, 100, 200] });
-                showToast('Push aktiviert!');
-                btnPush.style.display = 'none';
+                showToast('Push aktiviert — Drop kommt auf dein Handy!');
+                btnPush.textContent = '📲 PUSH AKTIV ✓';
             } else if (Notification.permission === 'denied') {
                 showToast('Benachrichtigungen blockiert', true);
             } else {
