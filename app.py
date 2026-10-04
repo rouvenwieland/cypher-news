@@ -137,34 +137,43 @@ def api_generate():
     social_source = 'none'
 
     if accounts:
-        acct_list = sum(accounts.values(), [])
-        if not use_demo and acct_list:
+        from concurrent.futures import ThreadPoolExecutor
+        plats = {p: [a for a in (lst or []) if a] for p, lst in accounts.items()}
+        plats = {p: l for p, l in plats.items() if l}
+
+        def fetch_live(plat):
+            if use_demo:
+                return plat, []
             try:
-                resp = requests.get(f'{SOCIALFETCH_URL}/feed', params={
-                    'hours': 48,
-                    'accounts': ','.join(acct_list)
-                }, timeout=15)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    social_items = data.get('items', [])
-                    if data.get('demo'):
-                        social_source = 'demo'
-                        for item in social_items:
-                            item['_demo'] = True
-                    else:
-                        social_source = 'live'
+                r = requests.get(f'{SOCIALFETCH_URL}/feed', params={'platform': plat, 'accounts': ','.join(plats[plat]), 'hours': 72, 'live': '1'}, timeout=28)
+                if r.status_code == 200:
+                    d = r.json()
+                    return plat, ([] if d.get('demo') else d.get('items', []))
             except Exception:
-                social_source = 'demo_fallback'
-        if not social_items and (use_demo or social_source == 'demo_fallback' or not acct_list):
-            all_demo = load_demo_social_raw()
-            if acct_list:
-                requested = set(a.lstrip('@').lower() for a in acct_list)
-                social_items = [s for s in all_demo if s.get('account', '').lstrip('@').lower() in requested]
-                if not social_items:
-                    social_items = all_demo
-            else:
-                social_items = all_demo
-            social_source = social_source or 'demo'
+                pass
+            return plat, []
+
+        live_by_plat = {}
+        if plats:
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                for plat, items_ in ex.map(fetch_live, list(plats)):
+                    live_by_plat[plat] = items_
+        all_demo = load_demo_social_raw()
+        for plat, lst in plats.items():
+            got = live_by_plat.get(plat, [])
+            if got:
+                social_items.extend(got[:8])
+                social_source = 'live'
+            else:  # kein Live-Ergebnis (z.B. Instagram ohne Login): gekennzeichnete Beispieldaten dieser Plattform
+                req = set(a.lstrip('@').lower() for a in lst)
+                demo = [d for d in all_demo if d.get('platform') == plat and d.get('account', '').lstrip('@').lower() in req] or [d for d in all_demo if d.get('platform') == plat][:3]
+                for d in demo:
+                    d = dict(d); d['_demo'] = True; social_items.append(d)
+                if social_source == 'none':
+                    social_source = 'demo'
+        if not plats and use_demo:
+            social_items = [dict(d, _demo=True) for d in all_demo]
+            social_source = 'demo'
 
     payload = {
         "preferences": preferences,
