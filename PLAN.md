@@ -49,22 +49,35 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - 16:15-16:45  Pitch proben (2x), alles pushen
 
 ## Risiken
-- n8n-Webhook nicht erreichbar → Fallback zeigt Beispiel-Newsletter (Demo bleibt funktionierend)
-- Modellantwort verzögert → Timeout und Fallback nutzen
-- Überschreitung der Zeit durch zu komplexes UI → Fokus auf Kernfunktionen, UI einfach halten
-- Öffentliche Quellen liefern keine relevanten Ergebnisse → Beispiel-Daten verwenden, um WOW-Moment zu zeigen
-- Auswahl der Quellen könnte zu komplex werden → auf wenige voreingestellte Optionen beschränken
-- Mock-Daten verwenden Dummy-URLs (`https://example.com/...`); bei echter n8n-Antwort müssten URLs gültig sein. MVP-Nutzwert gegeben.
-- localStorage-Load beim Seiten-Open ruft addToHistory erneut auf (pot. Duplikat in History-Cards); kosmetisch, nicht demo-blockierend.
+- **NICHT MEHR:** n8n-Webhook läuft live (13:53 getestet) und liefert echte, relevante Daten in <5s.
+- n8n-Timeout 22s bei Ausfall → Fallback zeigt Beispiel-Newsletter (Demo bleibt funktionierend, aber 22s Wartezeit).
+- Dummy-URLs (`https://example.com/...`) in Mock-/Fallback-Daten; bei echter n8n-Antwort kommen gültige URLs. MVP-Nutzwert gegeben.
+- ~~localStorage-Duplikat~~ → entwarnt: `renderHistory()` auf load ruft kein `addToHistory()` auf.
 
 ## Tester-Status (Edgar)
-- Smoke-Tests serverseitig (timeout 12s), alle 9 durchgelaufen:
-  - GET `/` -> 200, Modellname `nvidia/nemotron-3-super-120b-a12b:free` aus MODEL_PRIMARY im Footer sichtbar, kein harter Modellname. ✓
-  - POST `/mock/newsletter` -> 200 mit `items`-Array (3 Karten). ✓
-  - GET `/data/sample_newsletter.json` -> 200 mit `newsletter`-Array (Fallback-Pfad). ✓
-  - Server: host 127.0.0.1, debug=False. ✓
-  - Routen komplett: `/`, `/mock/newsletter`, `/data/sample_newsletter.json`. ✓
-- Bugfix: `/data/sample_newsletter.json` war 404 (Route fehlte) → Route via `send_from_directory` ergänzt, jetzt 200.
-- Demo-Pfad live getestet (curl): Themen + Quellen senden → 3 Karten mit Kategorie/Titel/Summary/Quelle/Link/Datum zurück → History-Pfad funktioniert. ✓
-- Verbleibendes Risiko: Klick → Karte rendert Quellen-URL `https://example.com/...` (Dummy); bei echter n8n-Antwort müssten URLs gültig sein. MVP-Nutzwert aber gegeben.
-- Verbleibendes Risiko: localStorage-Load on page-open ruft addToHistory erneut auf (pot. Duplikat in History-Cards); nicht demo-blockierend, kosmetisch.
+
+### Komplett-Durchlauf 13:53 (8 Min.)
+- GET `/` → HTTP 200, 39 KB. Modellname `nvidia/nemotron-3-super-120b-a12b:free` im Footer, kein harter Modellname. ✓
+- POST `/api/generate` (mit n8n live!) → HTTP 200, 8 echte Items (Konzerte Berlin), source=n8n. N8N läuft tatsächlich! ✓
+- POST `/api/generate` (ohne n8n, via N8N_WEBHOOK_URL=http://127.0.0.1:9999) → HTTP 200, 8 Items, source=fallback. ✓
+- POST `/mock/newsletter` → HTTP 200, 8 Items. ✓
+- GET `/data/sample_newsletter.json` → HTTP 200, 2.7 KB. ✓
+- Statische Dateien alle HTTP 200: ✓
+  - CSS: `/static/css/style.css` (524 Zeilen)
+  - JS: `/static/js/rain.js` (34 Zeilen, IIFE)
+  - Fonts: PressStart2P.ttf, VT323.ttf, SpaceGrotesk.ttf
+  - Icons: icon-192.png, icon-512.png
+  - Bilder: field_pix.jpg, field_duo.jpg, money_pix.jpg, money_duo.jpg
+  - PWA: manifest.json, sw.js
+- Server-Konfiguration: `host='127.0.0.1', debug=False, port=5000`. ✓
+- DESIGN.md-Check: Alle CSS-Variablen, Schriften, Animationen (Matrix-Regen, Glitch, Ticker, Terminal, Stories, Feed, Konfetti) 1:1 umgesetzt. ✓
+- Python-Syntax-Check: app.py kompiliert ohne Fehler. ✓
+
+### Bugs gefunden & behoben
+- Keine neuen Bugs. Vorheriger Bugfix (Route `/data/sample_newsletter.json`) hält.
+
+### Verbleibende Risiken
+- **n8n-Timeout 22s**: Wenn n8n nicht läuft, wartet `/api/generate` 22s bevor Fallback greift. In der Live-Demo (n8n läuft) aber kein Problem.
+- Dummy-URLs `https://example.com/...` in Mock-/Fallback-Daten. Bei echter n8n-Antwort kommen gültige URLs. Nicht demo-blockierend.
+- localStorage-Duplikat-Risiko von vorher entwarnt: `renderHistory()` auf load ruft KEIN `addToHistory()` auf, kein Duplikat. Risiko war Fehleinschätzung.
+- **WOW-Moment bestätigt**: Live-n8n-Antwort kam in <5s mit echten Konzerte-in-Berlin-Daten. Demo-Pfad funktioniert komplett.
