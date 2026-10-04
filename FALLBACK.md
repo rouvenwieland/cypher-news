@@ -1,49 +1,68 @@
-# Fallback Demo Documentation
+# Fallback Demo für KI-Newsletter
 
-## Live Demo Alternative
+Wenn die Live-Demo fehlschlägt (Netzwerkprobleme, Serverabstürze usw.), kann der Fallback so verwendet werden:
 
-When the live demo fails, use this fallback documentation and the curl commands below to demonstrate the same functionality.
+## Lokaler Fallback
 
-### Demo Steps (Same as live)
-1. Open the web app at http://127.0.0.1:5000
-2. Enter topics: "Konzerte Berlin"
-3. Select sources: "YouTube: TechNews"
-4. Click "Newsletter jetzt erzeugen"
-5. View newsletter cards with titles, summaries, links, dates
-6. Check history section for past newsletters
+### Methode 1: Verwenden Sie das Fallback-Skript
+Führen Sie das Skript aus, das die Live-Demo automatisch testet:
 
-### API Calls for Demo
-
-**Step 1: Access the main page**
 ```bash
-timeout 5 curl -s http://127.0.0.1:5000
+./run_fallback_demo.sh
 ```
 
-**Step 2: Generate a newsletter**
+### Methode 2: Erstellen Sie Screenshots manuell
 ```bash
-timeout 5 curl -s -X POST http://127.0.0.1:5000/mock/newsletter -H "Content-Type: application/json" -d '{"preferences": "Konzerte Berlin", "sources": ["youtube_tech"], "date": "2026-10-04"}'
+# Für einen einzelnen Screenshot
+scrot -s -o /tmp/screenshot_$(date +%Y%m%d_%H%M%S).png
+
+# Für eine kurze Videoaufnahme (erfordert gnome-terminal)
+#recordmydesktop --width=800 --height=600 --delay=2 \
+#  -o /tmp/demo_video.ogv
 ```
 
-**Step 3: Load fallback sample data**
-```bash
-timeout 5 curl -s http://127.0.0.1:5000/data/sample_newsletter.json
+### Methode 3: Automatisierte Screenshots
+Fügen Sie diese Python-Skripte zur Flask-App hinzu, um Screenshots zu erstellen:
+
+```python
+# scripts/screenshots.py
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+import time
+
+def capture_demo_screenshot():
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    driver = webdriver.Chrome(options=options)
+    
+    driver.get('http://127.0.0.1:5000')
+    time.sleep(2)
+    
+    # Füllen Sie das Formular aus
+    driver.find_element(By.ID, 'topics').send_keys('Testthema Berlin')
+    driver.find_element(By.ID, 'generateBtn').click()
+    
+    time.sleep(3)
+    
+    # Speichern Sie den Screenshot
+    driver.save_screenshot('/tmp/demo_screenshot.png')
+    driver.quit()
 ```
 
-### Expected Output
-The API calls will return newsletter data in JSON format with:
-- Title and introduction
-- 3 card items with category, title, summary, source, URL, and date
-- All dates are set to current date (2026-10-04)
+## Checkliste für den Fallback
+- [ ] Flask-App funktioniert lokal
+- [ ] Mock-Endpoint antwortet korrekt
+- [ ] Offline-Fallback lädt Beispiel-Newsletter
+- [ ] Screenshots/Video werden erstellt
+- [ ] Demo-Pfad manuell dokumentiert
 
-### Open-Source AI Model Information
-- Model: nvidia/nemotron-3-super-120b-a12b:free
-- License: OpenRouter Free-Lizenz
-- Accessed via environment variable MODEL_PRIMARY
-- Runs through OpenRouter API
+## Bereitstellungs-Anleitung
 
-### UI Features
-- Theme toggle (Dunkelmodus/Hellmodus)
-- Service Worker for offline support
-- History storage in localStorage
-- Responsive cards layout
-- Mobile-first design with dark theme support
+Wenn die Live-Demo fehlschlägt, führen Sie Folgendes aus:
+
+```bash
+cd /home/rouven/hack/newsletter
+./run_fallback_demo.sh
+```
+
+Erstellen Sie dann Screenshots der Demo in der Web-UI und fügen Sie sie der Präsentation als Ersatz für die Live-Demo hinzu.

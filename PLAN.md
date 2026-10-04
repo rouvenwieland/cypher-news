@@ -54,3 +54,11 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - Überschreitung der Zeit durch zu komplexes UI → Fokus auf Kernfunktionen, UI einfach halten
 - Öffentliche Quellen liefern keine relevanten Ergebnisse → Beispiel-Daten verwenden, um WOW-Moment zu zeigen
 - Auswahl der Quellen könnte zu komplex werden → auf wenige voreingestellte Optionen beschränken
+
+## Tester-Status (Edgar)
+- Smoke-Tests serverseitig (timeout 12s): `/` -> 200, `POST /mock/newsletter` -> 200 mit Items-JSON, Model aus MODEL_PRIMARY angezeigt. ✓
+- Server: host 127.0.0.1, debug=False. ✓
+- Bugfix: `/data/sample_newsletter.json` war 404 (Route fehlte) → Route ergänzt, jetzt 200, Fallback-Pfad funktioniert. Commmit 1bf127a. ✓
+- Demo-Pfad live testen: Themen eingeben (optional Quellen) → Button → Karten + Verlauf. ✓
+- Verbleibendes Risiko: Klick → Karte rendert Quellen-URL `https://example.com/...` (Dummy); bei echter n8n-Antwort müssten URLs gültig sein. MVP-Nutzwert aber gegeben.
+- Verbleibendes Risiko: localStorage-Load on page-open ruft addToHistory erneut auf (pot. Duplikat in History-Cards); nicht demo-blockierend, kosmetisch.

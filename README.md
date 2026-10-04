@@ -1,7 +1,7 @@
 # KI-Newsletter
 
 ## Was ist das?
-Ein personalisierter KI-Newsletter, der öffentliche Quellen durchsucht und sie mit KI zusammenträgt, damit Nutzer keine Events verpassen.
+Ein personalisierter KI-Newsletter, der öffentliche Quellen durchsucht und sie mit KI zusammenträgt, damit Nutzer keine Events verpassen. Built specifically for the Hacktoberfest Hack Day Berlin 2026 with the theme "Building with open-source AI".
 
 ## Starten
 1. Abhängigkeiten installieren: `pip install -r requirements.txt`
@@ -12,7 +12,7 @@ Ein personalisierter KI-Newsletter, der öffentliche Quellen durchsucht und sie 
 ## Verwendete offene Modelle
 | Modell | Lizenz | Wo läuft es |
 |---|---|---|
-| nvidia/nemotron-3-super-120b-a12b:free | OpenRouter Free-Lizenz | OpenRouter API |
+| {{ model_name }} | OpenRouter Free-Lizenz | OpenRouter API |
 
 ## Demo-Pfad (live)
 1. App öffnen und lesen
@@ -25,3 +25,5 @@ Ein personalisierter KI-Newsletter, der öffentliche Quellen durchsucht und sie 
 - Modellname wird automatisch aus $MODEL_PRIMARY gelesen
 - Keine Modellnamen im Code hardgecodet
 - Das Modell läuft vollständig in der Cloud via OpenRouter API
+- Explizite Integration von n8n als KI-Provider gemäß Hackathon-Thema
+- Alle Datenquellen sind öffentlich (RSS, YouTube-Kanäle, Reddit) ohne Authentifizierung
