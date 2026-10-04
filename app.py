@@ -40,15 +40,25 @@ def classify_social(text):
     return 'Sonstiges'
 
 
-def demo_social_items():
+def fetch_social_via_service(accounts=None):
+    if not accounts:
+        return None
     try:
-        path = os.path.join(app.root_path, 'data', 'demo_social.json')
-        with open(path, 'r') as f:
-            d = json.load(f)
+        resp = requests.get(f'{SOCIALFETCH_URL}/feed', params={
+            'hours': 48,
+            'accounts': ','.join(sum(accounts.values(), []))
+        }, timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get('items', [])
     except Exception:
-        return []
+        pass
+    return None
+
+
+def social_items_from_raw(raw_items):
     items = []
-    for s in d.get('social_items', []):
+    for s in (raw_items or []):
         items.append({
             'category': classify_social(s.get('text', '')),
             'title': s.get('text', '')[:80] + ('...' if len(s.get('text', '')) > 80 else ''),
@@ -60,6 +70,20 @@ def demo_social_items():
             'platform': s.get('platform', ''),
         })
     return items
+
+
+def load_demo_social_raw():
+    try:
+        path = os.path.join(app.root_path, 'data', 'demo_social.json')
+        with open(path, 'r') as f:
+            d = json.load(f)
+        return d.get('social_items', [])
+    except Exception:
+        return []
+
+
+def demo_social_items():
+    return social_items_from_raw(load_demo_social_raw())
 
 
 def today_str():
@@ -97,8 +121,15 @@ def api_generate():
     accounts = body.get('accounts', {})
 
     payload = {"preferences": preferences, "sources": sources, "date": date, "accounts": accounts}
+
+    social_raw = None
     if accounts:
-        payload['social_items'] = demo_social_items()
+        social_raw = fetch_social_via_service(accounts)
+    if accounts and not social_raw:
+        social_raw = load_demo_social_raw()
+
+    if social_raw:
+        payload['social_items'] = social_raw
 
     try:
         resp = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=40)
@@ -136,6 +167,14 @@ def demo_social():
 
 @app.route('/api/social/accounts')
 def api_social_accounts():
+    try:
+        resp = requests.get(f'{SOCIALFETCH_URL}/accounts', timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            return jsonify({'accounts': data.get('accounts', {}), 'demo': data.get('demo', False)})
+    except Exception:
+        pass
+
     items = demo_social_items()
     accounts = {}
     for item in items:
@@ -146,6 +185,16 @@ def api_social_accounts():
         if acc and acc not in accounts[plat]:
             accounts[plat].append(acc)
     return jsonify({'accounts': accounts, 'demo': True})
+
+@app.route('/api/social/connect', methods=['POST'])
+def api_social_connect():
+    body = request.get_json(silent=True) or {}
+    try:
+        resp = requests.post(f'{SOCIALFETCH_URL}/connect', json=body, timeout=10)
+        return jsonify(resp.json()), resp.status_code
+    except Exception:
+        return jsonify({'ok': False, 'error': 'Social service unavailable'}), 503
+
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=False)
