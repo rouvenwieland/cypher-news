@@ -5,24 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KI-Newsletter</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
-        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        h1 { color: #333; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background: #0056b3; }
-        .cards { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 20px; }
-        .card { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 15px; width: 200px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .card h3 { margin-top: 0; color: #2c3e50; }
-        .card p { margin: 5px 0; font-size: 0.9em; color: #555; }
-        .card a { color: #007bff; text-decoration: none; }
-        .card a:hover { text-decoration: underline; }
-        .history { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+        :root {
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary: #007bff;
+            --primary-dark: #0056b3;
+            --border-color: #ddd;
+            --muted-text: #555;
+        }
+        body.dark {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #f0f0f0;
+            --muted-text: #ccc;
+            --border-color: #444;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: var(--text-color);
+            margin-top: 0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background: var(--card-bg);
+            color: var(--text-color);
+        }
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: var(--primary-dark);
+        }
+        .cards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            width: calc(200px - 30px); /* adjust for gap */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h3 {
+            margin-top: 0;
+            color: var(--text-color);
+            font-size: 1.1em;
+        }
+        .card p {
+            margin: 5px 0;
+            font-size: 0.9em;
+            color: var(--muted-text);
+        }
+        .card a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .card a:hover {
+            text-decoration: underline;
+        }
+        .history {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .theme-toggle:hover {
+            background: var(--primary-dark);
+        }
     </style>
 </head>
 <body>
+    <button class="theme-toggle" id="themeBtn">Dunkelmodus</button>
     <div class="container">
         <h1>Personalisierter KI-Newsletter</h1>
         <div class="form-group">
@@ -46,6 +152,12 @@
     </div>
 
     <script>
+        document.getElementById('themeBtn').addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            const btn = document.getElementById('themeBtn');
+            btn.textContent = document.body.classList.contains('dark') ? 'Hellmodus' : 'Dunkelmodus';
+        });
+
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const topics = document.getElementById('topics').value;
             const sources = Array.from(document.getElementById('sources').selectedOptions).map(o => o.value);
