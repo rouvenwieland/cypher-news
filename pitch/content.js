@@ -1,516 +1,342 @@
-// content.js — Alle Folientexte, Sprechtexte und Code-Ausschnitte als Daten
-// Jaro kann hier leicht Inhalte anpassen ohne Code zu ändern.
+// content.js — Slide content, speaker texts, code snippets (all English)
+// Paired with script.js for spoken audio and manifest.js for timing
 
-const SLIDES = [
-  // ── Folie 1: Titel ──
+var SLIDES = [
+  // s01: Title
   {
-    id: "title",
+    id: "s01",
     speaker: "jaro",
     title: "CYPHER NEWS",
     subtitle: "DAILY DROP",
-    extra: "Hacktoberfest Hack Day Berlin · 4. Oktober 2026",
-    tagline: "Gebaut in 4 Stunden von einem KI-Team",
+    extra: "Hacktoberfest Hack Day Berlin \u00b7 October 4, 2026",
+    tagline: "Built in 4 hours by an AI team",
     html: function () {
-      return `<div class="slide-title-cover">
-        <h1 class="glitch-title" data-text="CYPHER NEWS">CYPHER NEWS</h1>
-        <p class="subtitle-drop">DAILY DROP</p>
-        <p class="event-info">Hacktoberfest Hack Day Berlin · 4. Oktober 2026</p>
-        <p class="tagline">Gebaut in 4 Stunden von einem KI-Team</p>
-      </div>`;
+      return '<div class="slide-title-cover">'
+        + '<h1 class="glitch-title" data-text="CYPHER NEWS">CYPHER NEWS</h1>'
+        + '<p class="subtitle-drop">DAILY DROP</p>'
+        + '<p class="event-info">Hacktoberfest Hack Day Berlin &middot; October 4, 2026</p>'
+        + '<p class="tagline">Built in 4 hours by an AI team</p>'
+        + '</div>';
     }
   },
 
-  // ── Folie 2: Problem ──
+  // s02: Problem
   {
-    id: "problem",
-    speaker: "timo",
-    title: "Das Problem",
+    id: "s02",
+    speaker: "jaro",
+    title: "The Problem",
     html: function () {
-      return `<div class="slide-problem">
-        <h2 class="slide-heading">Kennst du das?</h2>
-        <ul class="problem-list">
-          <li><span class="icon-scroll">📱</span>Du scrollst 45 Minuten durch Instagram-Stories und hast nichts behalten.</li>
-          <li><span class="icon-fomo">😰</span>FOMO: Das Konzert war gestern. Das Giveaway endete vor 2 Stunden.</li>
-          <li><span class="icon-time">⏳</span>5 Apps, 200 Feeds — aber die eine wichtige Info fehlt.</li>
-          <li><span class="icon-miss">💔</span>Drops, Konzerte, Tickets — verpasst, weil du's nicht wusstest.</li>
-        </ul>
-        <div class="stat-box">
-          <span class="stat-big">2.5h</span>
-          <span class="stat-label">tägliche Screen-Time für Social Feeds</span>
-        </div>
-      </div>`;
+      return '<div class="slide-problem">'
+        + '<h2 class="slide-heading">Sound familiar?</h2>'
+        + '<ul class="problem-list">'
+        + '<li><span class="icon-scroll">📱</span>You scroll 45 minutes through Instagram stories and remember nothing.</li>'
+        + '<li><span class="icon-fomo">😰</span>FOMO: The concert was yesterday. The giveaway ended 2 hours ago.</li>'
+        + '<li><span class="icon-time">⏳</span>Five apps, two hundred feeds \u2014 the one thing you need is missing.</li>'
+        + '<li><span class="icon-miss">💔</span>Drops, gigs, tickets \u2014 gone because you never saw them.</li>'
+        + '</ul>'
+        + '<div class="stat-box">'
+        + '<span class="stat-big">2.5h</span>'
+        + '<span class="stat-label">daily screen time on social feeds</span>'
+        + '</div>'
+        + '</div>';
     }
   },
 
-  // ── Folie 3: Lösung ──
+  // s03: Solution
   {
-    id: "solution",
-    speaker: "timo",
-    title: "Die Lösung",
-    html: function () {
-      return `<div class="slide-solution">
-        <h2 class="slide-heading">Ein Drop pro Tag. Alles, was zählt.</h2>
-        <div class="solution-cards">
-          <div class="sol-card"><span class="sol-num">1</span> Verbinde deine Konten</div>
-          <div class="sol-card"><span class="sol-num">2</span> Schreib, was dich interessiert</div>
-          <div class="sol-card"><span class="sol-num">3</span> KI scannt Stories, Posts & News</div>
-          <div class="sol-card"><span class="sol-num">4</span> Ein Drop. Kein Scrollen. Kein Verpassen.</div>
-        </div>
-        <p class="solution-punch">Deine Timeline, kuratiert von offener KI — in unter 15 Sekunden.</p>
-      </div>`;
-    }
-  },
-
-  // ── Folie 4: Die App ──
-  {
-    id: "app",
+    id: "s03",
     speaker: "ran",
-    title: "Die App",
+    title: "The Solution",
     html: function () {
-      return `<div class="slide-app">
-        <h2 class="slide-heading">Cypher News im Hands-On</h2>
-        <div class="phone-mockup">
-          <div class="phone-frame">
-            <div class="phone-notch"></div>
-            <div class="phone-screen">
-              <div class="mock-header">CYPHER NEWS <span class="mock-badge">HEUTE</span></div>
-              <div class="mock-card card-orange">
-                <span class="mock-cat">Konzerte</span>
-                <strong>Freiluftkonzert im Mauerpark</strong>
-                <small>Heute 19:00 · Eintritt frei</small>
-              </div>
-              <div class="mock-card card-green">
-                <span class="mock-cat">Giveaways</span>
-                <strong>SNEAKRS Raffle: Travis Scott x Nike</strong>
-                <small>Noch 3 Stunden</small>
-              </div>
-              <div class="mock-card card-pink">
-                <span class="mock-cat">Drops</span>
-                <strong>Palace Skateboards Secret Drop</strong>
-                <small>Samstag · Berlin Store</small>
-              </div>
-              <div class="mock-card card-cyan">
-                <span class="mock-cat">Tech</span>
-                <strong>OpenAI leak: Verse 2 Bildmodell</strong>
-                <small>Open Source · Apache 2.0</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>`;
+      return '<div class="slide-solution">'
+        + '<h2 class="slide-heading">One Drop a Day. Everything That Matters.</h2>'
+        + '<div class="solution-cards">'
+        + '<div class="sol-card"><span class="sol-num">1</span> Connect your accounts</div>'
+        + '<div class="sol-card"><span class="sol-num">2</span> Write what you care about</div>'
+        + '<div class="sol-card"><span class="sol-num">3</span> AI scans stories, posts &amp; news</div>'
+        + '<div class="sol-card"><span class="sol-num">4</span> One drop. No scrolling. No missing out.</div>'
+        + '</div>'
+        + '<p class="solution-punch">Your timeline, curated by open AI \u2014 in under 15 seconds.</p>'
+        + '</div>';
     }
   },
 
-  // ── Folie 5: So funktioniert's ──
+  // s04: The App
   {
-    id: "architecture",
+    id: "s04",
     speaker: "ran",
-    title: "So funktioniert's",
+    title: "The App",
     html: function () {
-      return `<div class="slide-arch">
-        <h2 class="slide-heading">Architektur-Diagramm</h2>
-        <div class="arch-diagram">
-          <svg viewBox="0 0 900 340" class="arch-svg">
-            <defs>
-              <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="#ff6a1a"/>
-              </marker>
-              <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#ff6a1a"/>
-                <stop offset="100%" stop-color="#39ff14"/>
-              </linearGradient>
-            </defs>
-            <!-- Box 1: Konten -->
-            <rect x="10" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#ff6a1a" stroke-width="2"/>
-            <text x="80" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">📱 Konten</text>
-            <text x="80" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Instagram · TikTok</text>
-            <text x="80" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">YouTube · Reddit</text>
-            <!-- Box 2: socialfetch -->
-            <rect x="220" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#ff6a1a" stroke-width="2"/>
-            <text x="290" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">🔄 socialfetch</text>
-            <text x="290" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Sessions · Stories</text>
-            <text x="290" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Posts · Reels</text>
-            <!-- Box 3: n8n -->
-            <rect x="430" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#e03a2b" stroke-width="2"/>
-            <text x="500" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">⚡ n8n</text>
-            <text x="500" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Orchestrator</text>
-            <text x="500" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">RSS · Plan · Vision</text>
-            <!-- Box 4: KI-Modelle -->
-            <rect x="640" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#39ff14" stroke-width="2"/>
-            <text x="710" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">🧠 KI-Modelle</text>
-            <text x="710" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Vision · Text</text>
-            <text x="710" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Routing</text>
-            <!-- Box 5: Drop -->
-            <rect x="640" y="230" width="140" height="60" rx="8" fill="#201710" stroke="#39ff14" stroke-width="2"/>
-            <text x="710" y="265" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">📬 DEIN DROP</text>
-            <!-- Arrows -->
-            <line x1="150" y1="160" x2="218" y2="160" stroke="url(#flowGrad)" stroke-width="2" marker-end="url(#arrowhead)"/>
-            <line x1="360" y1="160" x2="428" y2="160" stroke="url(#flowGrad)" stroke-width="2" marker-end="url(#arrowhead)"/>
-            <line x1="570" y1="160" x2="638" y2="160" stroke="url(#flowGrad)" stroke-width="2" marker-end="url(#arrowhead)"/>
-            <line x1="710" y1="200" x2="710" y2="228" stroke="#39ff14" stroke-width="2" marker-end="url(#arrowhead)"/>
-            <!-- Labels -->
-            <text x="185" y="235" text-anchor="middle" fill="#b9a78f" font-family="PressStart2P" font-size="7">Stories+Posts</text>
-            <text x="395" y="235" text-anchor="middle" fill="#b9a78f" font-family="PressStart2P" font-size="7">Rohdaten</text>
-            <text x="605" y="235" text-anchor="middle" fill="#b9a78f" font-family="PressStart2P" font-size="7">Texte+Bilder</text>
-          </svg>
-        </div>
-        <p class="arch-note">Konten verbinden → socialfetch scraped → n8n orchestriert → KI wertet aus → Drop aufs Handy</p>
-      </div>`;
+      return '<div class="slide-app">'
+        + '<h2 class="slide-heading">Cypher News Hands-On</h2>'
+        + '<div class="phone-mockup">'
+        + '<div class="phone-frame">'
+        + '<div class="phone-notch"></div>'
+        + '<div class="phone-screen">'
+        + '<div class="mock-header">CYPHER NEWS <span class="mock-badge">TODAY</span></div>'
+        + '<div class="mock-card card-orange"><span class="mock-cat">Concerts</span><strong>Open Air at Mauerpark</strong><small>Today 19:00 &middot; Free entry</small></div>'
+        + '<div class="mock-card card-green"><span class="mock-cat">Giveaways</span><strong>SNEAKRS Raffle: Travis Scott x Nike</strong><small>3 hours left</small></div>'
+        + '<div class="mock-card card-pink"><span class="mock-cat">Drops</span><strong>Palace Skateboards Secret Drop</strong><small>Saturday &middot; Berlin Store</small></div>'
+        + '<div class="mock-card card-cyan"><span class="mock-cat">Tech</span><strong>OpenAI Leak: Verse 2 Image Model</strong><small>Open Source &middot; Apache 2.0</small></div>'
+        + '</div></div></div>'
+        + '</div>';
     }
   },
 
-  // ── Folie 6: n8n erklärt ──
+  // s05: Architecture
   {
-    id: "n8n",
+    id: "s05",
     speaker: "ran",
-    title: "n8n — unser KI-Orchestrator",
+    title: "How It Works",
     html: function () {
-      const nodes = [
-        { name: "Webhook", desc: "Empfängt POST von der App (Themen, Konten)", pos: "col1" },
-        { name: "Plan", desc: "Baut RSS-Feeds aus Themen & Quellen", pos: "col1" },
-        { name: "RSS Read", desc: "Liest 10+ Quellen parallel ein", pos: "col1" },
-        { name: "Collect", desc: "Sammelt, filtert, dedupliziert bis zu 34 Items", pos: "col2" },
-        { name: "Vision", desc: "Wertet bis zu 6 Bilder mit Vision-KI aus", pos: "col2" },
-        { name: "Writer Prompt", desc: "Erstellt den Prompt für das Text-Modell", pos: "col2" },
-        { name: "Writer", desc: "Erzeugt den Newsletter via OpenRouter", pos: "col3" },
-        { name: "Router", desc: "Wechselt Modell bei Fehler — 3-stufiges Fallback", pos: "col3" },
-        { name: "Parse", desc: "Parst JSON, baut Items, fügt Bilder ein", pos: "col3" },
-        { name: "Respond", desc: "Sendet JSON-Antwort zurück an die App", pos: "col4" }
+      return '<div class="slide-arch">'
+        + '<h2 class="slide-heading">Architecture Diagram</h2>'
+        + '<div class="arch-diagram">'
+        + '<svg viewBox="0 0 900 340" class="arch-svg">'
+        + '<defs>'
+        + '<marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ff6a1a"/></marker>'
+        + '<linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ff6a1a"/><stop offset="100%" stop-color="#39ff14"/></linearGradient>'
+        + '</defs>'
+        + '<rect x="10" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#ff6a1a" stroke-width="2"/>'
+        + '<text x="80" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">📱 Accounts</text>'
+        + '<text x="80" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Instagram · TikTok</text>'
+        + '<text x="80" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">YouTube · Reddit</text>'
+        + '<rect x="220" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#ff6a1a" stroke-width="2"/>'
+        + '<text x="290" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">🔄 socialfetch</text>'
+        + '<text x="290" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Sessions · Stories</text>'
+        + '<text x="290" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Posts · Reels</text>'
+        + '<rect x="430" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#e03a2b" stroke-width="2"/>'
+        + '<text x="500" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">⚡ n8n</text>'
+        + '<text x="500" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Orchestrator</text>'
+        + '<text x="500" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">RSS · Plan · Vision</text>'
+        + '<rect x="640" y="120" width="140" height="80" rx="8" fill="#201710" stroke="#39ff14" stroke-width="2"/>'
+        + '<text x="710" y="155" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">🧠 AI Models</text>'
+        + '<text x="710" y="180" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Vision · Text</text>'
+        + '<text x="710" y="193" text-anchor="middle" fill="#b9a78f" font-family="VT323" font-size="11">Routing</text>'
+        + '<rect x="640" y="230" width="140" height="60" rx="8" fill="#201710" stroke="#39ff14" stroke-width="2"/>'
+        + '<text x="710" y="265" text-anchor="middle" fill="#ffc21a" font-family="VT323" font-size="16">📬 YOUR DROP</text>'
+        + '<line x1="150" y1="160" x2="218" y2="160" stroke="url(#flowGrad)" stroke-width="2" marker-end="url(#arrowhead)"/>'
+        + '<line x1="360" y1="160" x2="428" y2="160" stroke="url(#flowGrad)" stroke-width="2" marker-end="url(#arrowhead)"/>'
+        + '<line x1="570" y1="160" x2="638" y2="160" stroke="url(#flowGrad)" stroke-width="2" marker-end="url(#arrowhead)"/>'
+        + '<line x1="710" y1="200" x2="710" y2="228" stroke="#39ff14" stroke-width="2" marker-end="url(#arrowhead)"/>'
+        + '<text x="185" y="235" text-anchor="middle" fill="#b9a78f" font-family="PressStart2P" font-size="7">Stories+Posts</text>'
+        + '<text x="395" y="235" text-anchor="middle" fill="#b9a78f" font-family="PressStart2P" font-size="7">Raw data</text>'
+        + '<text x="605" y="235" text-anchor="middle" fill="#b9a78f" font-family="PressStart2P" font-size="7">Text+Images</text>'
+        + '</svg>'
+        + '</div>'
+        + '<p class="arch-note">Connect accounts \u2192 socialfetch scrapes \u2192 n8n orchestrates \u2192 AI evaluates \u2192 Drop on your phone</p>'
+        + '</div>';
+    }
+  },
+
+  // s06: n8n explained
+  {
+    id: "s06",
+    speaker: "ran",
+    title: "n8n \u2014 Our AI Orchestrator",
+    html: function () {
+      var nodes = [
+        { name: "Webhook", desc: "Receives POST from the app (preferences, accounts)", pos: "col1" },
+        { name: "Plan", desc: "Builds RSS feeds from topics &amp; sources", pos: "col1" },
+        { name: "RSS Read", desc: "Reads 10+ sources in parallel", pos: "col1" },
+        { name: "Collect", desc: "Collects, filters, deduplicates up to 34 items", pos: "col2" },
+        { name: "Vision", desc: "Analyzes up to 6 images with vision AI", pos: "col2" },
+        { name: "Writer Prompt", desc: "Builds the prompt for the text model", pos: "col2" },
+        { name: "Writer", desc: "Generates the newsletter via OpenRouter", pos: "col3" },
+        { name: "Router", desc: "Switches model on error \u2014 3-stage failover", pos: "col3" },
+        { name: "Parse", desc: "Parses JSON, builds items, inserts images", pos: "col3" },
+        { name: "Respond", desc: "Sends JSON response back to the app", pos: "col4" }
       ];
-      let html = `<div class="slide-n8n"><h2 class="slide-heading">Der n8n-Workflow</h2><p class="n8n-sub">10 Knoten — n8n ist unser KI-Provider und Orchestrator</p><div class="n8n-flow">`;
-      for (let i = 0; i < nodes.length; i++) {
-        const n = nodes[i];
-        html += `<div class="n8n-node ${n.pos}" style="animation-delay:${i * 0.15}s">
-          <div class="n8n-node-dot"></div>
-          <span class="n8n-node-num">${String(i + 1).padStart(2, '0')}</span>
-          <span class="n8n-node-name">${n.name}</span>
-          <span class="n8n-node-desc">${n.desc}</span>
-        </div>`;
+      var html = '<div class="slide-n8n"><h2 class="slide-heading">The n8n Workflow</h2><p class="n8n-sub">10 nodes \u2014 n8n is our AI provider and orchestrator</p><div class="n8n-flow">';
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i];
+        html += '<div class="n8n-node ' + n.pos + '" style="animation-delay:' + (i * 0.15) + 's">'
+          + '<div class="n8n-node-dot"></div>'
+          + '<span class="n8n-node-num">' + String(i + 1).padStart(2, '0') + '</span>'
+          + '<span class="n8n-node-name">' + n.name + '</span>'
+          + '<span class="n8n-node-desc">' + n.desc + '</span>'
+          + '</div>';
       }
-      html += `</div><p class="n8n-total">n8n/workflow.json · executionTimeout: 150s · Lizenz: Sustainable Use</p></div>`;
+      html += '</div><p class="n8n-total">n8n/workflow.json &middot; executionTimeout: 150s &middot; License: Sustainable Use</p></div>';
       return html;
     }
   },
 
-  // ── Folie 7: Social Connectoren ──
+  // s07: Social Connectors
   {
-    id: "social",
+    id: "s07",
     speaker: "jaro",
-    title: "Social Connectoren",
+    title: "Social Connectors",
     html: function () {
-      return `<div class="slide-social">
-        <h2 class="slide-heading">Deine Konten, deine Stories</h2>
-        <div class="platform-grid">
-          <div class="plat-card"><span class="plat-icon">📸</span><strong>Instagram</strong><small>Posts · Stories · Reels via instaloader</small></div>
-          <div class="plat-card"><span class="plat-icon">🎵</span><strong>TikTok</strong><small>Videos & Beschreibungen via yt-dlp</small></div>
-          <div class="plat-card"><span class="plat-icon">▶️</span><strong>YouTube</strong><small>Kanal-RSS & Video-Details</small></div>
-          <div class="plat-card"><span class="plat-icon">🤖</span><strong>Reddit</strong><small>Top Posts via /r/.rss</small></div>
-        </div>
-        <div class="social-details">
-          <div class="social-point"><span class="dot-ok"></span> Login lokal — Zugangsdaten bleiben auf deinem Gerät</div>
-          <div class="social-point"><span class="dot-ok"></span> Account-Auswahl: Wähle, wem du folgst</div>
-          <div class="social-point"><span class="dot-ok"></span> Stories, Posts & Reels — alles in deinem Drop</div>
-        </div>
-        <div class="social-warning">
-          ⚠️ Ehrlich: Instagram-Scraping verstößt gegen Nutzungsbedingungen. Empfehlung: Zweitkonto verwenden. Produktionsreif mit offizieller Graph-API.
-        </div>
-      </div>`;
+      return '<div class="slide-social">'
+        + '<h2 class="slide-heading">Your Accounts, Your Stories</h2>'
+        + '<div class="platform-grid">'
+        + '<div class="plat-card"><span class="plat-icon">📸</span><strong>Instagram</strong><small>Posts &middot; Stories &middot; Reels via instaloader</small></div>'
+        + '<div class="plat-card"><span class="plat-icon">🎵</span><strong>TikTok</strong><small>Videos &amp; descriptions via yt-dlp</small></div>'
+        + '<div class="plat-card"><span class="plat-icon">▶️</span><strong>YouTube</strong><small>Channel RSS &amp; video details</small></div>'
+        + '<div class="plat-card"><span class="plat-icon">🤖</span><strong>Reddit</strong><small>Top posts via /r/.rss</small></div>'
+        + '</div>'
+        + '<div class="social-details">'
+        + '<div class="social-point"><span class="dot-ok"></span> Login is local \u2014 credentials stay on your device</div>'
+        + '<div class="social-point"><span class="dot-ok"></span> Account picker: choose who you follow</div>'
+        + '<div class="social-point"><span class="dot-ok"></span> Stories, posts &amp; reels \u2014 all in your drop</div>'
+        + '</div>'
+        + '<div class="social-warning">'
+        + '\u26a0\ufe0f Honest: Instagram scraping violates ToS. Recommendation: use a burner account. Production-ready with official Graph API.'
+        + '</div>'
+        + '</div>';
     }
   },
 
-  // ── Folie 8: KI & Modell-Routing ──
+  // s08: AI & Model Routing
   {
-    id: "ki",
+    id: "s08",
     speaker: "rufus",
-    title: "KI & Modell-Routing",
+    title: "AI &amp; Model Routing",
     html: function () {
-      return `<div class="slide-ki">
-        <h2 class="slide-heading">Offene Modelle im Einsatz</h2>
-        <div class="model-grid">
-          <div class="model-card">
-            <span class="model-badge">Text (Fast)</span>
-            <strong>Nemotron 3 Super</strong>
-            <code>nvidia/nemotron-3-super-120b-a12b:free</code>
-            <small>Apache 2.0 · ~6s</small>
-          </div>
-          <div class="model-card">
-            <span class="model-badge">Text (High)</span>
-            <strong>Nemotron 3 Ultra</strong>
-            <code>nvidia/nemotron-3-ultra-550b-a55b:free</code>
-            <small>Apache 2.0 · ~20s</small>
-          </div>
-          <div class="model-card">
-            <span class="model-badge">Vision</span>
-            <strong>Qwen 3.8 27B</strong>
-            <code>qwen/qwen3.8-27b:free</code>
-            <small>Apache 2.0 · liest Bilder</small>
-          </div>
-          <div class="model-card">
-            <span class="model-badge">Fallback</span>
-            <strong>DeepSeek V4 Pro</strong>
-            <code>deepseek/deepseek-v4-pro</code>
-            <small>Open Weights · billig</small>
-          </div>
-        </div>
-        <div class="routing-chain">
-          <span class="chain-label">Ausweichkette:</span>
-          <span class="chain-step">Nemotron Super</span><span class="chain-arrow">→</span>
-          <span class="chain-step">Nemotron Ultra</span><span class="chain-arrow">→</span>
-          <span class="chain-step">DeepSeek V4</span><span class="chain-arrow">→</span>
-          <span class="chain-step fallback">Regelbasierter Fallback</span>
-        </div>
-        <p class="ki-why">Warum offen? Keine Abhängigkeit von einem Anbieter. Nachvollziehbar. Keine Daten an proprietäre APIs.</p>
-      </div>`;
+      return '<div class="slide-ki">'
+        + '<h2 class="slide-heading">Open Models in Action</h2>'
+        + '<div class="model-grid">'
+        + '<div class="model-card"><span class="model-badge">Text (Fast)</span><strong>Nemotron 3 Super</strong><code>nvidia/nemotron-3-super-120b-a12b:free</code><small>Apache 2.0 &middot; ~6s</small></div>'
+        + '<div class="model-card"><span class="model-badge">Text (High)</span><strong>Nemotron 3 Ultra</strong><code>nvidia/nemotron-3-ultra-550b-a55b:free</code><small>Apache 2.0 &middot; ~20s</small></div>'
+        + '<div class="model-card"><span class="model-badge">Vision</span><strong>Qwen 3.8 27B</strong><code>qwen/qwen3.8-27b:free</code><small>Apache 2.0 &middot; reads images</small></div>'
+        + '<div class="model-card"><span class="model-badge">Fallback</span><strong>DeepSeek V4 Pro</strong><code>deepseek/deepseek-v4-pro</code><small>Open Weights &middot; cheap</small></div>'
+        + '</div>'
+        + '<div class="routing-chain">'
+        + '<span class="chain-label">Failover chain:</span>'
+        + '<span class="chain-step">Nemotron Super</span><span class="chain-arrow">\u2192</span>'
+        + '<span class="chain-step">Nemotron Ultra</span><span class="chain-arrow">\u2192</span>'
+        + '<span class="chain-step">DeepSeek V4</span><span class="chain-arrow">\u2192</span>'
+        + '<span class="chain-step fallback">Rule-based fallback</span>'
+        + '</div>'
+        + '<p class="ki-why">Why open? No single-vendor dependency. Fully auditable. No data sent to proprietary APIs.</p>'
+        + '</div>';
     }
   },
 
-  // ── Folie 9: Code-Tour ──
+  // s09: Code Tour
   {
-    id: "code",
+    id: "s09",
     speaker: "ran",
-    title: "Code-Tour",
+    title: "Code Tour",
     html: function () {
-      const snippets = CODE_SNIPPETS;
-      let html = `<div class="slide-code"><h2 class="slide-heading">Ein Blick in den Code</h2><div class="code-cards">`;
-      for (const s of snippets) {
-        html += `<div class="code-card">
-          <div class="code-card-header"><span class="code-file">${s.file}</span><span class="code-label">${s.label}</span></div>
-          <pre class="code-block"><code>${s.code}</code></pre>
-          <p class="code-explain">${s.explain}</p>
-        </div>`;
+      var snippets = CODE_SNIPPETS;
+      var html = '<div class="slide-code"><h2 class="slide-heading">A Look at the Code</h2><div class="code-cards">';
+      for (var _i = 0; _i < snippets.length; _i++) {
+        var s = snippets[_i];
+        html += '<div class="code-card">'
+          + '<div class="code-card-header"><span class="code-file">' + s.file + '</span><span class="code-label">' + s.label + '</span></div>'
+          + '<pre class="code-block"><code>' + s.code + '</code></pre>'
+          + '<p class="code-explain">' + s.explain + '</p>'
+          + '</div>';
       }
-      html += `</div></div>`;
+      html += '</div></div>';
       return html;
     }
   },
 
-  // ── Folie 10: Das Team ──
+  // s10: The Team
   {
-    id: "team",
+    id: "s10",
     speaker: "jaro",
-    title: "Das Team",
+    title: "The Team",
     html: function () {
-      const members = [
-        { name: "Timio", role: "Planner", emoji: "🧠" },
-        { name: "Ran", role: "Builder", emoji: "⚒️" },
-        { name: "Edgar", role: "Tester", emoji: "🧪" },
-        { name: "Jaro", role: "Presenter", emoji: "🎤" },
-        { name: "Rufus", role: "CFO", emoji: "💰" },
+      var members = [
+        { name: "Timio", role: "Planner", emoji: "\ud83e\udde0" },
+        { name: "Ran", role: "Builder", emoji: "\u2692\ufe0f" },
+        { name: "Edgar", role: "Tester", emoji: "\ud83e\uddea" },
+        { name: "Jaro", role: "Presenter", emoji: "\ud83c\udfa4" },
+        { name: "Rufus", role: "CFO", emoji: "\ud83d\udcb0" }
       ];
-      let html = `<div class="slide-team">
-        <h2 class="slide-heading">Wer hat's gebaut?</h2>
-        <p class="team-intro">Ein Kollektiv aus 5 KI-Agenten — koordiniert über Paperclip</p>
-        <div class="team-grid">`;
-      for (const m of members) {
-        html += `<div class="team-card">
-          <canvas class="team-avatar-canvas" data-agent="${m.name.toLowerCase()}" width="64" height="64"></canvas>
-          <strong>${m.name} ${m.emoji}</strong>
-          <span class="team-role">${m.role}</span>
-        </div>`;
+      var html = '<div class="slide-team">'
+        + '<h2 class="slide-heading">Who Built This?</h2>'
+        + '<p class="team-intro">A collective of 5 AI agents \u2014 coordinated through Paperclip</p>'
+        + '<div class="team-grid">';
+      for (var _k = 0; _k < members.length; _k++) {
+        var m = members[_k];
+        html += '<div class="team-card">'
+          + '<canvas class="team-avatar-canvas" data-agent="' + m.name.toLowerCase() + '" width="64" height="64"></canvas>'
+          + '<strong>' + m.name + ' ' + m.emoji + '</strong>'
+          + '<span class="team-role">' + m.role + '</span>'
+          + '</div>';
       }
-      html += `<div class="team-card cto">
-          <canvas class="team-avatar-canvas" data-agent="rouven" width="64" height="64"></canvas>
-          <strong>Rouven 🚀</strong>
-          <span class="team-role">CTO & Board</span>
-        </div>`;
-      html += `</div>
-        <div class="team-stats">
-          <span class="stat-item"><strong>45</strong> Commits</span>
-          <span class="stat-item"><strong>4.5</strong> Stunden</span>
-          <span class="stat-item"><strong>5</strong> Agenten</span>
-          <span class="stat-item"><strong>1</strong> Hackathon</span>
-        </div>
-      </div>`;
+      html += '<div class="team-card cto">'
+        + '<canvas class="team-avatar-canvas" data-agent="rouven" width="64" height="64"></canvas>'
+        + '<strong>Rouven \ud83d\ude80</strong>'
+        + '<span class="team-role">CTO &amp; Board</span>'
+        + '</div>';
+      html += '</div>'
+        + '<div class="team-stats">'
+        + '<span class="stat-item"><strong>45</strong> Commits</span>'
+        + '<span class="stat-item"><strong>4.5</strong> Hours</span>'
+        + '<span class="stat-item"><strong>5</strong> Agents</span>'
+        + '<span class="stat-item"><strong>1</strong> Hackathon</span>'
+        + '</div>'
+        + '</div>';
       return html;
     }
   },
 
-  // ── Folie 11: Demo & Ausblick ──
+  // s11: Demo & Outlook
   {
-    id: "outro",
+    id: "s11",
     speaker: "jaro",
-    title: "Demo & Ausblick",
+    title: "Demo &amp; Outlook",
     html: function () {
-      return `<div class="slide-outro">
-        <h2 class="slide-heading">Lasst es uns zeigen!</h2>
-        <div class="outro-demo">
-          <div class="outro-qr">
-            <div class="qr-placeholder">
-              <span>Cypher News</span>
-              <small>Daily Drop</small>
-              <code>127.0.0.1:5000</code>
-            </div>
-          </div>
-          <p class="outro-link">→ Live-Demo auf localhost:5000 ←</p>
-        </div>
-        <div class="outro-next">
-          <h3>Nächste Schritte</h3>
-          <ul>
-            <li><span class="dot-green"></span> Offizielle Graph-API für Instagram/TikTok</li>
-            <li><span class="dot-green"></span> Push-Benachrichtigungen per Service Worker</li>
-            <li><span class="dot-green"></span> Mehr Plattformen: X, Bluesky, Discord</li>
-            <li><span class="dot-green"></span> E-Mail-Zustellung als Alternative</li>
-          </ul>
-        </div>
-        <p class="outro-thanks">Danke! Fragen?</p>
-      </div>`;
+      return '<div class="slide-outro">'
+        + '<h2 class="slide-heading">Let\u2019s See It Live!</h2>'
+        + '<div class="outro-demo">'
+        + '<div class="outro-qr">'
+        + '<div class="qr-placeholder">'
+        + '<span>Cypher News</span>'
+        + '<small>Daily Drop</small>'
+        + '<code>127.0.0.1:5000</code>'
+        + '</div>'
+        + '</div>'
+        + '<p class="outro-link">\u2192 Live demo at localhost:5000 \u2190</p>'
+        + '</div>'
+        + '<div class="outro-next">'
+        + '<h3>Next Steps</h3>'
+        + '<ul>'
+        + '<li><span class="dot-green"></span> Official Graph API for Instagram/TikTok</li>'
+        + '<li><span class="dot-green"></span> Push notifications via Service Worker</li>'
+        + '<li><span class="dot-green"></span> More platforms: X, Bluesky, Discord</li>'
+        + '<li><span class="dot-green"></span> Email delivery as alternative</li>'
+        + '</ul>'
+        + '</div>'
+        + '<p class="outro-thanks">Thank You! Questions?</p>'
+        + '</div>';
     }
   }
 ];
 
-// ── Sprechtexte pro Folie ──
-const SPEAKER_TEXTS = {
-  title: "Willkommen zu CYPHER NEWS! Wir sind ein Team aus fünf KI-Agenten und haben in 4,5 Stunden einen KI-Newsletter gebaut, der deine Timeline zusammenfasst. Kein Scrollen, kein Verpassen. Legen wir los!",
-  problem: "Im Schnitt scrollen Leute 2,5 Stunden am Tag durch Instagram, TikTok und YouTube. Konzerte? Verpasst. Giveaways? Vorbei. Drops? Ausverkauft. Das ist das Problem, das wir lösen.",
-  solution: "Cypher News macht genau einen Drop pro Tag. Du verbindest deine Konten, sagst was dich interessiert — und eine offene KI fasst alles Wichtige zusammen. In 15 Sekunden bist du up to date.",
-  app: "So sieht's aus: eine PWA mit Matrix-Regen-Hintergrund, Story-Karten, jede mit Kategorie-Farbe. Oben ein Ticker mit Schlagzeilen. Alles im Retro-Pixel-Look — cool genug, dass man's installieren will.",
-  architecture: "Der Datenfluss: Konten verbinden → socialfetch scraped Stories und Posts → n8n orchestriert alles → KI wertet Text und Bilder aus → der Drop landet auf dem Handy. Fünf Stationen, eine Pipeline.",
-  n8n: "Zehn Knoten im n8n-Workflow: Webhook, Plan, RSS, Collect, Vision, Writer Prompt, Writer, Router, Parse, Respond. n8n ist unser KI-Provider — es steuert die Modelle, macht das Routing und fängt Fehler ab.",
-  social: "Instagram, TikTok, YouTube, Reddit — alle vier Plattformen sind angebunden. Stories, Posts, Reels, Videos. Der Login bleibt lokal auf deinem Gerät. Fairer Hinweis: Instagram ist Prototyp, produktiv braucht's die Graph-API.",
-  ki: "Vier offene Modelle im Einsatz: Nemotron Super und Ultra für Text, Qwen 3.8 für Bildauswertung, DeepSeek V4 als Fallback. Alle über OpenRouter. Warum offen? Unabhängig vom Anbieter, nachvollziehbar, keine Daten an geschlossene APIs.",
-  code: "Drei Dateien, die zusammenarbeiten: app.py ist der Flask-Server mit 152 Zeilen, workflow.json ist der n8n-Graph mit Routing und Vision, und demo_social.json enthält 12 realistische Beispieldaten für die Demo.",
-  team: "Timio hat den Plan gemacht, Ran hat gebaut, ich — Edgar — habe getestet, Jaro präsentiert und Rufus behält die Kosten im Blick. Zusammen mit Rouven als CTO: 5 KI-Agenten, 45 Commits, 4,5 Stunden.",
-  outro: "Jetzt zeigen wir's live! Nächste Schritte: offizielle APIs, Push-Benachrichtigungen, mehr Plattformen. Die App läuft auf localhost:5000 — Matrix-Regen, Ticker, Drop-Button, alles da. Fragen?"
-};
-
-// ── Code-Ausschnitte ──
-const CODE_SNIPPETS = [
+// ── Code Snippets (English) ──
+var CODE_SNIPPETS = [
   {
     file: "app.py",
-    label: "API-Generate mit n8n + Fallback",
-    code: `@app.route('/api/generate', methods=['POST'])
-def api_generate():
-    body = request.get_json(silent=True) or {}
-    preferences = body.get('preferences', '')
-    sources = body.get('sources', [])
-    accounts = body.get('accounts', {})
-
-    payload = {"preferences": preferences,
-               "sources": sources,
-               "accounts": accounts}
-
-    try:
-        resp = requests.post(N8N_WEBHOOK_URL,
-            json=payload, timeout=22)
-        if resp.status_code == 200:
-            data = resp.json()
-            return jsonify(data)
-    except Exception:
-        pass
-
-    try:
-        return jsonify(fallback_from_file())
-    except Exception:
-        return jsonify(mock_response())`,
-    explain: "Der /api/generate-Endpoint ruft n8n auf (22s Timeout). Bei Fehler lädt er sample_newsletter.json vom Server. Wenn auch das fehlschlägt, gibt's eingebaute Mock-Daten. 3-stufig, nie leer."
+    label: "API Generate with n8n + Fallback",
+    code: '@app.route(\'/api/generate\', methods=[\'POST\'])\ndef api_generate():\n    body = request.get_json(silent=True) or {}\n    preferences = body.get(\'preferences\', \'\')\n    sources = body.get(\'sources\', [])\n    accounts = body.get(\'accounts\', {})\n\n    payload = {"preferences": preferences,\n               "sources": sources,\n               "accounts": accounts}\n\n    try:\n        resp = requests.post(N8N_WEBHOOK_URL,\n            json=payload, timeout=22)\n        if resp.status_code == 200:\n            data = resp.json()\n            return jsonify(data)\n    except Exception:\n        pass\n\n    try:\n        return jsonify(fallback_from_file())\n    except Exception:\n        return jsonify(mock_response())',
+    explain: 'The /api/generate endpoint calls n8n (22s timeout). On failure it loads sample_newsletter.json. If that fails too, built-in mock data kicks in. Three-stage fallback, never empty.'
   },
   {
     file: "n8n/workflow.json",
-    label: "Modell-Routing mit Ausweichkette",
-    code: `// Router-Knoten: Modell-Ausweichkette
-if (!valid(text)) {
-  const chain = [
-    used === SUPER ? ULTRA : SUPER,
-    $env.MODEL_PAID || 'deepseek/deepseek-v4-pro'
-  ];
-  for (const model of chain) {
-    const r = await httpRequest({
-      url: 'https://openrouter.ai/api/v1/...',
-      body: { model, max_tokens: 4000 }
-    });
-    if (valid(r.choices[0].message.content)) {
-      text = r.choices[0].message.content;
-      used = model;
-      break;
-    }
-  }
-}`,
-    explain: "Der Router-Knoten prüft die Antwort vom Writer. Wenn sie ungültig ist, wechselt er automatisch durch die Ausweichkette: Nemotron Super ↔ Ultra → DeepSeek V4. Nie weniger als ein Ergebnis."
+    label: "Model Routing with Failover Chain",
+    code: '// Router node: model failover chain\nif (!valid(text)) {\n  const chain = [\n    used === SUPER ? ULTRA : SUPER,\n    $env.MODEL_PAID || \'deepseek/deepseek-v4-pro\'\n  ];\n  for (const model of chain) {\n    const r = await httpRequest({\n      url: \'https://openrouter.ai/api/v1/...\',\n      body: { model, max_tokens: 4000 }\n    });\n    if (valid(r.choices[0].message.content)) {\n      text = r.choices[0].message.content;\n      used = model;\n      break;\n    }\n  }\n}',
+    explain: 'The Router node checks the Writer response. If invalid, it automatically cycles through the failover chain: Nemotron Super \u2194 Ultra \u2192 DeepSeek V4. Never less than one result.'
   },
   {
     file: "data/demo_social.json",
-    label: "Demo-Daten mit Social Items",
-    code: `{
-  "_demo": true,
-  "_note": "DEMO DATA – realistic but fabricated",
-  "social_items": [
-    {
-      "platform": "Instagram",
-      "account": "berghain_ost",
-      "kind": "story",
-      "text": "FLINTA* night this Friday.
-              Lineup drops tomorrow.",
-      "taken_at": "2026-10-03T18:30:00Z"
-    },
-    {
-      "platform": "TikTok",
-      "account": "@streetweardrops",
-      "kind": "reel",
-      "text": "Palace Skateboards secret
-              drop Berlin store."
-    }
-    // ... 10 weitere Einträge
-  ]
-}`,
-    explain: "12 realistische, klar markierte Demo-Daten: Konzerte, Giveaways, Drops und Tech aus Berlin. Immer da — auch ohne Internet und ohne n8n. Perfekt für die Bühnen-Demo."
+    label: "Demo Data with Social Items",
+    code: '{\n  "_demo": true,\n  "_note": "DEMO DATA \u2013 realistic but fabricated",\n  "social_items": [\n    {\n      "platform": "Instagram",\n      "account": "berghain_ost",\n      "kind": "story",\n      "text": "FLINTA* night this Friday.\n              Lineup drops tomorrow.",\n      "taken_at": "2026-10-03T18:30:00Z"\n    },\n    {\n      "platform": "TikTok",\n      "account": "@streetweardrops",\n      "kind": "reel",\n      "text": "Palace Skateboards secret\n              drop Berlin store."\n    }\n    // ... 10 more entries\n  ]\n}',
+    explain: '12 realistic, clearly marked demo entries: concerts, giveaways, drops, and tech from Berlin. Always available \u2014 even without internet and without n8n. Perfect for the stage demo.'
   }
 ];
 
-// ── Agent-Definitionen ──
-const AGENTS = {
-  timo: { name: "Timio", role: "Planner", emoji: "🧠" },
-  ran: { name: "Ran", role: "Builder", emoji: "⚒️" },
-  edgar: { name: "Edgar", role: "Tester", emoji: "🧪" },
-  jaro: { name: "Jaro", role: "Presenter", emoji: "🎤" },
-  rufus: { name: "Rufus", role: "CFO", emoji: "💰" }
+// ── Agent Definitions ──
+var AGENTS = {
+  timo: { name: "Timio", role: "Planner", emoji: "\ud83e\udde0" },
+  ran: { name: "Ran", role: "Builder", emoji: "\u2692\ufe0f" },
+  edgar: { name: "Edgar", role: "Tester", emoji: "\ud83e\uddea" },
+  jaro: { name: "Jaro", role: "Presenter", emoji: "\ud83c\udfa4" },
+  rufus: { name: "Rufus", role: "CFO", emoji: "\ud83d\udcb0" }
 };
-
-// Pixel-Avatar-Generator (16×16 Roboter mit Augen)
-function drawPixelAvatar(canvas, agentId) {
-  const ctx = canvas.getContext('2d');
-  const colors = {
-    timo: { body: '#4a90d9', eye: '#c0e0ff' },
-    ran: { body: '#ff6a1a', eye: '#ffccaa' },
-    edgar: { body: '#39ff14', eye: '#ccffcc' },
-    jaro: { body: '#b44bc0', eye: '#e8c0ff' },
-    rufus: { body: '#ffc21a', eye: '#fff8cc' },
-    rouven: { body: '#e03a2b', eye: '#ffccbb' }
-  };
-  const c = colors[agentId] || colors['timo'];
-  const size = canvas.width;
-  const pixel = Math.floor(size / 16);
-  ctx.clearRect(0, 0, size, size);
-
-  // Head (6x7)
-  ctx.fillStyle = c.body;
-  for (let y = 1; y < 8; y++)
-    for (let x = 4; x < 12; x++) ctx.fillRect(x * pixel, y * pixel, pixel, pixel);
-
-  // Antenna
-  ctx.fillRect(7 * pixel, 0, 2 * pixel, 2 * pixel);
-
-  // Eyes (white then pupil)
-  ctx.fillStyle = c.eye;
-  ctx.fillRect(5 * pixel, 3 * pixel, 2 * pixel, 2 * pixel);
-  ctx.fillRect(9 * pixel, 3 * pixel, 2 * pixel, 2 * pixel);
-
-  // Pupils (dark)
-  ctx.fillStyle = '#130e0b';
-  ctx.fillRect(6 * pixel, 3.5 * pixel, pixel * 0.6, pixel * 0.6);
-  ctx.fillRect(10 * pixel, 3.5 * pixel, pixel * 0.6, pixel * 0.6);
-
-  // Mouth
-  ctx.fillRect(6 * pixel, 6 * pixel, 4 * pixel, 1 * pixel);
-
-  // Body (6x6)
-  for (let y = 8; y < 14; y++)
-    for (let x = 4; x < 12; x++) ctx.fillRect(x * pixel, y * pixel, pixel, pixel);
-
-  // Arms
-  ctx.fillRect(2 * pixel, 9 * pixel, 2 * pixel, 3 * pixel);
-  ctx.fillRect(12 * pixel, 9 * pixel, 2 * pixel, 3 * pixel);
-
-  // Legs
-  ctx.fillRect(5 * pixel, 14 * pixel, 2 * pixel, 2 * pixel);
-  ctx.fillRect(9 * pixel, 14 * pixel, 2 * pixel, 2 * pixel);
-}

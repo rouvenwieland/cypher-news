@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,26 +14,34 @@
 
 <div id="deck"></div>
 
-<div id="speaker-panel">
-  <div class="speaker-avatar-wrap">
-    <canvas class="speaker-avatar" data-agent="jaro" width="56" height="56"></canvas>
-    <span class="speaker-status-led"></span>
-  </div>
-  <div class="speaker-info">
-    <span class="speaker-name">Jaro</span>
-    <span class="speaker-role">Presenter</span>
-    <div class="speech-bubble speech-cursor"></div>
+<button id="play-btn">PLAY TALK</button>
+<div id="mute-indicator">M: MUTED</div>
+
+<div id="speech-bubble" class="speech-cursor"></div>
+
+<div class="speaker-bar-area">
+  <div id="speaker-bar">
+    <div class="spkr-wrap" id="spkr-ran">
+      <span class="spkr-label">Ran</span>
+    </div>
+    <div class="spkr-wrap" id="spkr-rufus">
+      <span class="spkr-label">Rufus</span>
+    </div>
+    <div class="spkr-wrap" id="spkr-jaro">
+      <span class="spkr-label">Jaro</span>
+    </div>
   </div>
 </div>
 
 <div id="progress-bar"><div id="progress-fill"></div></div>
 <div id="page-indicator">01/11</div>
-<div id="voice-indicator">V: Sprache aus</div>
 <div id="fs-hint"></div>
-<div class="nav-hint">← → Leertaste · O Übersicht · F Vollbild · N Sprecher</div>
+<div class="nav-hint">Space = Play/Pause &middot; &larr; &rarr; Manual &middot; M Mute &middot; F Fullscreen &middot; O Overview</div>
 
 <div id="overview"></div>
 
+<script src="script.js"></script>
+<script src="audio/manifest.js"></script>
 <script src="content.js"></script>
 <script src="deck.js"></script>
 </body>

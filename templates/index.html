@@ -44,7 +44,7 @@
         </div>
 
         <div class="onboarding" id="onboarding">
-            <textarea id="topicsInput" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, deine Lieblingskünstler, No-Gos ..." rows="4"></textarea>
+            <textarea id="topicsInput" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, deine Lieblingskünstler, No-Gos ..." rows="8"></textarea>
 
             <div class="chips" id="topicChips">
                 <span class="chip" data-topic="Konzerte Berlin">Konzerte Berlin<span class="check">✓</span></span>
@@ -125,13 +125,44 @@
 
         <div class="tab-page" id="pageConnect">
             <h3>VERBINDEN</h3>
-            <p class="connect-sub">Verbindet eure Accounts – der Drop fasst Posts, Reels &amp; Stories zusammen.</p>
+            <p class="connect-sub">Verbindet eure Accounts – der Drop fasst Posts, Reels &amp; Stories zusammen. <br><strong>Nur eigenes Zweitkonto verwenden.</strong> Zugangsdaten bleiben lokal auf deinem Gerät.</p>
             <div class="connect-grid" id="connectGrid"></div>
             <div class="connect-accounts" id="connectAccounts" style="display:none">
-                <p class="connect-sub">Wähle Accounts aus, denen du folgen willst:</p>
+                <div class="account-search-row">
+                    <input type="text" class="account-search" id="accountSearch" placeholder="Accounts durchsuchen …">
+                    <div class="manual-add-row">
+                        <input type="text" id="manualHandle" placeholder="@Handle manuell hinzufügen">
+                        <select id="manualPlatform">
+                            <option value="Instagram">📷 IG</option>
+                            <option value="TikTok">🎵 TT</option>
+                            <option value="YouTube">▶️ YT</option>
+                            <option value="Reddit">🤖 Reddit</option>
+                            <option value="RSS">📡 RSS</option>
+                        </select>
+                        <button id="manualAddBtn">+</button>
+                    </div>
+                </div>
+                <p class="connect-sub">Accounts, denen du folgen willst (aktiv = wird eingesammelt):</p>
                 <div id="accountSelections"></div>
             </div>
             <p class="demo-badge">BETA: Demo-Modus – Beispieldaten statt Live-Scraping</p>
+        </div>
+
+        <!-- Connect Dialog Modal -->
+        <div class="modal-overlay" id="connectModal" style="display:none">
+            <div class="modal-card">
+                <h4 class="modal-title">VERBINDEN</h4>
+                <p class="modal-hint" id="modalHint"></p>
+                <div class="modal-fields">
+                    <input type="text" id="modalUser" placeholder="Benutzername">
+                    <input type="password" id="modalPass" placeholder="Passwort (nur für Instagram)">
+                </div>
+                <p class="modal-note">🔒 Zugangsdaten bleiben NUR lokal auf deinem Gerät – kein Upload an Server oder KI.</p>
+                <div class="modal-actions">
+                    <button class="modal-btn cancel" id="modalCancel">ABBRECHEN</button>
+                    <button class="modal-btn confirm" id="modalConfirm">VERBINDEN</button>
+                </div>
+            </div>
         </div>
 
         <div class="tab-page" id="pageSaved">
@@ -278,9 +309,8 @@
 
             const activeConns = {};
             Object.entries(connectedAccounts).forEach(([plat, accts]) => {
-                const chips = document.querySelectorAll(`#accountChips .chip[data-platform="${plat}"]:not(.active)`) || [];
-                const deselected = new Set([...chips].map(c => c.dataset.account));
-                const active = accts.filter(a => !deselected.has(a));
+                if (!accts) return;
+                const active = accts.filter(a => !hiddenAccounts.has(`${plat}:${a}`));
                 if (active.length > 0) activeConns[plat] = active;
             });
 
@@ -377,7 +407,12 @@
             const imgSources = ['field_pix', 'money_pix', 'field_duo', 'money_duo', 'field_pix', 'money_duo', 'money_pix', 'field_duo'];
             inner.innerHTML = items.map((item, i) => {
                 const cat = item.category.toLowerCase();
-                const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
+                const kind = item.kind || 'news';
+                const kindLabel = KIND_LABELS[kind] || kind.toUpperCase();
+                const kindColor = KIND_COLORS[kind] || 'var(--dim)';
+                const hasThumb = !!item.image;
+                const img = hasThumb ? item.image : ('/static/img/' + imgSources[i % imgSources.length] + '.jpg');
+                const isDemo = item._demo === true;
                 const fadeIn = 0.6 + i * 0.06;
                 return `<div class="story-card cat-${cat}" data-cat="${cat}" style="animation-delay:${fadeIn}s">
                     <div class="card-parallax" data-speed="0.4">
@@ -386,7 +421,9 @@
                     <div class="card-body">
                         <div class="card-header">
                             <span class="cat-pill">${item.category}</span>
-                            ${item.platform ? `<span class="social-badge">${PLATFORM_ICONS[item.platform] || ''} ${KIND_LABELS[item.kind] || item.kind || ''}</span>` : ''}
+                            <span class="kind-badge" style="border-color:${kindColor};color:${kindColor}">${kindLabel}</span>
+                            ${item.platform ? `<span class="social-badge">${PLATFORM_ICONS[item.platform] || ''} @${item.account || item.source.replace(/^.*?: @?/, '')}</span>` : ''}
+                            ${isDemo ? '<span class="demo-tag">Beispieldaten</span>' : ''}
                             <span class="card-index">${String(i + 1).padStart(2, '0')}/${String(items.length).padStart(2, '0')}</span>
                         </div>
                         <h3>${item.title}</h3>
@@ -407,14 +444,21 @@
             const feed = document.getElementById('feedContainer');
             feed.innerHTML = items.map((item, i) => {
                 const cat = item.category.toLowerCase();
-                const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
+                const kind = item.kind || 'news';
+                const kindLabel = KIND_LABELS[kind] || kind.toUpperCase();
+                const kindColor = KIND_COLORS[kind] || 'var(--dim)';
+                const hasThumb = !!item.image;
+                const img = hasThumb ? item.image : ('/static/img/' + imgSources[i % imgSources.length] + '.jpg');
+                const isDemo = item._demo === true;
                 return `<div class="feed-card cat-${cat}" data-cat="${cat}" style="animation-delay:${0.05 * i}s">
                     <div class="feed-card-img">
                         <img src="${img}" alt="" loading="lazy">
                     </div>
                     <div class="feed-card-body">
                         <span class="cat-pill">${item.category}</span>
-                        ${item.platform ? `<span class="social-badge-sm">${PLATFORM_ICONS[item.platform] || ''} ${KIND_LABELS[item.kind] || item.kind || ''}</span>` : ''}
+                        <span class="kind-badge-sm" style="border-color:${kindColor};color:${kindColor}">${kindLabel}</span>
+                        ${item.platform ? `<span class="social-badge-sm">${PLATFORM_ICONS[item.platform] || ''} @${item.account || ''}</span>` : ''}
+                        ${isDemo ? '<span class="demo-tag-sm">Beispieldaten</span>' : ''}
                         <h4>${item.title}</h4>
                         <span class="src">${item.source} · ${item.when}</span>
                     </div>
@@ -611,24 +655,41 @@
 
         // ── Connect page ──
         const PLATFORMS = [
-            { id: 'Instagram', icon: '📷', label: 'Instagram', desc: 'Posts + Stories deiner Follows' },
-            { id: 'TikTok', icon: '🎵', label: 'TikTok', desc: 'Reels, Trends, Creator-Posts' },
-            { id: 'YouTube', icon: '▶️', label: 'YouTube', desc: 'Neue Videos von Kanälen' },
-            { id: 'Reddit', icon: '🤖', label: 'Reddit', desc: 'Top-Posts aus deinen Subs' },
+            { id: 'Instagram', icon: '📷', label: 'Instagram', desc: 'Posts + Stories deiner Follows', needsPassword: true },
+            { id: 'TikTok', icon: '🎵', label: 'TikTok', desc: 'Reels, Trends, Creator-Posts', needsPassword: false },
+            { id: 'YouTube', icon: '▶️', label: 'YouTube', desc: 'Neue Videos von Kanälen', needsPassword: false },
+            { id: 'Reddit', icon: '🤖', label: 'Reddit', desc: 'Top-Posts aus deinen Subs', needsPassword: false },
+            { id: 'RSS', icon: '📡', label: 'RSS', desc: 'Freie Feeds & Webseiten', needsPassword: false },
         ];
-        const PLATFORM_ICONS = {Instagram: '📷', TikTok: '🎵', YouTube: '▶️', Reddit: '🤖'};
-        const KIND_LABELS = {post: 'Post', story: 'Story', reel: 'Reel', video: 'Video'};
+        const PLATFORM_ICONS = {Instagram: '📷', TikTok: '🎵', YouTube: '▶️', Reddit: '🤖', RSS: '📡'};
+        const KIND_LABELS = {post: 'POST', story: 'STORY', reel: 'REEL', video: 'VIDEO', news: 'NEWS'};
+        const KIND_COLORS = {post: 'var(--cyan)', story: 'var(--pink)', reel: 'var(--yellow)', video: 'var(--red)', news: 'var(--green)'};
 
-        let connectedAccounts = {}; // {platform: [handle, ...]}
-        const storedConnections = JSON.parse(localStorage.getItem('cypherConnections') || '{}');
-        connectedAccounts = storedConnections;
+        let connectedAccounts = {};
+        let hiddenAccounts = new Set();
+
+        async function loadServerConnections() {
+            try {
+                const resp = await fetch('/api/connections');
+                const data = await resp.json();
+                connectedAccounts = data.connections || {};
+                hiddenAccounts = new Set(JSON.parse(localStorage.getItem('cypherHiddenAccounts') || '[]'));
+            } catch (e) {
+                connectedAccounts = JSON.parse(localStorage.getItem('cypherConnections') || '{}');
+            }
+        }
+        loadServerConnections();
 
         function renderConnectPage() {
             const grid = document.getElementById('connectGrid');
             grid.innerHTML = PLATFORMS.map(p => {
                 const conn = connectedAccounts[p.id] || [];
                 const isConnected = conn.length > 0;
-                const statusText = isConnected ? `verbunden: ${conn.slice(0, 3).map(a => '@' + a).join(', ')}${conn.length > 3 ? ' +' + (conn.length - 3) : ''}` : 'nicht verbunden';
+                let statusText = 'nicht verbunden';
+                if (isConnected) {
+                    const names = conn.slice(0, 2).map(a => '@' + a).join(', ');
+                    statusText = conn.length > 2 ? `verbunden: ${names} +${conn.length - 2}` : `verbunden: ${names}`;
+                }
                 return `<div class="connect-card ${isConnected ? 'connected' : ''}">
                     <div class="connect-card-head">
                         <span class="connect-icon">${p.icon}</span>
@@ -638,72 +699,196 @@
                         </div>
                     </div>
                     <div class="connect-status">${statusText}</div>
-                    <button class="btn-connect ${isConnected ? 'disconnect' : ''}" data-platform="${p.id}">${isConnected ? 'TRENNEN' : 'VERBINDEN (DEMO)'}</button>
+                    <button class="btn-connect ${isConnected ? 'disconnect' : ''}" data-platform="${p.id}">${isConnected ? 'TRENNEN' : 'VERBINDEN'}</button>
                 </div>`;
             }).join('');
 
             grid.querySelectorAll('.btn-connect').forEach(btn => {
-                btn.addEventListener('click', async () => {
+                btn.addEventListener('click', () => {
                     const plat = btn.dataset.platform;
                     if (btn.classList.contains('disconnect')) {
-                        delete connectedAccounts[plat];
-                        localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                        renderConnectPage();
-                        showToast(`${plat} getrennt`);
+                        handleDisconnect(plat);
                         return;
                     }
-                    // Demo-connect: fetch accounts from API
-                    try {
-                        const resp = await fetch('/api/social/accounts');
-                        const data = await resp.json();
-                        const accts = data.accounts || {};
-                        const platAccts = accts[plat] || [];
-                        if (platAccts.length > 0) {
-                            connectedAccounts[plat] = [...new Set([...(connectedAccounts[plat] || []), ...platAccts])];
-                            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                            renderConnectPage();
-                            showToast(`${plat} verbunden – ${platAccts.length} Accounts`);
-                        } else {
-                            showToast(`Keine Demo-Accounts für ${plat}`, true);
-                        }
-                    } catch (e) {
-                        showToast(`Fehler beim Verbinden von ${plat}`, true);
-                    }
+                    showConnectDialog(plat);
                 });
             });
 
-            // Show account selection if any platform is connected
             const accDiv = document.getElementById('connectAccounts');
-            const selDiv = document.getElementById('accountSelections');
             const totalAccts = Object.values(connectedAccounts).flat();
             if (totalAccts.length === 0) {
                 accDiv.style.display = 'none';
                 return;
             }
             accDiv.style.display = 'block';
-            selDiv.innerHTML = '<div class="account-chips" id="accountChips"></div>';
-            const chipContainer = document.getElementById('accountChips');
-            Object.entries(connectedAccounts).forEach(([plat, accts]) => {
-                accts.forEach(acc => {
-                    const chip = document.createElement('span');
-                    chip.className = 'chip active';
-                    chip.dataset.account = acc;
-                    chip.dataset.platform = plat;
-                    chip.innerHTML = `${acc}<span class="check">✓</span><span class="remove-acc">&times;</span>`;
-                    chip.addEventListener('click', (e) => {
-                        if (e.target.classList.contains('remove-acc')) {
-                            connectedAccounts[plat] = connectedAccounts[plat].filter(a => a !== acc);
-                            if (connectedAccounts[plat].length === 0) delete connectedAccounts[plat];
-                            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                            renderConnectPage();
-                        } else {
-                            chip.classList.toggle('active');
-                        }
+            renderAccountSelections();
+        }
+
+        function handleDisconnect(platform) {
+            Object.keys(connectedAccounts[platform] || {}).forEach(async (acc) => {
+                try {
+                    await fetch('/api/connections', {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform, username: acc })
                     });
-                    chipContainer.appendChild(chip);
+                } catch (e) {}
+            });
+            delete connectedAccounts[platform];
+            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+            renderConnectPage();
+            showToast(`${platform} getrennt`);
+        }
+
+        function showConnectDialog(platform) {
+            const pdef = PLATFORMS.find(p => p.id === platform);
+            const modal = document.getElementById('connectModal');
+            document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label}`;
+            document.getElementById('modalPass').style.display = pdef.needsPassword ? '' : 'none';
+            document.getElementById('modalPass').value = '';
+            document.getElementById('modalUser').value = '';
+            document.getElementById('modalUser').placeholder = pdef.needsPassword ? 'Benutzername (Zweitkonto!)' : 'Handle (@name oder URL)';
+            modal.style.display = 'flex';
+            modal._platform = platform;
+        }
+
+        document.getElementById('modalCancel').addEventListener('click', () => {
+            document.getElementById('connectModal').style.display = 'none';
+        });
+        document.getElementById('connectModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('connectModal')) {
+                document.getElementById('connectModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('modalConfirm').addEventListener('click', async () => {
+            const modal = document.getElementById('connectModal');
+            const platform = modal._platform;
+            const username = document.getElementById('modalUser').value.trim();
+            const password = document.getElementById('modalPass').value;
+            if (!username) { showToast('Benutzername/Handle erforderlich', true); return; }
+            if (!platform) return;
+
+            modal.style.display = 'none';
+            const pdef = PLATFORMS.find(p => p.id === platform);
+            const needsPw = pdef && pdef.needsPassword;
+            if (needsPw && !password) {
+                showToast('Passwort erforderlich für Instagram', true);
+                return;
+            }
+
+            try {
+                const body = { platform, username };
+                if (password) body.password = password;
+                const resp = await fetch('/api/social/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await resp.json();
+                if (resp.ok && (data.ok || !data.error)) {
+                    const display = data.display_name || username;
+                    connectedAccounts[platform] = [...new Set([...(connectedAccounts[platform] || []), display])];
+                    localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                    renderConnectPage();
+                    showToast(`${platform}: verbunden als @${display}`);
+                    fetchAccountSuggestions(platform);
+                } else {
+                    showToast(data.error || 'Fehler beim Verbinden', true);
+                }
+            } catch (e) {
+                showToast(`Netzwerkfehler`, true);
+            }
+        });
+
+        async function fetchAccountSuggestions(platform) {
+            try {
+                const resp = await fetch(`/api/social/accounts?platform=${platform}`);
+                const data = await resp.json();
+                const accts = data.accounts || {};
+                if (typeof accts === 'object' && !Array.isArray(accts)) {
+                    const platAccts = accts[platform] || [];
+                    if (platAccts.length > 0) {
+                        const existing = new Set(connectedAccounts[platform] || []);
+                        const newAccts = platAccts.filter(a => !existing.has(a));
+                        if (newAccts.length > 0) {
+                            connectedAccounts[platform] = [...(connectedAccounts[platform] || []), ...newAccts];
+                            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                            renderAccountSelections();
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function renderAccountSelections() {
+            const selDiv = document.getElementById('accountSelections');
+            const searchTerm = (document.getElementById('accountSearch')?.value || '').toLowerCase();
+
+            let html = '';
+            Object.entries(connectedAccounts).forEach(([plat, accts]) => {
+                if (!accts || accts.length === 0) return;
+                const platIcon = PLATFORM_ICONS[plat] || '';
+                const filtered = accts.filter(a => a.toLowerCase().includes(searchTerm));
+                if (filtered.length === 0 && searchTerm) return;
+                html += `<div class="account-group"><span class="account-group-label">${platIcon} ${plat}</span><div class="account-chips">`;
+                filtered.forEach(acc => {
+                    const isHidden = hiddenAccounts.has(`${plat}:${acc}`);
+                    html += `<span class="chip ${isHidden ? '' : 'active'}" data-platform="${plat}" data-account="${acc}">
+                        ${acc}<span class="check">✓</span><span class="remove-acc">&times;</span>
+                    </span>`;
+                });
+                html += '</div></div>';
+            });
+            selDiv.innerHTML = html || '<p class="empty" style="padding:20px">Keine Accounts gefunden. Verbinde eine Plattform.</p>';
+
+            selDiv.querySelectorAll('.chip').forEach(chip => {
+                chip.addEventListener('click', function(e) {
+                    const plat = this.dataset.platform;
+                    const acc = this.dataset.account;
+                    if (e.target.classList.contains('remove-acc')) {
+                        connectedAccounts[plat] = connectedAccounts[plat].filter(a => a !== acc);
+                        if (connectedAccounts[plat].length === 0) delete connectedAccounts[plat];
+                        localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                        hiddenAccounts.delete(`${plat}:${acc}`);
+                        localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
+                        renderAccountSelections();
+                        return;
+                    }
+                    this.classList.toggle('active');
+                    const key = `${plat}:${acc}`;
+                    if (this.classList.contains('active')) {
+                        hiddenAccounts.delete(key);
+                    } else {
+                        hiddenAccounts.add(key);
+                    }
+                    localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
                 });
             });
         }
+
+        document.getElementById('accountSearch')?.addEventListener('input', renderAccountSelections);
+
+        document.getElementById('manualAddBtn')?.addEventListener('click', () => {
+            const handle = document.getElementById('manualHandle').value.trim();
+            const platform = document.getElementById('manualPlatform').value;
+            if (!handle) { showToast('Handle eingeben', true); return; }
+            const cleanHandle = handle.replace(/^@/, '');
+            connectedAccounts[platform] = [...new Set([...(connectedAccounts[platform] || []), cleanHandle])];
+            hiddenAccounts.delete(`${platform}:${cleanHandle}`);
+            localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
+            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+            document.getElementById('manualHandle').value = '';
+            renderAccountSelections();
+            showToast(`${platform}: @${cleanHandle} hinzugefügt`);
+        });
+
+        document.getElementById('manualHandle')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('manualAddBtn').click();
+            }
+        });
 
         // ── Saved ──
         function renderSaved() {

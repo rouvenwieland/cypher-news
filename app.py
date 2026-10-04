@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import json
-from datetime import datetime
+import threading
+from datetime import datetime, timezone
 
 import requests
 
@@ -10,6 +11,9 @@ app = Flask(__name__)
 MODEL_PRIMARY = os.environ.get('MODEL_PRIMARY', 'unknown')
 N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', 'http://127.0.0.1:5678/webhook/newsletter')
 SOCIALFETCH_URL = os.environ.get('SOCIALFETCH_URL', 'http://127.0.0.1:5090')
+
+CONNECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'data', 'connections.json')
+CONNECTIONS_LOCK = threading.Lock()
 
 MOCK_ITEMS = [
     {"category": "Konzerte", "title": "Freiluftkonzert im Mauerpark heute Abend", "summary": "Kostenloses Konzert mit drei lokalen Indie-Bands ab 19 Uhr. Picknickdecke nicht vergessen – Eintritt frei.", "source": "Eventkalender Berlin", "url": "https://example.com/concert-mauerpark", "when": ""},
@@ -40,25 +44,11 @@ def classify_social(text):
     return 'Sonstiges'
 
 
-def fetch_social_via_service(accounts=None):
-    if not accounts:
-        return None
-    try:
-        resp = requests.get(f'{SOCIALFETCH_URL}/feed', params={
-            'hours': 48,
-            'accounts': ','.join(sum(accounts.values(), []))
-        }, timeout=10)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get('items', [])
-    except Exception:
-        pass
-    return None
-
-
 def social_items_from_raw(raw_items):
     items = []
     for s in (raw_items or []):
+        img = s.get('image_b64', '')
+        img_src = s.get('image', '')
         items.append({
             'category': classify_social(s.get('text', '')),
             'title': s.get('text', '')[:80] + ('...' if len(s.get('text', '')) > 80 else ''),
@@ -68,6 +58,9 @@ def social_items_from_raw(raw_items):
             'when': s.get('taken_at', '')[:10] if s.get('taken_at') else '',
             'kind': s.get('kind', 'post'),
             'platform': s.get('platform', ''),
+            'account': s.get('account', ''),
+            'image': img_src or (f'data:image/jpeg;base64,{img}' if img else ''),
+            '_demo': s.get('_demo', False),
         })
     return items
 
@@ -77,13 +70,32 @@ def load_demo_social_raw():
         path = os.path.join(app.root_path, 'data', 'demo_social.json')
         with open(path, 'r') as f:
             d = json.load(f)
-        return d.get('social_items', [])
+        items = d.get('social_items', [])
+        for item in items:
+            item['_demo'] = True
+        return items
     except Exception:
         return []
 
 
 def demo_social_items():
     return social_items_from_raw(load_demo_social_raw())
+
+
+def load_connections():
+    try:
+        with CONNECTIONS_LOCK:
+            with open(CONNECTIONS_FILE, 'r') as f:
+                return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_connections(conns):
+    with CONNECTIONS_LOCK:
+        os.makedirs(os.path.dirname(CONNECTIONS_FILE), exist_ok=True)
+        with open(CONNECTIONS_FILE, 'w') as f:
+            json.dump(conns, f)
 
 
 def today_str():
@@ -119,32 +131,87 @@ def api_generate():
     sources = body.get('sources', [])
     date = body.get('date', today_str())
     accounts = body.get('accounts', {})
+    use_demo = body.get('demo', False)
 
-    payload = {"preferences": preferences, "sources": sources, "date": date, "accounts": accounts}
+    social_items = []
+    social_source = 'none'
 
-    social_raw = None
     if accounts:
-        social_raw = fetch_social_via_service(accounts)
-    if accounts and not social_raw:
-        social_raw = load_demo_social_raw()
+        acct_list = sum(accounts.values(), [])
+        if not use_demo and acct_list:
+            try:
+                resp = requests.get(f'{SOCIALFETCH_URL}/feed', params={
+                    'hours': 48,
+                    'accounts': ','.join(acct_list)
+                }, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    social_items = data.get('items', [])
+                    if data.get('demo'):
+                        social_source = 'demo'
+                        for item in social_items:
+                            item['_demo'] = True
+                    else:
+                        social_source = 'live'
+            except Exception:
+                social_source = 'demo_fallback'
+        if not social_items and (use_demo or social_source == 'demo_fallback' or not acct_list):
+            all_demo = load_demo_social_raw()
+            if acct_list:
+                requested = set(a.lstrip('@').lower() for a in acct_list)
+                social_items = [s for s in all_demo if s.get('account', '').lstrip('@').lower() in requested]
+                if not social_items:
+                    social_items = all_demo
+            else:
+                social_items = all_demo
+            social_source = social_source or 'demo'
 
-    if social_raw:
-        payload['social_items'] = social_raw
+    payload = {
+        "preferences": preferences,
+        "sources": sources,
+        "date": date,
+        "accounts": accounts,
+        "social_items": social_items
+    }
 
+    n8n_result = None
     try:
         resp = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=40)
         if resp.status_code == 200:
-            data = resp.json()
-            items = data.get('items', [])
-            for item in items:
-                if 'url' not in item:
-                    item['url'] = ''
-                if 'when' not in item:
-                    item['when'] = ''
-            return jsonify({"title": data.get('title', 'DEIN DROP'), "date": data.get('date', today_str()),
-                           "intro": data.get('intro', ''), "items": items, "source": "n8n"})
+            n8n_result = resp.json()
     except Exception:
         pass
+
+    if n8n_result:
+        items = n8n_result.get('items', [])
+        seen = set()
+        for item in items:
+            if 'url' not in item:
+                item['url'] = ''
+            if 'when' not in item:
+                item['when'] = ''
+            if 'kind' not in item:
+                item['kind'] = 'news'
+            if social_source in ('demo', 'demo_fallback') and item.get('platform'):
+                item['_demo'] = True
+            if item.get('platform') and item.get('account'):
+                seen.add((item['platform'], item['account']))
+        if social_items:
+            processed = social_items_from_raw(social_items)
+            for si in processed:
+                key = (si.get('platform', ''), si.get('account', ''))
+                if key not in seen:
+                    items.append(si)
+                    seen.add(key)
+        return jsonify({
+            "title": n8n_result.get('title', 'DEIN DROP'),
+            "date": n8n_result.get('date', today_str()),
+            "intro": n8n_result.get('intro', ''),
+            "items": items,
+            "meta": n8n_result.get('meta', {}),
+            "source": "n8n",
+            "social_source": social_source
+        })
 
     try:
         return jsonify(fallback_from_file())
@@ -189,11 +256,59 @@ def api_social_accounts():
 @app.route('/api/social/connect', methods=['POST'])
 def api_social_connect():
     body = request.get_json(silent=True) or {}
+    platform = body.get('platform', '')
+    username = body.get('username', '')
+    password = body.get('password', '')
+
+    if not platform or not username:
+        return jsonify({'ok': False, 'error': 'platform and username required'}), 400
+
+    local_result = None
     try:
         resp = requests.post(f'{SOCIALFETCH_URL}/connect', json=body, timeout=10)
-        return jsonify(resp.json()), resp.status_code
+        if resp.status_code == 200:
+            local_result = resp.json()
     except Exception:
-        return jsonify({'ok': False, 'error': 'Social service unavailable'}), 503
+        pass
+
+    conns = load_connections()
+    key = f"{platform}:{username}"
+    conns[key] = {
+        'platform': platform,
+        'username': username,
+        'connected_at': datetime.now(timezone.utc).isoformat(),
+        'display_name': username
+    }
+    save_connections(conns)
+
+    if local_result:
+        return jsonify(local_result)
+    return jsonify({'ok': True, 'display_name': username, 'platform': platform, 'demo': True})
+
+
+@app.route('/api/connections', methods=['GET'])
+def api_connections():
+    conns = load_connections()
+    by_platform = {}
+    for key, info in conns.items():
+        plat = info.get('platform', '')
+        name = info.get('display_name') or info.get('username', '')
+        by_platform.setdefault(plat, []).append(name)
+    return jsonify({'connections': by_platform})
+
+
+@app.route('/api/connections', methods=['DELETE'])
+def api_connections_delete():
+    body = request.get_json(silent=True) or {}
+    platform = body.get('platform', '')
+    username = body.get('username', '')
+    conns = load_connections()
+    key = f"{platform}:{username}"
+    if key in conns:
+        del conns[key]
+        save_connections(conns)
+        return jsonify({'ok': True})
+    return jsonify({'ok': False, 'error': 'not found'}), 404
 
 
 if __name__ == '__main__':
