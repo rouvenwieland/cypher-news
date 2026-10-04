@@ -56,28 +56,29 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 
 ## Tester-Status (Edgar)
 
-### Komplett-Durchlauf 13:53 (8 Min.)
-- GET `/` → HTTP 200, 39 KB. Modellname `nvidia/nemotron-3-super-120b-a12b:free` im Footer, kein harter Modellname. ✓
-- POST `/api/generate` (mit n8n live!) → HTTP 200, 8 echte Items (Konzerte Berlin), source=n8n. N8N läuft tatsächlich! ✓
-- POST `/api/generate` (ohne n8n, via N8N_WEBHOOK_URL=http://127.0.0.1:9999) → HTTP 200, 8 Items, source=fallback. ✓
-- POST `/mock/newsletter` → HTTP 200, 8 Items. ✓
-- GET `/data/sample_newsletter.json` → HTTP 200, 2.7 KB. ✓
+### Komplett-Durchlauf 14:16 (Build 96d0633, ~5 Min.)
+- GET `/` → HTTP 200, 47 KB. Modellname `nvidia/nemotron-3-super-120b-a12b` im Footer, kein harter Modellname. ✓
+- POST `/mock/newsletter` → HTTP 200, **20 Items** (8 core + 12 social aus demo_social.json). ✓
+- GET `/data/sample_newsletter.json` → HTTP 200, 8 newsletter entries. ✓
+- GET `/data/demo_social.json` → HTTP 200, 12 social items. ✓
+- GET `/api/social/accounts` → HTTP 200, 5 Plattformen (Instagram, Reddit, TikTok, YouTube), demo=true. ✓
 - Statische Dateien alle HTTP 200: ✓
-  - CSS: `/static/css/style.css` (524 Zeilen)
-  - JS: `/static/js/rain.js` (34 Zeilen, IIFE)
-  - Fonts: PressStart2P.ttf, VT323.ttf, SpaceGrotesk.ttf
-  - Icons: icon-192.png, icon-512.png
-  - Bilder: field_pix.jpg, field_duo.jpg, money_pix.jpg, money_duo.jpg
-  - PWA: manifest.json, sw.js
+  - CSS, JS, Fonts (3), Icons (2), Bilder (4), PWA (manifest.json, sw.js)
 - Server-Konfiguration: `host='127.0.0.1', debug=False, port=5000`. ✓
-- DESIGN.md-Check: Alle CSS-Variablen, Schriften, Animationen (Matrix-Regen, Glitch, Ticker, Terminal, Stories, Feed, Konfetti) 1:1 umgesetzt. ✓
-- Python-Syntax-Check: app.py kompiliert ohne Fehler. ✓
+- Python-Syntax-Check: app.py (152 Zeilen) kompiliert ohne Fehler. ✓
+- Kein harter Modellname in app.py (kein grep-Treffer). ✓
+
+### Vorheriger Durchlauf 13:53
+- GET `/` → HTTP 200, 39 KB. ✓
+- POST `/api/generate` (mit n8n live!) → HTTP 200, 8 echte Items, source=n8n. ✓
+- POST `/api/generate` (ohne n8n) → HTTP 200, source=fallback. ✓
+- DESIGN.md-Check, alle Animationen 1:1. ✓
 
 ### Bugs gefunden & behoben
-- Keine neuen Bugs. Vorheriger Bugfix (Route `/data/sample_newsletter.json`) hält.
+- Keine neuen Bugs. App läuft sauber mit Social-Integration.
 
 ### Verbleibende Risiken
-- **n8n-Timeout 22s**: Wenn n8n nicht läuft, wartet `/api/generate` 22s bevor Fallback greift. In der Live-Demo (n8n läuft) aber kein Problem.
+- **n8n nicht live**: N8N_WEBHOOK_URL aktuell nicht gesetzt → /api/generate hängt 22s im Timeout, dann Fallback. Für Demo vorher n8n starten oder N8N_WEBHOOK_URL setzen.
 - Dummy-URLs `https://example.com/...` in Mock-/Fallback-Daten. Bei echter n8n-Antwort kommen gültige URLs. Nicht demo-blockierend.
-- localStorage-Duplikat-Risiko von vorher entwarnt: `renderHistory()` auf load ruft KEIN `addToHistory()` auf, kein Duplikat. Risiko war Fehleinschätzung.
-- **WOW-Moment bestätigt**: Live-n8n-Antwort kam in <5s mit echten Konzerte-in-Berlin-Daten. Demo-Pfad funktioniert komplett.
+- demo_social.json enthält 12 Beispieldaten — ausreichend für Demo, aber keine echten Live-Daten von Social-APIs (socialfetch baut Ran gerade).
+- **WOW-Moment live getestet** (13:53): n8n-Antwort <5s mit echten Konzerte-in-Berlin-Daten. Muss vor Demo verifiziert werden.
