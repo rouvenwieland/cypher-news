@@ -244,6 +244,7 @@
 
         // ── DROP Button ──
         document.getElementById('dropBtn').addEventListener('click', async () => {
+            if (navigator.vibrate) navigator.vibrate(15);
             const topics = document.getElementById('topicsInput').value;
             const activeChips = [...document.querySelectorAll('#topicChips .chip.active')].map(c => c.dataset.topic);
             const allTopics = [topics, ...activeChips].filter(Boolean).join(', ');
