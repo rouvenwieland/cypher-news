@@ -193,36 +193,24 @@
             const minDelay=new Promise(r=>setTimeout(r,3000));
 
             try{
-                const resp=await fetch('/mock/newsletter',{
+                const resp=await fetch('/api/generate',{
                     method:'POST',
                     headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({preferences:allTopics,sources:srcList,date:today})
                 });
-                if(!resp.ok)throw new Error('Netzwerkfehler');
                 const data=await resp.json();
                 await minDelay;
                 currentItems=data.items||[];
                 currentTitle=data.title||'DEIN DROP';
                 currentIntro=data.intro||'';
-                displayResults(currentItems,currentTitle,currentIntro);
+                const srcLabel=(data.source==='n8n')?' (live via n8n + OpenRouter)':(data.source==='mock'?' (Mock)':'');
+                displayResults(currentItems,currentTitle+srcLabel,currentIntro);
                 addToHistory(currentItems,currentTitle);
                 showToast('DROP ERZEUGT — '+currentItems.length+' Treffer');
             }catch(err){
                 console.error(err);
                 await minDelay;
-                try{
-                    const r=await fetch('/data/sample_newsletter.json');
-                    const d=await r.json();
-                    const items=(d.newsletter||[]).map(i=>({category:i.category,title:i.title,summary:i.summary,source:i.source,url:i.link,when:i.date}));
-                    currentItems=items;
-                    currentTitle='DEIN DROP (Offline)';
-                    currentIntro='Fallback: Beispiel-Drop aus lokalen Daten.';
-                    displayResults(currentItems,currentTitle,currentIntro);
-                    addToHistory(currentItems,currentTitle);
-                    showToast('Offline-Drop geladen');
-                }catch(e2){
-                    showToast('Fehler beim Laden',true);
-                }
+                showToast('Fehler beim Laden',true);
             }
 
             term.classList.remove('visible');
