@@ -28,3 +28,9 @@ Team: Fasse die besprochene Idee jetzt in hoechstens 2 Saetzen zusammen. Beginne
 Timio: IDEE: Ein personalisierter KI-Newsletter, der n8n als KI-Provider nutzt, um öffentliche Quellen zu durchsuchen und mit OpenRouter zusammenzufassen, damit Nutzer keine Events verpassen.
 
 Die Idee bestimmt ALLES (Name, Design, Texte, Beispiele). Kein Bezug zu Musik/Rap/Cypher Cypher, ausser die Idee verlangt es.
+
+## AKTUALISIERUNG 13:15 (Rouven, verbindlich)
+- **Produktname: CYPHER NEWS. Untertitel (klein darunter): DAILY DROP.** (Der Name "Cypher" ist hier ausdrücklich gewollt.)
+- **Design: Cypher-Vibe** (Underground, Retro-Pixel, warmes Schwarz, Orange/Rot/Gelb, Neongrün, Körnung, Glitch, Matrix-Regen). Volle Vorgaben in DESIGN.md – unbedingt umsetzen. Keine Fotos von Personen, nur Motive aus static/img und generierte Muster.
+- Beispielthemen der Demo: Konzerte in Berlin, Giveaways, Kleidungsdrops, Tech-News, allgemeine Trends.
+- Wichtig: Ziel ist eine außergewöhnlich schöne, lebendige Oberfläche (bewegte Elemente wie bei modernen Instagram-Seiten) PLUS ein funktionierender n8n-Anschluss.
