@@ -51,6 +51,9 @@
                 <span class="chip" data-topic="Kleidungsdrops">Kleidungsdrops<span class="check">✓</span></span>
                 <span class="chip" data-topic="Tech-News">Tech-News<span class="check">✓</span></span>
                 <span class="chip" data-topic="Trends">Trends<span class="check">✓</span></span>
+                <span class="chip" data-topic="Streetwear">Streetwear<span class="check">✓</span></span>
+                <span class="chip" data-topic="Techno">Techno<span class="check">✓</span></span>
+                <span class="chip" data-topic="Rap">Rap<span class="check">✓</span></span>
             </div>
 
             <div class="source-row">
@@ -139,7 +142,7 @@
     <canvas id="cursorTrail" aria-hidden="true"></canvas>
 
     <script>
-        const CAT_COLORS = {konzerte: 'var(--orange)', giveaways: 'var(--green)', mode: 'var(--pink)', drops: 'var(--pink)', tech: 'var(--cyan)', trends: 'var(--yellow)'};
+        const CAT_COLORS = {konzerte: 'var(--orange)', giveaways: 'var(--green)', mode: 'var(--pink)', drops: 'var(--pink)', tech: 'var(--cyan)', trends: 'var(--yellow)', streetwear: 'var(--pink)', techno: 'var(--orange)', rap: 'var(--red)', sonstiges: 'var(--red)'};
 
         // ── Glitch logo ──
         setInterval(() => {
@@ -324,12 +327,16 @@
             prog.innerHTML = items.map((_, i) => `<span class="prog-seg" data-idx="${i}"></span>`).join('');
             document.getElementById('storyProgress').style.display = 'flex';
 
-            // Category filters
+            // Category filters (delegation)
             const cats = [...new Set(items.map(i => i.category.toLowerCase()))];
-            document.getElementById('catFilters').innerHTML = cats.map(c => `<span class="chip active" data-cat="${c}">${c}</span>`).join('');
-            document.querySelectorAll('#catFilters .chip').forEach(ch => {
-                ch.addEventListener('click', () => { ch.classList.toggle('active'); renderView(); });
-            });
+            const catFilters = document.getElementById('catFilters');
+            catFilters.innerHTML = cats.map(c => `<span class="chip active" data-cat="${c}">${c}</span>`).join('');
+            catFilters.onclick = e => {
+                const chip = e.target.closest('.chip');
+                if (!chip) return;
+                chip.classList.toggle('active');
+                renderView();
+            };
 
             // Stories
             const inner = document.getElementById('storiesInner');
@@ -337,7 +344,7 @@
             inner.innerHTML = items.map((item, i) => {
                 const cat = item.category.toLowerCase();
                 const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
-                const fadeIn = 0.6 + i * 0.08;
+                const fadeIn = 0.6 + i * 0.06;
                 return `<div class="story-card cat-${cat}" data-cat="${cat}" style="animation-delay:${fadeIn}s">
                     <div class="card-parallax" data-speed="0.4">
                         <img src="${img}" alt="" loading="lazy">
