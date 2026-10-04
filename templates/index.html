@@ -17,6 +17,7 @@
     </svg>
 
     <canvas id="rainCanvas" aria-hidden="true"></canvas>
+    <canvas id="burstCanvas" aria-hidden="true"></canvas>
     <div id="vignette" aria-hidden="true"></div>
     <div id="bgGradient" aria-hidden="true"></div>
 
@@ -60,29 +61,54 @@
             <button class="btn-drop" id="dropBtn"><span class="spark">◆</span> DROP ERZEUGEN <span class="spark">◆</span></button>
         </div>
 
-        <div class="terminal" id="terminal">
-            <div class="line">&gt; scanne Quellen...</div>
-            <div class="line">&gt; filtere Rauschen mit KI...</div>
-            <div class="line">&gt; n8n-Workflow läuft...</div>
-            <div class="line">&gt; OpenRouter {{ model_name }} fasst zusammen...</div>
-            <div class="line">&gt; schreibe deinen Drop...</div>
-            <div class="line">&gt; fertig.</div>
-            <div class="progress">
-                <span class="block"></span><span class="block"></span><span class="block"></span>
-                <span class="block"></span><span class="block"></span><span class="block"></span>
-                <span class="block"></span><span class="block"></span>
+        <!-- ── Terminal loading ── -->
+        <div class="terminal-wrapper" id="terminalWrapper">
+            <div class="terminal" id="terminal">
+                <div class="line">&gt; scanne Quellen …</div>
+                <div class="line">&gt; lese YouTube-Feeds …</div>
+                <div class="line">&gt; filtere Rauschen mit KI …</div>
+                <div class="line">&gt; n8n-Workflow läuft …</div>
+                <div class="line">&gt; OpenRouter {{ model_name }} fasst zusammen …</div>
+                <div class="line">&gt; schreibe deinen Drop …</div>
+                <div class="line">&gt; fertig.</div>
+                <div class="progress">
+                    <span class="block"></span><span class="block"></span><span class="block"></span>
+                    <span class="block"></span><span class="block"></span><span class="block"></span>
+                    <span class="block"></span><span class="block"></span>
+                </div>
             </div>
         </div>
 
+        <!-- ── Results ── -->
         <div id="resultsArea" style="display:none;">
-            <div class="intro-card" id="introCard"></div>
+            <!-- Intro card -->
+            <div class="intro-card" id="introCard">
+                <h2 id="introTitle">DEIN DROP</h2>
+                <div class="count" id="introCount">8 Treffer</div>
+                <p id="introText"></p>
+                <div class="countdown" id="countdown">Nächster Drop um 08:00</div>
+            </div>
+
             <button class="btn-push" id="btnPush" style="display:none">📲 AUF DEM HANDY ERHALTEN</button>
+
+            <!-- View toggle -->
             <div class="view-toggle">
                 <button id="btnStories" class="active">STORIES</button>
                 <button id="btnFeed">FEED</button>
             </div>
+
+            <!-- Progress bar for stories -->
+            <div class="story-progress" id="storyProgress"></div>
+
+            <!-- Category filters (feed only) -->
             <div class="cat-filters" id="catFilters"></div>
-            <div class="stories" id="storiesContainer"></div>
+
+            <!-- Stories container -->
+            <div class="stories-container" id="storiesContainer">
+                <div class="stories-inner" id="storiesInner"></div>
+            </div>
+
+            <!-- Feed container -->
             <div class="feed" id="feedContainer"></div>
         </div>
 
@@ -101,346 +127,503 @@
     <canvas id="cursorTrail" aria-hidden="true"></canvas>
 
     <script>
-        const CAT_COLORS={konzerte:'var(--orange)',giveaways:'var(--green)',mode:'var(--pink)',drops:'var(--pink)',tech:'var(--cyan)',trends:'var(--yellow)'};
+        const CAT_COLORS = {konzerte: 'var(--orange)', giveaways: 'var(--green)', mode: 'var(--pink)', drops: 'var(--pink)', tech: 'var(--cyan)', trends: 'var(--yellow)'};
 
-        // Matrix rain – loaded from external file
+        const TOPIC_IMAGES = ['/static/img/field_pix.jpg', '/static/img/money_pix.jpg', '/static/img/field_duo.jpg', '/static/img/money_duo.jpg'];
 
-        // Glitch logo
-        setInterval(()=>{
-            if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+        // ── Glitch logo ──
+        setInterval(() => {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             document.getElementById('logo').classList.add('glitch');
-            setTimeout(()=>document.getElementById('logo').classList.remove('glitch'),500);
-        },6000);
+            setTimeout(() => document.getElementById('logo').classList.remove('glitch'), 500);
+        }, 6000);
 
-        // Clock
-        function updateClock(){
-            const now=new Date();
-            document.getElementById('clock').textContent=now.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+        // ── Clock ──
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
         }
-        updateClock();setInterval(updateClock,30000);
+        updateClock(); setInterval(updateClock, 30000);
 
-        // Ticker headlines
-        const TICKER_HEADLINES=[
-            {t:'KI-Durchbruch in Bildverarbeitung',cat:'tech'},
-            {t:'Freiluftkonzert im Mauerpark heute Abend',cat:'konzerte'},
-            {t:'SNEAKRS Raffle: Limited Drop 10 Uhr',cat:'mode'},
-            {t:'Raspberry Pi 6 Specs geleakt',cat:'tech'},
-            {t:'5 Trends, die diese Woche viral gehen',cat:'trends'},
-            {t:'Techno-Nacht im Tresor Berlin',cat:'konzerte'},
-            {t:'Gewinne 1 Jahr Cloud-Speicher',cat:'giveaways'},
-            {t:'Popup-Store in Mitte nur dieses WE',cat:'mode'},
+        // ── Ticker ──
+        const TICKER_HEADLINES = [
+            { t: 'KI-Durchbruch in Bildverarbeitung', cat: 'tech' },
+            { t: 'Freiluftkonzert im Mauerpark heute Abend', cat: 'konzerte' },
+            { t: 'SNEAKRS Raffle: Travis Scott x Nike', cat: 'mode' },
+            { t: 'ACRONYM Popup nur dieses WE in Mitte', cat: 'mode' },
+            { t: '5 Trends, die diese Woche viral gehen', cat: 'trends' },
+            { t: 'Techno-Nacht im Club OST Berlin', cat: 'konzerte' },
+            { t: 'Gewinne 1 Jahr Cloud-Speicher', cat: 'giveaways' },
+            { t: 'OpenAI Verse 2: Open-Source-Bildmodell', cat: 'tech' },
         ];
-        const tickerInner=document.getElementById('tickerInner');
-        const tickerHTML=TICKER_HEADLINES.map(h=>`<span class="ticker__item cat-${h.cat}"><span class="ticker__dot">✦</span>${h.t}</span>`).join('');
-        tickerInner.innerHTML=tickerHTML+tickerHTML;
+        const tickerInner = document.getElementById('tickerInner');
+        const tickerHTML = TICKER_HEADLINES.map(h => `<span class="ticker__item cat-${h.cat}"><span class="ticker__dot">✦</span>${h.t}</span>`).join('');
+        tickerInner.innerHTML = tickerHTML + tickerHTML;
 
-        // Topic chips
-        document.querySelectorAll('#topicChips .chip').forEach(chip=>{
-            chip.addEventListener('click',()=>chip.classList.toggle('active'));
+        // ── Topic chips ──
+        document.querySelectorAll('#topicChips .chip').forEach(chip => {
+            chip.addEventListener('click', () => chip.classList.toggle('active'));
         });
 
-        // Source chips
-        const sourceInput=document.getElementById('sourceInput');
-        const sourcePlatform=document.getElementById('sourcePlatform');
-        const sourceChips=document.getElementById('sourceChips');
-        const sources=[];
+        // ── Source chips ──
+        const sourceInput = document.getElementById('sourceInput');
+        const sourcePlatform = document.getElementById('sourcePlatform');
+        const sourceChips = document.getElementById('sourceChips');
+        const sources = [];
 
-        function addSource(value,platform){
-            if(!value.trim() || sources.find(s=>s.value===value))return;
-            sources.push({value:value.trim(),platform});
+        function addSource(value, platform) {
+            if (!value.trim() || sources.find(s => s.value === value)) return;
+            sources.push({ value: value.trim(), platform });
             renderSources();
-            sourceInput.value='';
+            sourceInput.value = '';
         }
-        function removeSource(value){
-            const idx=sources.findIndex(s=>s.value===value);
-            if(idx!==-1){sources.splice(idx,1);renderSources();}
+        function removeSource(value) {
+            const idx = sources.findIndex(s => s.value === value);
+            if (idx !== -1) { sources.splice(idx, 1); renderSources(); }
         }
-        function renderSources(){
-            sourceChips.innerHTML=sources.map(s=>`<span class="source-chip">${s.platform}: @${s.value}<span class="remove" data-value="${s.value}">&times;</span></span>`).join('');
-            sourceCipsEls=sourceChips.querySelectorAll('.remove');
-            sourceCipsEls.forEach(el=>el.addEventListener('click',()=>removeSource(el.dataset.value)));
+        function renderSources() {
+            sourceChips.innerHTML = sources.map(s => `<span class="source-chip">${s.platform}: @${s.value}<span class="remove" data-value="${s.value}">&times;</span></span>`).join('');
+            sourceChips.querySelectorAll('.remove').forEach(el => el.addEventListener('click', () => removeSource(el.dataset.value)));
         }
-        sourceInput.addEventListener('keydown',e=>{
-            if(e.key==='Enter'){e.preventDefault();addSource(sourceInput.value,sourcePlatform.value);}
+        sourceInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); addSource(sourceInput.value, sourcePlatform.value); }
         });
 
-        // Current data
-        let currentItems=[],currentTitle='',currentIntro='';
+        // ── Current data ──
+        let currentItems = [], currentTitle = '', currentIntro = '';
 
-        // Toast
-        function showToast(msg,isError){
-            const t=document.getElementById('toast');
-            t.textContent=msg;t.className='toast show'+(isError?' error':'');
-            setTimeout(()=>t.classList.remove('show'),2500);
+        // ── Toast ──
+        function showToast(msg, isError) {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = 'toast show' + (isError ? ' error' : '');
+            setTimeout(() => t.classList.remove('show'), 2500);
         }
 
-        // Drop button
-        document.getElementById('dropBtn').addEventListener('click',async()=>{
-            const topics=document.getElementById('topicsInput').value;
-            const activeChips=[...document.querySelectorAll('#topicChips .chip.active')].map(c=>c.dataset.topic);
-            const allTopics=[topics,...activeChips].filter(Boolean).join(', ');
-            const srcList=sources.map(s=>`${s.platform}:${s.value}`);
-            const today=new Date().toISOString().split('T')[0];
-
-            const btn=document.getElementById('dropBtn');
-            btn.classList.add('loading');
-            btn.disabled=true;
-
-            // Show terminal
-            const term=document.getElementById('terminal');
-            term.classList.add('visible');
-            document.getElementById('resultsArea').style.display='none';
-            document.body.classList.add('no-scroll');
-            setTimeout(()=>term.scrollIntoView({behavior:'smooth'}),100);
-
-            const minDelay=new Promise(r=>setTimeout(r,3000));
-
-            try{
-                const resp=await fetch('/api/generate',{
-                    method:'POST',
-                    headers:{'Content-Type':'application/json'},
-                    body:JSON.stringify({preferences:allTopics,sources:srcList,date:today})
+        // ── Matrix burst ──
+        function startBurst() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const bc = document.getElementById('burstCanvas');
+            const bx = bc.getContext('2d');
+            bc.width = window.innerWidth;
+            bc.height = window.innerHeight;
+            bc.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100dvh;z-index:1;pointer-events:none;opacity:0;transition:opacity .5s';
+            let bCols, bDrops;
+            function bSize() { bCols = Math.floor(bc.width / 14); bDrops = Array(bCols).fill(0).map(() => Math.random() * bc.height / 14); }
+            bSize();
+            const bChars = '01<>/#$%&*+=@ABCDEF';
+            let burstActive = true;
+            bx.fillStyle = 'rgba(19,14,11,.95)';
+            bx.fillRect(0, 0, bc.width, bc.height);
+            bc.style.opacity = '1';
+            function bTick() {
+                if (!burstActive) {
+                    bx.fillStyle = 'rgba(19,14,11,.08)';
+                    bx.fillRect(0, 0, bc.width, bc.height);
+                    if (bDrops.every(d => d === 0)) { bc.style.opacity = '0'; return; }
+                    bDrops = bDrops.map(d => d > bc.height / 14 + 5 ? 0 : d + (Math.random() * 0.5));
+                    requestAnimationFrame(bTick);
+                    return;
+                }
+                bx.fillStyle = 'rgba(19,14,11,.06)';
+                bx.fillRect(0, 0, bc.width, bc.height);
+                bx.font = '15px VT323';
+                bx.shadowBlur = Math.random() < 0.2 ? 8 : 0;
+                bx.shadowColor = '#39ff14';
+                bDrops.forEach((d, i) => {
+                    bx.fillStyle = Math.random() < 0.25 ? '#39ff14' : (Math.random() < 0.5 ? '#ff6a1a' : '#fff3df');
+                    bx.fillText(bChars[Math.floor(Math.random() * bChars.length)], i * 14, d * 14);
+                    bDrops[i] = d * 14 > bc.height && Math.random() > 0.92 ? 0 : d + (Math.random() < 0.15 ? 2 : 1.3);
                 });
-                const data=await resp.json();
+                bx.shadowBlur = 0;
+                requestAnimationFrame(bTick);
+            }
+            bTick();
+            return () => { burstActive = false; };
+        }
+        let stopBurst = null;
+
+        // ── DROP Button ──
+        document.getElementById('dropBtn').addEventListener('click', async () => {
+            const topics = document.getElementById('topicsInput').value;
+            const activeChips = [...document.querySelectorAll('#topicChips .chip.active')].map(c => c.dataset.topic);
+            const allTopics = [topics, ...activeChips].filter(Boolean).join(', ');
+            const srcList = sources.map(s => `${s.platform}:${s.value}`);
+            const today = new Date().toISOString().split('T')[0];
+
+            const btn = document.getElementById('dropBtn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const tw = document.getElementById('terminalWrapper');
+            tw.classList.add('visible');
+            document.getElementById('resultsArea').style.display = 'none';
+            document.body.classList.add('no-scroll');
+
+            startBurst && startBurst();
+            stopBurst = startBurst();
+
+            const minDelay = new Promise(r => setTimeout(r, 3000));
+
+            try {
+                const resp = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today })
+                });
+                const data = await resp.json();
                 await minDelay;
-                currentItems=data.items||[];
-                currentTitle=data.title||'DEIN DROP';
-                currentIntro=data.intro||'';
-                const srcLabel=(data.source==='n8n')?' (live via n8n + OpenRouter)':(data.source==='mock'?' (Mock)':'');
-                displayResults(currentItems,currentTitle+srcLabel,currentIntro);
-                addToHistory(currentItems,currentTitle);
-                showToast('DROP ERZEUGT — '+currentItems.length+' Treffer');
+
+                currentItems = data.items || [];
+                currentTitle = data.title || 'DEIN DROP';
+                currentIntro = data.intro || '';
+                const srcLabel = (data.source === 'n8n') ? ' (live via n8n + OpenRouter)' : (data.source === 'mock' ? ' (Mock)' : '');
+                displayResults(currentItems, currentTitle + srcLabel, currentIntro);
+                addToHistory(currentItems, currentTitle);
+                showToast('DROP ERZEUGT — ' + currentItems.length + ' Treffer');
                 launchConfetti();
-                document.getElementById('btnPush').style.display='block';
-            }catch(err){
+                document.getElementById('btnPush').style.display = 'block';
+            } catch (err) {
                 console.error(err);
                 await minDelay;
-                showToast('Fehler beim Laden',true);
+                showToast('Fehler beim Laden', true);
             }
 
-            term.classList.remove('visible');
+            stopBurst && stopBurst();
+            stopBurst = null;
+            tw.classList.remove('visible');
             btn.classList.remove('loading');
-            btn.disabled=false;
+            btn.disabled = false;
             document.body.classList.remove('no-scroll');
-            setTimeout(()=>document.getElementById('resultsArea').scrollIntoView({behavior:'smooth'}),200);
+            setTimeout(() => document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' }), 200);
         });
 
-        // Display results
-        let viewMode='stories';
-        function displayResults(items,title,intro){
-            document.getElementById('resultsArea').style.display='block';
-            document.getElementById('introCard').innerHTML=`
-                <h2>${title} · ${new Date().toLocaleDateString('de-DE')}</h2>
-                <div class="count">${items.length} Treffer</div>
-                <p>${intro}</p>
-            `;
+        // ── Display results ──
+        let viewMode = 'stories';
+        function displayResults(items, title, intro) {
+            const area = document.getElementById('resultsArea');
+            area.style.display = 'block';
+
+            // Intro card
+            document.getElementById('introTitle').textContent = title + ' · ' + new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            document.getElementById('introCount').textContent = items.length + ' Treffer aus 5 Quellen';
+            document.getElementById('introText').textContent = intro;
+            updateCountdown();
+
+            // Progress bar
+            const prog = document.getElementById('storyProgress');
+            prog.innerHTML = items.map((_, i) => `<span class="prog-seg" data-idx="${i}"></span>`).join('');
+            document.getElementById('storyProgress').style.display = 'flex';
 
             // Category filters
-            const cats=[...new Set(items.map(i=>i.category.toLowerCase()))];
-            document.getElementById('catFilters').innerHTML=cats.map(c=>`<span class="chip active" data-cat="${c}">${c}</span>`).join('');
-            document.querySelectorAll('#catFilters .chip').forEach(ch=>{
-                ch.addEventListener('click',()=>{ch.classList.toggle('active');renderView();});
+            const cats = [...new Set(items.map(i => i.category.toLowerCase()))];
+            document.getElementById('catFilters').innerHTML = cats.map(c => `<span class="chip active" data-cat="${c}">${c}</span>`).join('');
+            document.querySelectorAll('#catFilters .chip').forEach(ch => {
+                ch.addEventListener('click', () => { ch.classList.toggle('active'); renderView(); });
             });
 
             // Stories
-            const stories=document.getElementById('storiesContainer');
-            stories.innerHTML=items.map((item,i)=>{
-                const cat=item.category.toLowerCase();
-                return `<div class="story-card cat-${cat}" data-cat="${cat}">
-                    <div class="card-header">
-                        <span class="cat-pill">${item.category}</span>
-                        <span class="card-index">${String(i+1).padStart(2,'0')}/${String(items.length).padStart(2,'0')}</span>
+            const inner = document.getElementById('storiesInner');
+            const imgSources = ['field_pix', 'money_pix', 'field_duo', 'money_duo', 'field_pix', 'money_duo', 'money_pix', 'field_duo'];
+            inner.innerHTML = items.map((item, i) => {
+                const cat = item.category.toLowerCase();
+                const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
+                const fadeIn = 0.6 + i * 0.08;
+                return `<div class="story-card cat-${cat}" data-cat="${cat}" style="animation-delay:${fadeIn}s">
+                    <div class="card-parallax" data-speed="0.4">
+                        <img src="${img}" alt="" loading="lazy">
                     </div>
-                    <h3>${item.title}</h3>
-                    <p class="summary">${item.summary}</p>
-                    <div class="meta-row">
-                        <span>${item.source} · ${item.when}</span>
-                        <a href="${item.url}" target="_blank" rel="noopener">↗</a>
-                    </div>
-                    <div class="actions">
-                        <a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;flex:1"><button class="btn-open" style="width:100%">ÖFFNEN ↗</button></a>
-                        <button class="btn-save" data-title="${item.title}">★ MERKEN</button>
+                    <div class="card-body">
+                        <div class="card-header">
+                            <span class="cat-pill">${item.category}</span>
+                            <span class="card-index">${String(i + 1).padStart(2, '0')}/${String(items.length).padStart(2, '0')}</span>
+                        </div>
+                        <h3>${item.title}</h3>
+                        <p class="summary">${item.summary}</p>
+                        <div class="meta-row">
+                            <span>${item.source} · ${item.when}</span>
+                        </div>
+                        <div class="actions">
+                            <a href="${item.url}" target="_blank" rel="noopener" class="btn-open-wrap"><button class="btn-open">ÖFFNEN ↗</button></a>
+                            <button class="btn-save" data-title="${item.title}">★ MERKEN</button>
+                            <button class="btn-share" data-title="${item.title}" data-url="${item.url}">TEILEN</button>
+                        </div>
                     </div>
                 </div>`;
             }).join('');
 
             // Feed
-            const feed=document.getElementById('feedContainer');
-            feed.innerHTML=items.map((item,i)=>{
-                const cat=item.category.toLowerCase();
-                return `<div class="feed-card cat-${cat}" data-cat="${cat}">
-                    <span class="cat-pill" style="flex-shrink:0;font-size:8px;padding:3px 8px">${item.category}</span>
-                    <div class="info"><h4>${item.title}</h4><span class="src">${item.source} · ${item.when}</span></div>
-                    <a href="${item.url}" target="_blank" rel="noopener">↗</a>
+            const feed = document.getElementById('feedContainer');
+            feed.innerHTML = items.map((item, i) => {
+                const cat = item.category.toLowerCase();
+                const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
+                return `<div class="feed-card cat-${cat}" data-cat="${cat}" style="animation-delay:${0.05 * i}s">
+                    <div class="feed-card-img">
+                        <img src="${img}" alt="" loading="lazy">
+                    </div>
+                    <div class="feed-card-body">
+                        <span class="cat-pill">${item.category}</span>
+                        <h4>${item.title}</h4>
+                        <span class="src">${item.source} · ${item.when}</span>
+                    </div>
+                    <div class="feed-card-actions">
+                        <a href="${item.url}" target="_blank" rel="noopener" class="feed-link">↗</a>
+                        <button class="btn-save-inline" data-title="${item.title}">★</button>
+                    </div>
                 </div>`;
             }).join('');
 
-            viewMode='stories';
+            // Set view
+            viewMode = 'stories';
             document.getElementById('btnStories').classList.add('active');
             document.getElementById('btnFeed').classList.remove('active');
             document.getElementById('storiesContainer').classList.remove('hidden');
             document.getElementById('feedContainer').classList.remove('active');
-            document.getElementById('catFilters').style.display='flex';
+            document.getElementById('catFilters').style.display = 'none';
+            document.getElementById('storyProgress').style.display = 'flex';
+            updateStoriesProgress();
 
-            // Save button handlers
-            document.querySelectorAll('#storiesContainer .btn-save').forEach(btn=>{
-                btn.addEventListener('click',function(){
-                    const title=this.dataset.title;
-                    const saved=JSON.parse(localStorage.getItem('cypherSaved')||'[]');
-                    if(saved.includes(title)){
-                        const idx=saved.indexOf(title);saved.splice(idx,1);
-                        this.textContent='★ MERKEN';this.classList.remove('saved');
+            // Save buttons
+            setupSaveButtons();
+            // Share buttons
+            setupShareButtons();
+            // Feed 3D tilt
+            setupTilt();
+            // Stories parallax
+            setupParallax();
+
+            // Restore saved state
+            restoreSavedState();
+        }
+
+        function renderView() {
+            const activeCats = [...document.querySelectorAll('#catFilters .chip.active')].map(c => c.dataset.cat);
+            const selector = viewMode === 'stories' ? '#storiesInner .story-card' : '#feedContainer .feed-card';
+            document.querySelectorAll(selector).forEach(card => {
+                card.style.display = activeCats.length === 0 || activeCats.includes(card.dataset.cat) ? '' : 'none';
+            });
+        }
+
+        // ── Stories progress ──
+        function updateStoriesProgress() {
+            const stories = document.getElementById('storiesContainer');
+            const segs = document.querySelectorAll('#storyProgress .prog-seg');
+            stories.addEventListener('scroll', () => {
+                const scrollLeft = stories.scrollLeft;
+                const cardWidth = stories.offsetWidth;
+                const idx = Math.round(scrollLeft / cardWidth);
+                segs.forEach((s, i) => s.classList.toggle('active', i <= idx));
+            }, { passive: true });
+        }
+
+        // ── Parallax ──
+        function setupParallax() {
+            const stories = document.getElementById('storiesContainer');
+            stories.addEventListener('scroll', () => {
+                document.querySelectorAll('#storiesInner .story-card .card-parallax img').forEach(img => {
+                    const card = img.closest('.story-card');
+                    const rect = card.getBoundingClientRect();
+                    const containerRect = stories.getBoundingClientRect();
+                    const offset = rect.left - containerRect.left;
+                    const translate = offset * 0.15;
+                    img.style.transform = `translateX(${translate}px) scale(1.05)`;
+                });
+            }, { passive: true });
+        }
+
+        // ── Save buttons ──
+        function setupSaveButtons() {
+            document.querySelectorAll('.btn-save, .btn-save-inline').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const title = this.dataset.title;
+                    const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
+                    if (saved.includes(title)) {
+                        saved.splice(saved.indexOf(title), 1);
+                        this.textContent = this.classList.contains('btn-save-inline') ? '★' : '★ MERKEN';
+                        this.classList.remove('saved');
                         showToast('Aus Gemerkt entfernt');
-                    }else{
+                    } else {
                         saved.push(title);
-                        this.textContent='★ GEMERKT';this.classList.add('saved');
+                        this.textContent = this.classList.contains('btn-save-inline') ? '★' : '★ GEMERKT';
+                        this.classList.add('saved');
                         showToast('Gemerkt!');
                     }
-                    localStorage.setItem('cypherSaved',JSON.stringify(saved));
+                    localStorage.setItem('cypherSaved', JSON.stringify(saved));
                 });
-                // Restore saved state
-                const saved=JSON.parse(localStorage.getItem('cypherSaved')||'[]');
-                if(saved.includes(btn.dataset.title)){btn.textContent='★ GEMERKT';btn.classList.add('saved');}
             });
         }
 
-        function renderView(){
-            const activeCats=[...document.querySelectorAll('#catFilters .chip.active')].map(c=>c.dataset.cat);
-            document.querySelectorAll(viewMode==='stories'?'#storiesContainer .story-card':'.feed-card').forEach(card=>{
-                card.style.display=activeCats.length===0||activeCats.includes(card.dataset.cat)?'':'none';
+        function restoreSavedState() {
+            const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
+            document.querySelectorAll('.btn-save, .btn-save-inline').forEach(btn => {
+                if (saved.includes(btn.dataset.title)) {
+                    btn.textContent = btn.classList.contains('btn-save-inline') ? '★' : '★ GEMERKT';
+                    btn.classList.add('saved');
+                }
             });
         }
 
-        // View toggle
-        document.getElementById('btnStories').addEventListener('click',()=>{
-            viewMode='stories';
+        // ── Share buttons ──
+        function setupShareButtons() {
+            document.querySelectorAll('.btn-share').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const title = this.dataset.title;
+                    const url = this.dataset.url;
+                    if (navigator.share) {
+                        navigator.share({ title, url }).catch(() => { });
+                    } else {
+                        navigator.clipboard.writeText(url).then(() => showToast('Link kopiert: ' + title))
+                            .catch(() => showToast('Teilen nicht möglich', true));
+                    }
+                });
+            });
+        }
+
+        // ── 3D Tilt on feed cards (desktop) ──
+        function setupTilt() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            if (!('ontouchstart' in window)) {
+                document.querySelectorAll('#feedContainer .feed-card').forEach(card => {
+                    card.addEventListener('mousemove', e => {
+                        const r = card.getBoundingClientRect();
+                        const px = (e.clientX - r.left) / r.width - 0.5;
+                        const py = (e.clientY - r.top) / r.height - 0.5;
+                        card.style.transform = `perspective(600px) rotateY(${px * 6}deg) rotateX(${-py * 6}deg)`;
+                    });
+                    card.addEventListener('mouseleave', () => {
+                        card.style.transform = 'perspective(600px) rotateY(0deg) rotateX(0deg)';
+                    });
+                });
+            }
+        }
+
+        // ── View toggle ──
+        document.getElementById('btnStories').addEventListener('click', () => {
+            viewMode = 'stories';
             document.getElementById('btnStories').classList.add('active');
             document.getElementById('btnFeed').classList.remove('active');
             document.getElementById('storiesContainer').classList.remove('hidden');
             document.getElementById('feedContainer').classList.remove('active');
-            document.getElementById('catFilters').style.display='flex';
-            renderView();
+            document.getElementById('catFilters').style.display = 'none';
+            document.getElementById('storyProgress').style.display = 'flex';
         });
-        document.getElementById('btnFeed').addEventListener('click',()=>{
-            viewMode='feed';
+        document.getElementById('btnFeed').addEventListener('click', () => {
+            viewMode = 'feed';
             document.getElementById('btnFeed').classList.add('active');
             document.getElementById('btnStories').classList.remove('active');
             document.getElementById('storiesContainer').classList.add('hidden');
             document.getElementById('feedContainer').classList.add('active');
-            document.getElementById('catFilters').style.display='flex';
-            renderView();
+            document.getElementById('catFilters').style.display = 'flex';
+            document.getElementById('storyProgress').style.display = 'none';
+            setupTilt();
         });
 
-        // History
-        function addToHistory(items,title){
-            const entry={title,date:new Date().toISOString(),count:items.length,items};
-            const hist=JSON.parse(localStorage.getItem('cypherHistory')||'[]');
+        // ── Countdown ──
+        function updateCountdown() {
+            const now = new Date();
+            const next = new Date(now);
+            next.setHours(8, 0, 0, 0);
+            if (now >= next) next.setDate(next.getDate() + 1);
+            const diff = next - now;
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            document.getElementById('countdown').textContent = `Nächster Drop in ${h}h ${m}m`;
+        }
+        setInterval(updateCountdown, 60000);
+
+        // ── History ──
+        function addToHistory(items, title) {
+            const entry = { title, date: new Date().toISOString(), count: items.length, items };
+            const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
             hist.unshift(entry);
-            if(hist.length>7)hist.length=7;
-            localStorage.setItem('cypherHistory',JSON.stringify(hist));
+            if (hist.length > 7) hist.length = 7;
+            localStorage.setItem('cypherHistory', JSON.stringify(hist));
             renderHistory();
         }
-        function renderHistory(){
-            const container=document.getElementById('historyContainer');
-            const hist=JSON.parse(localStorage.getItem('cypherHistory')||'[]');
-            if(hist.length===0){container.innerHTML='<p class="empty">Noch kein Drop. Sag uns, was dich interessiert.</p>';return;}
-            container.innerHTML=hist.map((h,i)=>{
-                const d=new Date(h.date);
+        function renderHistory() {
+            const container = document.getElementById('historyContainer');
+            const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
+            if (hist.length === 0) { container.innerHTML = '<p class="empty">Noch kein Drop. Sag uns, was dich interessiert.</p>'; return; }
+            container.innerHTML = hist.map((h, i) => {
+                const d = new Date(h.date);
                 return `<div class="feed-card" style="cursor:pointer" data-idx="${i}">
-                    <span style="font-family:VT323;font-size:13px;color:var(--dim)">${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</span>
+                    <span style="font-family:VT323;font-size:13px;color:var(--dim)">${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
                     <div class="info"><h4 style="font-size:14px">${h.title}</h4></div>
                     <span style="font-size:12px;color:var(--dim)">${h.count} Treffer</span>
                 </div>`;
             }).join('');
-            document.querySelectorAll('#historyContainer .feed-card').forEach(card=>{
-                card.addEventListener('click',function(){
-                    const idx=parseInt(this.dataset.idx);
-                    const hist=JSON.parse(localStorage.getItem('cypherHistory')||'[]');
-                    if(hist[idx]){displayResults(hist[idx].items,hist[idx].title,'Verlauf vom '+new Date(hist[idx].date).toLocaleString('de-DE'));}
+            document.querySelectorAll('#historyContainer .feed-card').forEach(card => {
+                card.addEventListener('click', function () {
+                    const idx = parseInt(this.dataset.idx);
+                    const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
+                    if (hist[idx]) { displayResults(hist[idx].items, hist[idx].title, 'Verlauf vom ' + new Date(hist[idx].date).toLocaleString('de-DE')); }
                 });
             });
         }
         renderHistory();
+        window.addEventListener('load', () => { renderHistory(); });
 
-        // Load history on page load (no duplication — renderHistory handles dedup)
-        window.addEventListener('load',()=>{renderHistory();});
-
-        // Service Worker
-        if('serviceWorker' in navigator){
-            window.addEventListener('load',()=>{
-                navigator.serviceWorker.register('/static/sw.js').then(r=>console.log('SW registered')).catch(()=>{});
+        // ── Service Worker ──
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js').then(r => console.log('SW registered')).catch(() => { });
             });
         }
 
         // ── Konfetti ──
-        function launchConfetti(){
-            if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-            const canvas=document.getElementById('confettiCanvas');
-            const ctx=canvas.getContext('2d');
-            canvas.width=window.innerWidth;
-            canvas.height=window.innerHeight;
-            canvas.style.cssText='position:fixed;top:0;left:0;z-index:99;pointer-events:none';
-            const colors=['#ff6a1a','#ffc21a','#39ff14','#2fe6a6','#d6336c','#e03a2b'];
-            const particles=[];
-            for(let i=0;i<60;i++){
+        function launchConfetti() {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const canvas = document.getElementById('confettiCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:99;pointer-events:none;display:block';
+            const colors = ['#ff6a1a', '#ffc21a', '#39ff14', '#2fe6a6', '#d6336c', '#e03a2b'];
+            const particles = [];
+            for (let i = 0; i < 60; i++) {
                 particles.push({
-                    x:canvas.width/2+(Math.random()-.5)*200,
-                    y:canvas.height*.3+Math.random()*100,
-                    vx:(Math.random()-.5)*8,
-                    vy:(Math.random()-2)*6,
-                    size:4+Math.random()*8,
-                    color:colors[Math.floor(Math.random()*colors.length)],
-                    life:1,
-                    decay:.008+Math.random()*.02,
-                    rot:Math.random()*Math.PI*2
+                    x: canvas.width / 2 + (Math.random() - .5) * 200, y: canvas.height * .3 + Math.random() * 100,
+                    vx: (Math.random() - .5) * 8, vy: (Math.random() - 2) * 6,
+                    size: 4 + Math.random() * 8, color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1, decay: .008 + Math.random() * .02, rot: Math.random() * Math.PI * 2
                 });
             }
-            let frame=0;
-            function draw(){
-                ctx.clearRect(0,0,canvas.width,canvas.height);
-                let alive=0;
-                particles.forEach(p=>{
-                    p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.life-=p.decay;p.rot+=.1;
-                    if(p.life<=0||p.y>canvas.height+50)return;
+            let frame = 0;
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let alive = 0;
+                particles.forEach(p => {
+                    p.x += p.vx; p.y += p.vy; p.vy += .15; p.life -= p.decay; p.rot += .1;
+                    if (p.life <= 0 || p.y > canvas.height + 50) return;
                     alive++;
-                    ctx.save();
-                    ctx.translate(p.x,p.y);
-                    ctx.rotate(p.rot);
-                    ctx.globalAlpha=p.life;
-                    ctx.fillStyle=p.color;
-                    ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
-                    ctx.restore();
+                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); ctx.restore();
                 });
-                if(alive>0&&frame<90){
-                    frame++;
-                    requestAnimationFrame(draw);
-                }else{
-                    ctx.clearRect(0,0,canvas.width,canvas.height);
-                }
+                if (alive > 0 && frame < 90) { frame++; requestAnimationFrame(draw); }
+                else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = 'none'; }
             }
             draw();
         }
 
-        // ── Cursor-Trail (Desktop) ──
-        if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
-            const tcanvas=document.getElementById('cursorTrail');
-            const tc=tcanvas.getContext('2d');
-            tcanvas.width=window.innerWidth;tcanvas.height=window.innerHeight;
-            tcanvas.style.cssText='position:fixed;top:0;left:0;z-index:50;pointer-events:none';
-            window.addEventListener('resize',()=>{tcanvas.width=window.innerWidth;tcanvas.height=window.innerHeight;});
-            let trailPoints=[];
-            document.addEventListener('mousemove',e=>{
-                trailPoints.push({x:e.clientX,y:e.clientY,life:1});
-                if(trailPoints.length>16)trailPoints.shift();
+        // ── Cursor-Trail ──
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            const tcanvas = document.getElementById('cursorTrail');
+            const tc = tcanvas.getContext('2d');
+            tcanvas.width = window.innerWidth; tcanvas.height = window.innerHeight;
+            tcanvas.style.cssText = 'position:fixed;top:0;left:0;z-index:50;pointer-events:none';
+            window.addEventListener('resize', () => { tcanvas.width = window.innerWidth; tcanvas.height = window.innerHeight; });
+            let trailPoints = [];
+            document.addEventListener('mousemove', e => {
+                trailPoints.push({ x: e.clientX, y: e.clientY, life: 1 });
+                if (trailPoints.length > 16) trailPoints.shift();
             });
-            function drawTrail(){
-                tc.clearRect(0,0,tcanvas.width,tcanvas.height);
-                for(let i=0;i<trailPoints.length;i++){
-                    const p=trailPoints[i];
-                    p.life-=.07;
-                    if(p.life<=0){trailPoints.splice(i,1);i--;continue;}
-                    tc.fillStyle='rgba(255,106,26,'+(p.life*.4)+')';
-                    tc.fillRect(p.x-3,p.y-3,6,6);
+            function drawTrail() {
+                tc.clearRect(0, 0, tcanvas.width, tcanvas.height);
+                for (let i = 0; i < trailPoints.length; i++) {
+                    const p = trailPoints[i];
+                    p.life -= .07;
+                    if (p.life <= 0) { trailPoints.splice(i, 1); i--; continue; }
+                    tc.fillStyle = 'rgba(255,106,26,' + (p.life * .4) + ')';
+                    tc.fillRect(p.x - 3, p.y - 3, 6, 6);
                 }
                 requestAnimationFrame(drawTrail);
             }
@@ -448,25 +631,25 @@
         }
 
         // ── Push Button ──
-        const btnPush=document.getElementById('btnPush');
-        btnPush.addEventListener('click',async()=>{
-            if(!('Notification' in window)){showToast('Benachrichtigungen nicht unterstützt',true);return;}
-            if(Notification.permission==='granted'){
-                const reg=await navigator.serviceWorker.ready;
-                reg.showNotification('Cypher News – Dein Drop ist da!',{body:'Persönlicher Newsletter mit 8 Treffern bereit.',icon:'/static/icon-192.png',vibrate:[200,100,200]});
+        const btnPush = document.getElementById('btnPush');
+        btnPush.addEventListener('click', async () => {
+            if (!('Notification' in window)) { showToast('Benachrichtigungen nicht unterstützt', true); return; }
+            if (Notification.permission === 'granted') {
+                const reg = await navigator.serviceWorker.ready;
+                reg.showNotification('Cypher News – Dein Drop ist da!', { body: 'Persönlicher Newsletter mit ' + currentItems.length + ' Treffern bereit.', icon: '/static/icon-192.png', vibrate: [200, 100, 200] });
                 showToast('Push aktiviert!');
-                btnPush.style.display='none';
-            }else if(Notification.permission==='denied'){
-                showToast('Benachrichtigungen blockiert',true);
-            }else{
-                const perm=await Notification.requestPermission();
-                if(perm==='granted'){
+                btnPush.style.display = 'none';
+            } else if (Notification.permission === 'denied') {
+                showToast('Benachrichtigungen blockiert', true);
+            } else {
+                const perm = await Notification.requestPermission();
+                if (perm === 'granted') {
                     btnPush.click();
-                }else{
-                    showToast('Benachrichtigungen abgelehnt',true);
+                } else {
+                    showToast('Benachrichtigungen abgelehnt', true);
                 }
             }
-            if(navigator.vibrate)navigator.vibrate(15);
+            if (navigator.vibrate) navigator.vibrate(15);
         });
     </script>
 </body>
