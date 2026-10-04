@@ -10,6 +10,7 @@ app = Flask(__name__)
 
 MODEL_PRIMARY = os.environ.get('MODEL_PRIMARY', 'unknown')
 N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', 'http://127.0.0.1:5678/webhook/newsletter')
+SOCIALFETCH_URL = os.environ.get('SOCIALFETCH_URL', 'http://127.0.0.1:5090')
 
 MOCK_ITEMS = [
     {"category": "Konzerte", "title": "Freiluftkonzert im Mauerpark heute Abend", "summary": "Kostenloses Konzert mit drei lokalen Indie-Bands ab 19 Uhr. Picknickdecke nicht vergessen – Eintritt frei.", "source": "Eventkalender Berlin", "url": "https://example.com/concert-mauerpark", "when": ""},
@@ -22,13 +23,56 @@ MOCK_ITEMS = [
     {"category": "Trends", "title": "5 Trends, die diese Woche jeder teilt", "summary": "Von KI-generierten Avataren bis Bio-3D-Druck: Das sind die Themen, die gerade viral gehen.", "source": "YouTube TrendCheck", "url": "https://example.com/weekly-trends", "when": ""}
 ]
 
+CATEGORY_MAP = {
+    'konzerte': 'Konzerte', 'concert': 'Konzerte', 'gig': 'Konzerte', 'club': 'Konzerte',
+    'giveaway': 'Giveaways', 'gewinnspiel': 'Giveaways', 'raffle': 'Giveaways',
+    'mode': 'Mode', 'fashion': 'Mode', 'drop': 'Mode', 'sneaker': 'Mode', 'streetwear': 'Mode',
+    'tech': 'Tech', 'ai': 'Tech', 'opensource': 'Tech',
+    'snack': 'Trends', 'food': 'Trends', 'trends': 'Trends',
+    'hackathon': 'Tech',
+}
+
+
+def classify_social(text):
+    t = text.lower()
+    for key, cat in CATEGORY_MAP.items():
+        if key in t:
+            return cat
+    return 'Sonstiges'
+
+
+def demo_social_items():
+    try:
+        path = os.path.join(app.root_path, 'data', 'demo_social.json')
+        with open(path, 'r') as f:
+            d = json.load(f)
+    except Exception:
+        return []
+    items = []
+    for s in d.get('social_items', []):
+        items.append({
+            'category': classify_social(s.get('text', '')),
+            'title': s.get('text', '')[:80] + ('...' if len(s.get('text', '')) > 80 else ''),
+            'summary': s.get('text', ''),
+            'source': f"{s.get('platform', '')}: @{s.get('account', '')}",
+            'url': s.get('url', ''),
+            'when': s.get('taken_at', '')[:10] if s.get('taken_at') else '',
+            'kind': s.get('kind', 'post'),
+            'platform': s.get('platform', ''),
+        })
+    return items
+
+
 def today_str():
     return datetime.now().strftime('%Y-%m-%d')
 
-def mock_response():
+def mock_response(include_social=True):
     t = today_str()
     items = [{**i, "when": t} for i in MOCK_ITEMS]
-    return {"title": "DEIN DROP", "date": t, "intro": f"{len(items)} Treffer aus 5 Quellen – kuratiert von KI für dich.", "items": items, "source": "mock"}
+    if include_social:
+        social = demo_social_items()
+        items = items + social
+    return {"title": "DEIN DROP", "date": t, "intro": f"{len(items)} Treffer aus 5+ Quellen – kuratiert von KI für dich.", "items": items, "source": "mock"}
 
 def fallback_from_file():
     data_path = os.path.join(app.root_path, 'data', 'sample_newsletter.json')
@@ -36,8 +80,10 @@ def fallback_from_file():
         d = json.load(f)
     items = [{"category": i["category"], "title": i["title"], "summary": i["summary"],
               "source": i["source"], "url": i["link"], "when": i["date"]} for i in d.get("newsletter", [])]
+    social = demo_social_items()
+    items = items + social
     return {"title": "DEIN DROP (Offline)", "date": today_str(),
-            "intro": "Fallback: Beispiel-Drop aus lokalen Daten.", "items": items, "source": "fallback"}
+            "intro": f"Fallback: Beispiel-Drop mit {len(items)} Treffern.", "items": items, "source": "fallback"}
 
 @app.route('/')
 def index():
@@ -49,8 +95,11 @@ def api_generate():
     preferences = body.get('preferences', '')
     sources = body.get('sources', [])
     date = body.get('date', today_str())
+    accounts = body.get('accounts', {})
 
-    payload = {"preferences": preferences, "sources": sources, "date": date}
+    payload = {"preferences": preferences, "sources": sources, "date": date, "accounts": accounts}
+    if accounts:
+        payload['social_items'] = demo_social_items()
 
     try:
         resp = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=22)
@@ -80,6 +129,24 @@ def mock_newsletter():
 def sample_newsletter():
     data_dir = os.path.join(app.root_path, 'data')
     return send_from_directory(data_dir, 'sample_newsletter.json')
+
+@app.route('/data/demo_social.json')
+def demo_social():
+    data_dir = os.path.join(app.root_path, 'data')
+    return send_from_directory(data_dir, 'demo_social.json')
+
+@app.route('/api/social/accounts')
+def api_social_accounts():
+    items = demo_social_items()
+    accounts = {}
+    for item in items:
+        plat = item.get('platform', '')
+        if plat not in accounts:
+            accounts[plat] = []
+        acc = item.get('source', '').replace(f'{plat}: @', '')
+        if acc and acc not in accounts[plat]:
+            accounts[plat].append(acc)
+    return jsonify({'accounts': accounts, 'demo': True})
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=False)

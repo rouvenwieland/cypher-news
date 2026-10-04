@@ -22,14 +22,14 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst b = $input.first().json.body || $input.first().json;\nconst prefsText = String(b.preferences || '').trim();\nconst sources = Array.isArray(b.sources) ? b.sources : [];\nconst date = b.date || new Date().toISOString().slice(0,10);\nconst enc = encodeURIComponent;\nlet topics = prefsText.split(/[\\n,;]+|\\s+und\\s+/i).map(s => s.trim()).filter(s => s.length > 2);\nif (!topics.length) topics = ['Konzerte Berlin', 'Giveaways', 'Tech News', 'Trends'];\ntopics = [...new Set(topics)].slice(0, 5);\nconst feeds = [];\nfor (const t of topics) {\n  feeds.push({ url: `https://news.google.com/rss/search?q=${enc(t + ' when:7d')}&hl=de&gl=DE&ceid=DE:de`, label: t });\n}\nfor (const s of sources.slice(0, 6)) {\n  const v = String(s).trim(); if (!v) continue;\n  if (/^https?:\\/\\//i.test(v) && /(rss|feed|atom|\\.xml)/i.test(v)) feeds.push({ url: v, label: v });\n  else if (/reddit\\.com\\/r\\/(\\w+)/i.test(v)) feeds.push({ url: `https://www.reddit.com/r/${v.match(/r\\/(\\w+)/i)[1]}/top/.rss?t=week`, label: v });\n  else feeds.push({ url: `https://www.bing.com/news/search?q=${enc(v.replace(/^@/, '') + ' ' + prefsText)}&format=rss&setlang=de`, label: v });\n}\nreturn feeds.slice(0, 9).map(f => ({ json: { url: f.url, label: f.label, prefs: prefsText, topics, date, sources } }));\n"
+        "jsCode": "\nconst b = $input.first().json.body || $input.first().json;\nconst prefsText = String(b.preferences || '').trim();\nconst sources = Array.isArray(b.sources) ? b.sources : [];\nconst accounts = b.accounts || {};\nconst social = Array.isArray(b.social_items) ? b.social_items : [];\nconst date = b.date || new Date().toISOString().slice(0,10);\nconst enc = encodeURIComponent;\nlet topics = prefsText.split(/[\\n,;.]+|\\s+und\\s+/i).map(s => s.trim()).filter(s => s.length > 2 && s.length < 80);\nif (!topics.length) topics = ['Konzerte Berlin', 'Giveaways', 'Tech News', 'Trends'];\ntopics = [...new Set(topics)].slice(0, 5);\nconst feeds = [];\nfor (const t of topics) feeds.push({ url: `https://news.google.com/rss/search?q=${enc(t + ' when:7d')}&hl=de&gl=DE&ceid=DE:de`, label: t });\nfor (const s of sources.slice(0, 6)) {\n  const v = String(s).trim(); if (!v) continue;\n  if (/^https?:\\/\\//i.test(v) && /(rss|feed|atom|\\.xml)/i.test(v)) feeds.push({ url: v, label: v });\n  else if (/reddit\\.com\\/r\\/(\\w+)/i.test(v)) feeds.push({ url: `https://www.reddit.com/r/${v.match(/r\\/(\\w+)/i)[1]}/top/.rss?t=week`, label: v });\n  else feeds.push({ url: `https://www.bing.com/news/search?q=${enc(v.replace(/^@/, '') + ' ' + prefsText)}&format=rss&setlang=de`, label: v });\n}\nif (!social.length) for (const [plat, list] of Object.entries(accounts)) for (const h of (Array.isArray(list) ? list : []).slice(0, 2))\n  feeds.push({ url: `https://www.bing.com/news/search?q=${enc(String(h).replace(/^@/, '') + ' ' + plat)}&format=rss&setlang=de`, label: plat + ':' + h });\nconst out = feeds.slice(0, 10).map(f => ({ json: { url: f.url, label: f.label, prefs: prefsText, topics, date, sources } }));\nout[0].json.social_items = social; out[0].json.accounts = accounts;\nreturn out;\n"
       },
       "id": "plan",
       "name": "Plan",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        230,
         200
       ]
     },
@@ -43,7 +43,7 @@
       "type": "n8n-nodes-base.rssFeedRead",
       "typeVersion": 1.2,
       "position": [
-        440,
+        460,
         200
       ],
       "onError": "continueRegularOutput",
@@ -51,14 +51,40 @@
     },
     {
       "parameters": {
-        "jsCode": "\nconst plan = $('Plan').first().json;\nconst seen = new Set(); const items = [];\nfor (const it of $input.all()) {\n  const j = it.json; if (!j || !j.title || !j.link) continue;\n  const key = String(j.title).toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ').slice(0, 60);\n  if (seen.has(key)) continue; seen.add(key);\n  let host = ''; try { host = new URL(j.link).hostname.replace(/^www\\./, ''); } catch (e) {}\n  const src = (j.title.match(/ - ([^-]{3,40})$/) || [])[1] || host || 'Web';\n  items.push({ title: String(j.title).replace(/ - [^-]{3,40}$/, '').slice(0, 160), link: j.link, source: src,\n               date: j.isoDate || j.pubDate || '', snippet: String(j.contentSnippet || j.content || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').slice(0, 220) });\n}\nitems.sort((a, b) => String(b.date).localeCompare(String(a.date)));\nconst top = items.slice(0, 26);\nconst list = top.map((x, i) => `[${i}] ${x.title} | ${x.source} | ${String(x.date).slice(0, 10)} | ${x.snippet}`).join('\\n');\nconst system = 'Du bist die Redaktion von CYPHER NEWS (DAILY DROP), einem personalisierten Tages-Newsletter. Antworte AUSSCHLIESSLICH mit gueltigem JSON, ohne Text davor oder danach.';\nconst user = `Wunsch des Nutzers: \"${plan.prefs}\"\\nDatum: ${plan.date}\\n\\nRohmeldungen (Index | Titel | Quelle | Datum | Ausschnitt):\\n${list}\\n\\nWaehle die 8 besten, zum Wunsch passenden, abwechslungsreichen Meldungen. Schreibe auf Deutsch, locker und praezise. Gib JSON in genau diesem Format zurueck:\\n{\"title\":\"kurze Schlagzeile des Tages\",\"intro\":\"2 Saetze Einleitung\",\"items\":[{\"idx\":<Index aus der Liste>,\"category\":\"Konzerte|Giveaways|Drops|Tech|Trends|News\",\"title\":\"Titel\",\"summary\":\"1-2 Saetze, was ist passiert und warum relevant\",\"when\":\"z.B. Heute, Sa 12.10., diese Woche\"}]}\\nErfinde keine Fakten und keine Links; nutze nur die Meldungen.`;\nreturn [{ json: { prefs: plan.prefs, date: plan.date, top, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] } }];\n"
+        "jsCode": "\nconst plan = $('Plan').first().json;\nconst seen = new Set(); const items = [];\nfor (const sx of (plan.social_items || []).slice(0, 30)) {\n  items.push({ title: String(sx.text || '').split('\\n')[0].slice(0, 140) || ((sx.kind || 'post') + ' von @' + (sx.account || '')), link: sx.url || '',\n    source: (sx.platform || 'social') + ' @' + (sx.account || ''), date: sx.taken_at || '', snippet: String(sx.text || '').replace(/\\s+/g, ' ').slice(0, 260),\n    kind: sx.kind || 'post', platform: sx.platform || '', account: sx.account || '', image_b64: sx.image_b64 || '' });\n}\nconst social = items.slice();\nfor (const it of $input.all()) {\n  const j = it.json; if (!j || !j.title || !j.link) continue;\n  const key = String(j.title).toLowerCase().replace(/[^a-z0-9äöüß]+/g, ' ').slice(0, 60);\n  if (seen.has(key)) continue; seen.add(key);\n  let host = ''; try { host = new URL(j.link).hostname.replace(/^www\\./, ''); } catch (e) {}\n  const src = (j.title.match(/ - ([^-]{3,40})$/) || [])[1] || host || 'Web';\n  items.push({ title: String(j.title).replace(/ - [^-]{3,40}$/, '').slice(0, 160), link: j.link, source: src, kind: 'news', platform: '', account: '',\n    date: j.isoDate || j.pubDate || '', snippet: String(j.contentSnippet || j.content || '').replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').slice(0, 220) });\n}\nconst news = items.filter(x => x.kind === 'news').sort((a, b) => String(b.date).localeCompare(String(a.date)));\nconst top = social.concat(news).slice(0, 34);\nreturn [{ json: { prefs: plan.prefs, date: plan.date, top, socialN: social.length } }];\n"
       },
       "id": "collect",
       "name": "Collect",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
+        690,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst col = $input.first().json; const top = col.top;\nconst key = $env.OPENROUTER_API_KEY;\nconst chain = ['qwen/qwen3.8-27b:free', 'google/gemma-4-31b-it:free', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'];\nconst ask = 'Beschreibe in 1-2 Saetzen auf Deutsch, was auf dem Bild zu sehen ist. Lies sichtbaren Text vor. Nenne Event-Infos (Datum, Ort, Anlass), Giveaway-/Drop-/Preis-Hinweise, falls erkennbar.';\nasync function describe(b64) {\n  for (const model of chain) {\n    try {\n      const r = await this.helpers.httpRequest({ method: 'POST', url: 'https://openrouter.ai/api/v1/chat/completions', json: true, timeout: 40000,\n        headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },\n        body: { model, max_tokens: 300, reasoning: { enabled: false }, messages: [{ role: 'user', content: [{ type: 'text', text: ask }, { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + b64 } }] }] } });\n      const t = r && r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content;\n      if (t && t.trim()) return { text: t.trim().slice(0, 400), model };\n    } catch (e) { /* naechstes Modell */ }\n  }\n  return null;\n}\nconst withImg = top.map((x, i) => [x, i]).filter(([x]) => x.image_b64).slice(0, 6);\nconst res = await Promise.all(withImg.map(([x]) => describe.call(this, x.image_b64)));\nlet n = 0; const models = [];\nwithImg.forEach(([x], k) => { if (res[k]) { x.vision = res[k].text; n++; models.push(res[k].model); } });\nreturn [{ json: { ...col, top, images_analyzed: n, vision_models: [...new Set(models)] } }];\n"
+      },
+      "id": "vision",
+      "name": "Vision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        920,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst col = $input.first().json; const top = col.top;\nconst list = top.map((x, i) => `[${i}] ${x.kind.toUpperCase()}${x.platform ? ' ' + x.platform + ' @' + x.account : ''} | ${x.title} | ${x.source} | ${String(x.date).slice(0, 10)} | ${x.snippet}${x.vision ? ' | BILDINHALT: ' + x.vision : ''}`).join('\\n');\nconst system = 'Du bist die Redaktion von CYPHER NEWS (DAILY DROP), einem personalisierten Tages-Newsletter, der Social-Media-Posts, Stories, Reels und News fuer den Nutzer zusammenfasst, damit er nicht scrollen muss. Antworte AUSSCHLIESSLICH mit gueltigem JSON, ohne Text davor oder danach.';\nconst user = `Notizen/Wuensche des Nutzers: \"${col.prefs}\"\\nDatum: ${col.date}\\n\\nRohdaten (Index | Art/Plattform | Titel | Quelle | Datum | Ausschnitt | Bildinhalt):\\n${list}\\n\\nWaehle die 8 besten, zu den Notizen passenden, abwechslungsreichen Eintraege (Social-Posts/Stories bevorzugen, wenn sie relevant sind; Konzerte, Giveaways, Drops, Tech, Trends). Schreibe auf Deutsch, locker und praezise; nutze Bildinhalte, um Datum/Ort/Aktion zu nennen. JSON-Format:\\n{\"title\":\"kurze Schlagzeile des Tages\",\"intro\":\"2 Saetze Einleitung\",\"items\":[{\"idx\":<Index>,\"category\":\"Konzerte|Giveaways|Drops|Tech|Trends|News\",\"title\":\"Titel\",\"summary\":\"1-2 Saetze: was ist passiert, warum relevant, was tun (Deadline/Datum)\",\"when\":\"z.B. Heute, Sa 12.10., diese Woche\"}]}\\nErfinde keine Fakten und keine Links; nutze nur die Daten oben.`;\nreturn [{ json: { ...col, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] } }];\n"
+      },
+      "id": "writer-prompt",
+      "name": "Writer Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1150,
         200
       ]
     },
@@ -81,34 +107,44 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ model: $env.MODEL_PRIMARY, max_tokens: 4000, temperature: 0.4, reasoning: { enabled: false }, messages: $json.messages }) }}",
+        "jsonBody": "={{ JSON.stringify({ model: 'nvidia/nemotron-3-ultra-550b-a55b:free', max_tokens: 4000, temperature: 0.4, reasoning: { enabled: false }, messages: $json.messages }) }}",
         "options": {
-          "timeout": 90000
+          "timeout": 60000
         }
       },
-      "id": "openrouter",
-      "name": "OpenRouter",
+      "id": "writer",
+      "name": "Writer",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        880,
+        1380,
         200
       ],
-      "onError": "continueRegularOutput",
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 2000
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "\nconst col = $('Collect').first().json; const top = col.top || [];\nconst resp = $input.first().json;\nlet text = ''; try { text = resp.choices[0].message.content || ''; } catch (e) {}\nlet data = null;\ntry { const m = text.match(/\\{[\\s\\S]*\\}/); if (m) data = JSON.parse(m[0]); } catch (e) { data = null; }\nconst cats = { Konzerte: 1, Giveaways: 1, Drops: 1, Tech: 1, Trends: 1, News: 1 };\nconst guess = (t) => /konzert|live|tour|festival|club|dj/i.test(t) ? 'Konzerte' : /gewinn|verlos|giveaway/i.test(t) ? 'Giveaways' : /drop|release|kollektion|sneaker|streetwear|mode/i.test(t) ? 'Drops' : /ki|ai|tech|app|software|handy|chip|apple|google/i.test(t) ? 'Tech' : 'News';\nlet items = [];\nif (data && Array.isArray(data.items)) {\n  for (const x of data.items) {\n    const src = top[Number(x.idx)] || null; if (!src) continue;\n    items.push({ category: cats[x.category] ? x.category : guess(src.title), title: String(x.title || src.title).slice(0, 140),\n      summary: String(x.summary || src.snippet || '').slice(0, 320), source: src.source, url: src.link, when: String(x.when || '').slice(0, 30) || 'aktuell' });\n  }\n}\nconst ai = items.length > 0;\nif (!ai) items = top.slice(0, 8).map(s => ({ category: guess(s.title), title: s.title, summary: s.snippet || 'Mehr dazu in der Quelle.', source: s.source, url: s.link, when: String(s.date).slice(0, 10) || 'aktuell' }));\nconst out = { title: (data && data.title) || 'Dein Drop für heute', date: col.date, intro: (data && data.intro) || 'Frisch gescannt: das Wichtigste zu deinen Themen.',\n  items, meta: { engine: 'n8n', model: ai ? 'openrouter' : 'fallback-ohne-ki', sources: top.length, debug: ai ? undefined : JSON.stringify(resp).slice(0, 400) } };\nreturn [{ json: out }];\n"
+        "jsCode": "\nconst wp = $('Writer Prompt').first().json;\nconst first = $input.first().json;\nconst key = $env.OPENROUTER_API_KEY;\nfunction content(r) { try { return (r.choices[0].message.content || '').trim(); } catch (e) { return ''; } }\nfunction valid(t) { try { const m = t.match(/\\{[\\s\\S]*\\}/); const d = JSON.parse(m[0]); return Array.isArray(d.items) && d.items.length > 0; } catch (e) { return false; } }\nlet text = content(first); let used = 'nvidia/nemotron-3-ultra-550b-a55b:free';\nif (!valid(text)) {\n  const chain = [$env.MODEL_PAID || 'deepseek/deepseek-v4-pro', 'nvidia/nemotron-3-super-120b-a12b:free', $env.MODEL_PRIMARY];\n  for (const model of chain) {\n    if (!model) continue;\n    try {\n      const r = await this.helpers.httpRequest({ method: 'POST', url: 'https://openrouter.ai/api/v1/chat/completions', json: true, timeout: 80000,\n        headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },\n        body: { model, max_tokens: 4000, temperature: 0.4, reasoning: { enabled: false }, messages: wp.messages } });\n      const t = content(r); if (valid(t)) { text = t; used = model; break; }\n    } catch (e) { /* naechstes Modell */ }\n  }\n  if (!valid(text)) { text = ''; used = 'fallback-ohne-ki'; }\n}\nreturn [{ json: { text, used } }];\n"
+      },
+      "id": "router",
+      "name": "Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1610,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst wp = $('Writer Prompt').first().json; const top = wp.top || [];\nconst r = $input.first().json; const text = r.text || '';\nlet data = null; try { const m = text.match(/\\{[\\s\\S]*\\}/); if (m) data = JSON.parse(m[0]); } catch (e) { data = null; }\nconst cats = { Konzerte: 1, Giveaways: 1, Drops: 1, Tech: 1, Trends: 1, News: 1 };\nconst guess = (t) => /konzert|live|tour|festival|club|dj/i.test(t) ? 'Konzerte' : /gewinn|verlos|giveaway/i.test(t) ? 'Giveaways' : /drop|release|kollektion|sneaker|streetwear|mode/i.test(t) ? 'Drops' : /ki|ai|tech|app|software|handy|chip|apple|google/i.test(t) ? 'Tech' : 'News';\nconst build = (src, x) => ({ category: x && cats[x.category] ? x.category : guess(src.title), title: String((x && x.title) || src.title).slice(0, 140),\n  summary: String((x && x.summary) || src.vision || src.snippet || 'Mehr dazu in der Quelle.').slice(0, 340), source: src.source, url: src.link,\n  when: String((x && x.when) || String(src.date).slice(0, 10) || 'aktuell').slice(0, 30), kind: src.kind || 'news', platform: src.platform || '', account: src.account || '',\n  image: src.image_b64 ? 'data:image/jpeg;base64,' + src.image_b64 : '' });\nlet items = [];\nif (data && Array.isArray(data.items)) for (const x of data.items) { const src = top[Number(x.idx)]; if (src) items.push(build(src, x)); }\nconst ai = items.length > 0;\nif (!ai) items = top.slice(0, 8).map(s => build(s, null));\nreturn [{ json: { title: (data && data.title) || 'Dein Drop für heute', date: wp.date, intro: (data && data.intro) || 'Frisch gescannt: das Wichtigste zu deinen Themen.', items,\n  meta: { engine: 'n8n', model: ai ? r.used : 'fallback-ohne-ki', sources: top.length, social_items: wp.socialN || 0, images_analyzed: wp.images_analyzed || 0, vision_models: wp.vision_models || [] } } }];\n"
       },
       "id": "parse",
       "name": "Parse",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1100,
+        1840,
         200
       ]
     },
@@ -133,7 +169,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1320,
+        2070,
         200
       ]
     }
@@ -176,14 +212,47 @@
       "main": [
         [
           {
-            "node": "OpenRouter",
+            "node": "Vision",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "OpenRouter": {
+    "Vision": {
+      "main": [
+        [
+          {
+            "node": "Writer Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writer Prompt": {
+      "main": [
+        [
+          {
+            "node": "Writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Writer": {
+      "main": [
+        [
+          {
+            "node": "Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router": {
       "main": [
         [
           {
@@ -208,7 +277,8 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "executionTimeout": 150
   },
   "pinData": {},
   "id": "cypherNewsDrop001"
