@@ -270,7 +270,6 @@
             document.getElementById('resultsArea').style.display = 'none';
             document.body.classList.add('no-scroll');
 
-            startBurst && startBurst();
             stopBurst = startBurst();
 
             const minDelay = new Promise(r => setTimeout(r, 3000));
