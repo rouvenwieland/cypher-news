@@ -52,6 +52,17 @@ body.no-scroll { overflow: hidden; }
 
 ::selection { background: var(--orange); color: var(--bg); }
 
+:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+}
+button:focus-visible, .chip:focus-visible, .tab-btn:focus-visible, a:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.tab-nav .tab-btn:focus-visible { outline-offset: -2px; }
+
 /* ── Background layers ── */
 #rainCanvas, #burstCanvas {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
@@ -480,7 +491,10 @@ body.no-scroll { overflow: hidden; }
 }
 .tab-page .empty {
     color: var(--dim); font-size: 14px; font-style: italic;
-    padding: 20px; text-align: center;
+    padding: 40px 20px; text-align: center;
+    border: 2px dashed var(--line);
+    border-radius: 8px;
+    background: rgba(14,10,8,.4);
 }
 .tab-page .feed-card { margin-bottom: 8px; }
 
