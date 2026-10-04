@@ -67,7 +67,10 @@ def api_generate():
     except Exception:
         pass
 
-    return jsonify(mock_response())
+    try:
+        return jsonify(fallback_from_file())
+    except Exception:
+        return jsonify(mock_response())
 
 @app.route('/mock/newsletter', methods=['POST'])
 def mock_newsletter():
