@@ -1,27 +1,67 @@
 {
   "newsletter": [
     {
-      "category": "Technologie",
-      "title": "KI-Durchbruch in der Bildverarbeitung",
-      "summary": "Neues Modell erreicht State-of-the-Art auf Benchmark.",
-      "source": "TechBlog",
-      "link": "https://example.com/ai-breakthrough",
-      "date": "2026-10-04"
-    },
-    {
-      "category": "Kultur",
+      "category": "Konzerte",
       "title": "Freiluftkonzert im Park heute Abend",
-      "summary": "Kostenloses Konzert mit lokalen Bands ab 19 Uhr.",
+      "summary": "Kostenloses Konzert mit lokalen Bands ab 19 Uhr im Mauerpark.",
       "source": "Eventkalender",
       "link": "https://example.com/concert-park",
       "date": "2026-10-04"
     },
     {
+      "category": "Konzerte",
+      "title": "Techno-Nacht im Tresor",
+      "summary": "Lokale DJs legen ab 23 Uhr auf. Eintritt frei bis Mitternacht.",
+      "source": "Tresor Berlin",
+      "link": "https://example.com/tresor-night",
+      "date": "2026-10-04"
+    },
+    {
       "category": "Giveaways",
       "title": "Gewinne ein Jahr lang kostenlosen Cloud-Speicher",
-      "summary": "Teilnahme durch Eintragung des Newsletters bis Sonntag.",
+      "summary": "Teilnahme durch Newsletter-Eintragung bis Sonntag.",
       "source": "TechGiveaway",
       "link": "https://example.com/giveaway-cloud",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Giveaways",
+      "title": "SNEAKRS Raffle: Limited Edition Release",
+      "summary": "Neue Kollaboration droppt heute um 10 Uhr. Anmeldung in der App.",
+      "source": "SNEAKRS",
+      "link": "https://example.com/sneakrs-raffle",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Tech",
+      "title": "KI-Durchbruch in der Bildverarbeitung",
+      "summary": "Neues Open-Source-Modell erreicht State-of-the-Art auf mehreren Benchmarks.",
+      "source": "TechBlog",
+      "link": "https://example.com/ai-breakthrough",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Tech",
+      "title": "Raspberry Pi 6 geleakt: Neue Specs enthüllt",
+      "summary": "Gerüchte über doppelte Rechenleistung und integrierte NPU.",
+      "source": "Reddit r/programming",
+      "link": "https://example.com/raspberry6-leak",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Mode",
+      "title": "Streetwear-Brand öffnet Popup-Store in Berlin",
+      "summary": "Limitierte Kollektion nur dieses Wochenende in Mitte.",
+      "source": "tiktok",
+      "link": "https://example.com/popup-store",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Trends",
+      "title": "5 Trends, die diese Woche jeder teilt",
+      "summary": "Von Open-Source-Apps bis nachhaltiger Mode: Was gerade viral geht.",
+      "source": "YouTube TrendCheck",
+      "link": "https://example.com/weekly-trends",
       "date": "2026-10-04"
     }
   ]
