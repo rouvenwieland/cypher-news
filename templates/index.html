@@ -34,6 +34,7 @@
 
         <nav class="tab-nav" id="tabNav">
             <button class="tab-btn active" data-tab="drop">DROP</button>
+            <button class="tab-btn" data-tab="connect">VERBINDEN</button>
             <button class="tab-btn" data-tab="saved">★ GEMERKT</button>
             <button class="tab-btn" data-tab="history">▼ VERLAUF</button>
         </nav>
@@ -43,7 +44,7 @@
         </div>
 
         <div class="onboarding" id="onboarding">
-            <textarea id="topicsInput" placeholder="Sag, was dich interessiert: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News ..." rows="2"></textarea>
+            <textarea id="topicsInput" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, deine Lieblingskünstler, No-Gos ..." rows="4"></textarea>
 
             <div class="chips" id="topicChips">
                 <span class="chip" data-topic="Konzerte Berlin">Konzerte Berlin<span class="check">✓</span></span>
@@ -120,6 +121,17 @@
 
             <!-- Feed container -->
             <div class="feed" id="feedContainer"></div>
+        </div>
+
+        <div class="tab-page" id="pageConnect">
+            <h3>VERBINDEN</h3>
+            <p class="connect-sub">Verbindet eure Accounts – der Drop fasst Posts, Reels &amp; Stories zusammen.</p>
+            <div class="connect-grid" id="connectGrid"></div>
+            <div class="connect-accounts" id="connectAccounts" style="display:none">
+                <p class="connect-sub">Wähle Accounts aus, denen du folgen willst:</p>
+                <div id="accountSelections"></div>
+            </div>
+            <p class="demo-badge">BETA: Demo-Modus – Beispieldaten statt Live-Scraping</p>
         </div>
 
         <div class="tab-page" id="pageSaved">
@@ -264,6 +276,14 @@
             const srcList = sources.map(s => `${s.platform}:${s.value}`);
             const today = new Date().toISOString().split('T')[0];
 
+            const activeConns = {};
+            Object.entries(connectedAccounts).forEach(([plat, accts]) => {
+                const chips = document.querySelectorAll(`#accountChips .chip[data-platform="${plat}"]:not(.active)`) || [];
+                const deselected = new Set([...chips].map(c => c.dataset.account));
+                const active = accts.filter(a => !deselected.has(a));
+                if (active.length > 0) activeConns[plat] = active;
+            });
+
             const btn = document.getElementById('dropBtn');
             btn.classList.add('loading');
             btn.disabled = true;
@@ -281,7 +301,7 @@
                 const resp = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today })
+                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today, accounts: activeConns })
                 });
                 const data = await resp.json();
                 await minDelay;
@@ -564,11 +584,106 @@
         function updateTabVisibility() {
             document.getElementById('onboarding').style.display = currentTab === 'drop' ? '' : 'none';
             document.getElementById('resultsArea').style.display = currentTab === 'drop' ? document.getElementById('resultsArea').style.display : 'none';
+            document.getElementById('pageConnect').style.display = currentTab === 'connect' ? 'block' : 'none';
             document.getElementById('pageSaved').style.display = currentTab === 'saved' ? 'block' : 'none';
             document.getElementById('pageHistory').style.display = currentTab === 'history' ? 'block' : 'none';
             if (currentTab === 'drop' && document.getElementById('resultsArea').style.display === 'none') {
                 document.getElementById('onboarding').style.display = '';
             }
+            if (currentTab === 'connect') renderConnectPage();
+        }
+
+        // ── Connect page ──
+        const PLATFORMS = [
+            { id: 'Instagram', icon: '📷', label: 'Instagram', desc: 'Posts + Stories deiner Follows' },
+            { id: 'TikTok', icon: '🎵', label: 'TikTok', desc: 'Reels, Trends, Creator-Posts' },
+            { id: 'YouTube', icon: '▶️', label: 'YouTube', desc: 'Neue Videos von Kanälen' },
+            { id: 'Reddit', icon: '🤖', label: 'Reddit', desc: 'Top-Posts aus deinen Subs' },
+        ];
+        let connectedAccounts = {}; // {platform: [handle, ...]}
+        const storedConnections = JSON.parse(localStorage.getItem('cypherConnections') || '{}');
+        connectedAccounts = storedConnections;
+
+        function renderConnectPage() {
+            const grid = document.getElementById('connectGrid');
+            grid.innerHTML = PLATFORMS.map(p => {
+                const conn = connectedAccounts[p.id] || [];
+                const isConnected = conn.length > 0;
+                const statusText = isConnected ? `verbunden: ${conn.slice(0, 3).map(a => '@' + a).join(', ')}${conn.length > 3 ? ' +' + (conn.length - 3) : ''}` : 'nicht verbunden';
+                return `<div class="connect-card ${isConnected ? 'connected' : ''}">
+                    <div class="connect-card-head">
+                        <span class="connect-icon">${p.icon}</span>
+                        <div>
+                            <strong>${p.label}</strong>
+                            <small>${p.desc}</small>
+                        </div>
+                    </div>
+                    <div class="connect-status">${statusText}</div>
+                    <button class="btn-connect ${isConnected ? 'disconnect' : ''}" data-platform="${p.id}">${isConnected ? 'TRENNEN' : 'VERBINDEN (DEMO)'}</button>
+                </div>`;
+            }).join('');
+
+            grid.querySelectorAll('.btn-connect').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const plat = btn.dataset.platform;
+                    if (btn.classList.contains('disconnect')) {
+                        delete connectedAccounts[plat];
+                        localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                        renderConnectPage();
+                        showToast(`${plat} getrennt`);
+                        return;
+                    }
+                    // Demo-connect: fetch accounts from API
+                    try {
+                        const resp = await fetch('/api/social/accounts');
+                        const data = await resp.json();
+                        const accts = data.accounts || {};
+                        const platAccts = accts[plat] || [];
+                        if (platAccts.length > 0) {
+                            connectedAccounts[plat] = [...new Set([...(connectedAccounts[plat] || []), ...platAccts])];
+                            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                            renderConnectPage();
+                            showToast(`${plat} verbunden – ${platAccts.length} Accounts`);
+                        } else {
+                            showToast(`Keine Demo-Accounts für ${plat}`, true);
+                        }
+                    } catch (e) {
+                        showToast(`Fehler beim Verbinden von ${plat}`, true);
+                    }
+                });
+            });
+
+            // Show account selection if any platform is connected
+            const accDiv = document.getElementById('connectAccounts');
+            const selDiv = document.getElementById('accountSelections');
+            const totalAccts = Object.values(connectedAccounts).flat();
+            if (totalAccts.length === 0) {
+                accDiv.style.display = 'none';
+                return;
+            }
+            accDiv.style.display = 'block';
+            selDiv.innerHTML = '<div class="account-chips" id="accountChips"></div>';
+            const chipContainer = document.getElementById('accountChips');
+            Object.entries(connectedAccounts).forEach(([plat, accts]) => {
+                accts.forEach(acc => {
+                    const chip = document.createElement('span');
+                    chip.className = 'chip active';
+                    chip.dataset.account = acc;
+                    chip.dataset.platform = plat;
+                    chip.innerHTML = `${acc}<span class="check">✓</span><span class="remove-acc">&times;</span>`;
+                    chip.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('remove-acc')) {
+                            connectedAccounts[plat] = connectedAccounts[plat].filter(a => a !== acc);
+                            if (connectedAccounts[plat].length === 0) delete connectedAccounts[plat];
+                            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                            renderConnectPage();
+                        } else {
+                            chip.classList.toggle('active');
+                        }
+                    });
+                    chipContainer.appendChild(chip);
+                });
+            });
         }
 
         // ── Saved ──

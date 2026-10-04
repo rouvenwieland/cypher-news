@@ -499,6 +499,65 @@ button:focus-visible, .chip:focus-visible, .tab-btn:focus-visible, a:focus-visib
 }
 .tab-page .feed-card { margin-bottom: 8px; }
 
+/* ── Connect page ── */
+.connect-sub {
+    color: var(--dim); font-size: 13px; margin: 0 0 16px;
+    line-height: 1.5;
+}
+.connect-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.connect-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 12px;
+    transition: border-color .3s, box-shadow .3s;
+}
+.connect-card.connected {
+    border-color: var(--green);
+    box-shadow: 0 0 12px rgba(57,255,20,.12);
+}
+.connect-card-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.connect-card-head strong { font-size: 14px; display: block; color: var(--ink); }
+.connect-card-head small { font-size: 11px; color: var(--dim); display: block; margin-top: 2px; }
+.connect-card-head .connect-icon { font-size: 28px; }
+.connect-status {
+    font-family: 'VT323', monospace; font-size: 12px;
+    color: var(--dim); margin-bottom: 10px; min-height: 16px;
+}
+.connected .connect-status { color: var(--green); }
+.btn-connect {
+    width: 100%; padding: 8px; border: 2px solid var(--orange);
+    background: transparent; color: var(--orange);
+    font-family: 'PressStart2P', monospace; font-size: 10px;
+    border-radius: 6px; cursor: pointer; transition: all .2s;
+}
+.btn-connect:hover { background: var(--orange); color: var(--bg); }
+.btn-connect.disconnect {
+    border-color: var(--red); color: var(--red);
+}
+.btn-connect.disconnect:hover { background: var(--red); color: var(--bg); }
+.connect-accounts { margin-top: 16px; }
+.demo-badge {
+    text-align: center; color: var(--yellow); font-family: 'VT323', monospace;
+    font-size: 12px; margin-top: 20px; padding: 8px;
+    border: 1px dashed var(--yellow); border-radius: 6px;
+    background: rgba(255,194,26,.06);
+}
+.account-chips {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;
+}
+.account-chips .chip {
+    padding: 6px 10px; position: relative;
+    cursor: pointer; user-select: none;
+}
+.remove-acc {
+    margin-left: 6px; color: var(--red); font-size: 14px;
+    font-weight: bold; line-height: 1;
+}
+.remove-acc:hover { color: var(--orange); }
+
 .footer {
     text-align: center; color: var(--dim); font-size: 12px;
     padding: 8px 0; font-family: 'VT323', monospace;
