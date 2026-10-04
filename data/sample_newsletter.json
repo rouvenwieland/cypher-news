@@ -2,64 +2,64 @@
   "newsletter": [
     {
       "category": "Konzerte",
-      "title": "Freiluftkonzert im Park heute Abend",
-      "summary": "Kostenloses Konzert mit lokalen Bands ab 19 Uhr im Mauerpark.",
-      "source": "Eventkalender",
-      "link": "https://example.com/concert-park",
+      "title": "Freiluftkonzert im Mauerpark heute Abend",
+      "summary": "Kostenloses Konzert mit drei lokalen Indie-Bands ab 19 Uhr. Picknickdecke nicht vergessen – Eintritt frei.",
+      "source": "Eventkalender Berlin",
+      "link": "https://example.com/concert-mauerpark",
       "date": "2026-10-04"
     },
     {
       "category": "Konzerte",
-      "title": "Techno-Nacht im Tresor",
-      "summary": "Lokale DJs legen ab 23 Uhr auf. Eintritt frei bis Mitternacht.",
-      "source": "Tresor Berlin",
-      "link": "https://example.com/tresor-night",
+      "title": "Techno-Nacht im Club OST",
+      "summary": "Lokale DJs legen ab 23 Uhr auf. Eintritt frei bis Mitternacht, danach 10 €. Line-up: DJ Spacer, MIRA, KX6000.",
+      "source": "Club OST Berlin",
+      "link": "https://example.com/club-ost",
       "date": "2026-10-04"
     },
     {
       "category": "Giveaways",
       "title": "Gewinne ein Jahr lang kostenlosen Cloud-Speicher",
-      "summary": "Teilnahme durch Newsletter-Eintragung bis Sonntag.",
+      "summary": "TechStartup verlost 50× 2TB Cloud-Speicher. Teilnahme per Newsletter-Anmeldung bis Sonntag 23:59 Uhr.",
       "source": "TechGiveaway",
       "link": "https://example.com/giveaway-cloud",
       "date": "2026-10-04"
     },
     {
       "category": "Giveaways",
-      "title": "SNEAKRS Raffle: Limited Edition Release",
-      "summary": "Neue Kollaboration droppt heute um 10 Uhr. Anmeldung in der App.",
-      "source": "SNEAKRS",
-      "link": "https://example.com/sneakrs-raffle",
-      "date": "2026-10-04"
-    },
-    {
-      "category": "Tech",
-      "title": "KI-Durchbruch in der Bildverarbeitung",
-      "summary": "Neues Open-Source-Modell erreicht State-of-the-Art auf mehreren Benchmarks.",
-      "source": "TechBlog",
-      "link": "https://example.com/ai-breakthrough",
-      "date": "2026-10-04"
-    },
-    {
-      "category": "Tech",
-      "title": "Raspberry Pi 6 geleakt: Neue Specs enthüllt",
-      "summary": "Gerüchte über doppelte Rechenleistung und integrierte NPU.",
-      "source": "Reddit r/programming",
-      "link": "https://example.com/raspberry6-leak",
+      "title": "SNEAKRS Raffle: Travis Scott x Nike Air Max",
+      "summary": "Die neue Kollaboration droppt heute um 10 Uhr exklusiv in der SNEAKRS-App. 3.000 Paare weltweit.",
+      "source": "SNEAKRS App",
+      "link": "https://example.com/sneakrs-travis",
       "date": "2026-10-04"
     },
     {
       "category": "Mode",
-      "title": "Streetwear-Brand öffnet Popup-Store in Berlin",
-      "summary": "Limitierte Kollektion nur dieses Wochenende in Mitte.",
-      "source": "tiktok",
-      "link": "https://example.com/popup-store",
+      "title": "ACRONYM® öffnet Popup-Store in Berlin-Mitte",
+      "summary": "Limitierte Herbstkollektion nur dieses Wochenende in der Rosenthaler Straße. Early-Access ab 9 Uhr.",
+      "source": "Highsnobiety",
+      "link": "https://example.com/acronym-popup",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Mode",
+      "title": "Vivienne Westwood Archive Sale Online",
+      "summary": "Bis zu 70% auf ausgewählte Archiv-Stücke. Nur 48 Stunden online – Code ARCHIVE48 beim Checkout.",
+      "source": "Vivienne Westwood",
+      "link": "https://example.com/vw-archive-sale",
+      "date": "2026-10-04"
+    },
+    {
+      "category": "Tech",
+      "title": "OpenAI leakt Verse 2: Open-Source-Bildmodell mit 8B Parametern",
+      "summary": "Neues Modell erreicht State-of-the-Art auf 5 Benchmarks. Apache-2.0-Lizenz, läuft auf einzelner RTX 4090.",
+      "source": "Hacker News",
+      "link": "https://example.com/verse-2-oss",
       "date": "2026-10-04"
     },
     {
       "category": "Trends",
       "title": "5 Trends, die diese Woche jeder teilt",
-      "summary": "Von Open-Source-Apps bis nachhaltiger Mode: Was gerade viral geht.",
+      "summary": "Von KI-generierten Avataren bis Bio-3D-Druck: Das sind die Themen, die gerade viral gehen.",
       "source": "YouTube TrendCheck",
       "link": "https://example.com/weekly-trends",
       "date": "2026-10-04"

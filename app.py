@@ -12,14 +12,14 @@ MODEL_PRIMARY = os.environ.get('MODEL_PRIMARY', 'unknown')
 N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', 'http://127.0.0.1:5678/webhook/newsletter')
 
 MOCK_ITEMS = [
-    {"category": "Konzerte", "title": "Freiluftkonzert im Park heute Abend", "summary": "Kostenloses Konzert mit lokalen Bands ab 19 Uhr im Mauerpark.", "source": "Eventkalender", "url": "https://example.com/concert-park", "when": ""},
-    {"category": "Konzerte", "title": "Techno-Nacht im Tresor", "summary": "Lokale DJs legen ab 23 Uhr auf. Eintritt frei bis Mitternacht.", "source": "Tresor Berlin", "url": "https://example.com/tresor-night", "when": ""},
-    {"category": "Giveaways", "title": "Gewinne ein Jahr lang kostenlosen Cloud-Speicher", "summary": "Teilnahme durch Newsletter-Eintragung bis Sonntag.", "source": "TechGiveaway", "url": "https://example.com/giveaway-cloud", "when": ""},
-    {"category": "Giveaways", "title": "SNEAKRS Raffle: Limited Edition Release", "summary": "Neue Kollaboration droppt heute um 10 Uhr. Anmeldung in der App.", "source": "SNEAKRS", "url": "https://example.com/sneakrs-raffle", "when": ""},
-    {"category": "Tech", "title": "KI-Durchbruch in der Bildverarbeitung", "summary": "Neues Open-Source-Modell erreicht State-of-the-Art auf mehreren Benchmarks.", "source": "TechBlog", "url": "https://example.com/ai-breakthrough", "when": ""},
-    {"category": "Tech", "title": "Raspberry Pi 6 geleakt: Neue Specs enthüllt", "summary": "Gerüchte über doppelte Rechenleistung und integrierte NPU.", "source": "Reddit r/programming", "url": "https://example.com/raspberry6-leak", "when": ""},
-    {"category": "Mode", "title": "Streetwear-Brand öffnet Popup-Store in Berlin", "summary": "Limitierte Kollektion nur dieses Wochenende in Mitte.", "source": "tiktok", "url": "https://example.com/popup-store", "when": ""},
-    {"category": "Trends", "title": "5 Trends, die diese Woche jeder teilt", "summary": "Von Open-Source-Apps bis nachhaltiger Mode: Was gerade viral geht.", "source": "YouTube TrendCheck", "url": "https://example.com/weekly-trends", "when": ""}
+    {"category": "Konzerte", "title": "Freiluftkonzert im Mauerpark heute Abend", "summary": "Kostenloses Konzert mit drei lokalen Indie-Bands ab 19 Uhr. Picknickdecke nicht vergessen – Eintritt frei.", "source": "Eventkalender Berlin", "url": "https://example.com/concert-mauerpark", "when": ""},
+    {"category": "Konzerte", "title": "Techno-Nacht im Club OST", "summary": "Lokale DJs legen ab 23 Uhr auf. Eintritt frei bis Mitternacht, danach 10 €. Line-up: DJ Spacer, MIRA, KX6000.", "source": "Club OST Berlin", "url": "https://example.com/club-ost", "when": ""},
+    {"category": "Giveaways", "title": "Gewinne ein Jahr lang kostenlosen Cloud-Speicher", "summary": "TechStartup verlost 50× 2TB Cloud-Speicher. Teilnahme per Newsletter-Anmeldung bis Sonntag 23:59 Uhr.", "source": "TechGiveaway", "url": "https://example.com/giveaway-cloud", "when": ""},
+    {"category": "Giveaways", "title": "SNEAKRS Raffle: Travis Scott x Nike Air Max", "summary": "Die neue Kollaboration droppt heute um 10 Uhr exklusiv in der SNEAKRS-App. 3.000 Paare weltweit.", "source": "SNEAKRS App", "url": "https://example.com/sneakrs-travis", "when": ""},
+    {"category": "Mode", "title": "ACRONYM® öffnet Popup-Store in Berlin-Mitte", "summary": "Limitierte Herbstkollektion nur dieses Wochenende in der Rosenthaler Straße. Early-Access ab 9 Uhr.", "source": "Highsnobiety", "url": "https://example.com/acronym-popup", "when": ""},
+    {"category": "Mode", "title": "Vivienne Westwood Archive Sale Online", "summary": "Bis zu 70% auf ausgewählte Archiv-Stücke. Nur 48 Stunden online – Code ARCHIVE48 beim Checkout.", "source": "Vivienne Westwood", "url": "https://example.com/vw-archive-sale", "when": ""},
+    {"category": "Tech", "title": "OpenAI leakt Verse 2: Open-Source-Bildmodell mit 8B Parametern", "summary": "Neues Modell erreicht State-of-the-Art auf 5 Benchmarks. Apache-2.0-Lizenz, läuft auf einzelner RTX 4090.", "source": "Hacker News", "url": "https://example.com/verse-2-oss", "when": ""},
+    {"category": "Trends", "title": "5 Trends, die diese Woche jeder teilt", "summary": "Von KI-generierten Avataren bis Bio-3D-Druck: Das sind die Themen, die gerade viral gehen.", "source": "YouTube TrendCheck", "url": "https://example.com/weekly-trends", "when": ""}
 ]
 
 def today_str():
@@ -28,7 +28,7 @@ def today_str():
 def mock_response():
     t = today_str()
     items = [{**i, "when": t} for i in MOCK_ITEMS]
-    return {"title": "DEIN DROP", "date": t, "intro": "8 Treffer aus 5 Quellen — kuratiert von KI für dich.", "items": items, "source": "mock"}
+    return {"title": "DEIN DROP", "date": t, "intro": f"{len(items)} Treffer aus 5 Quellen – kuratiert von KI für dich.", "items": items, "source": "mock"}
 
 def fallback_from_file():
     data_path = os.path.join(app.root_path, 'data', 'sample_newsletter.json')
