@@ -76,6 +76,7 @@
 
         <div id="resultsArea" style="display:none;">
             <div class="intro-card" id="introCard"></div>
+            <button class="btn-push" id="btnPush" style="display:none">📲 AUF DEM HANDY ERHALTEN</button>
             <div class="view-toggle">
                 <button id="btnStories" class="active">STORIES</button>
                 <button id="btnFeed">FEED</button>
@@ -96,6 +97,8 @@
     </div>
 
     <div class="toast" id="toast"></div>
+    <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+    <canvas id="cursorTrail" aria-hidden="true"></canvas>
 
     <script>
         const CAT_COLORS={konzerte:'var(--orange)',giveaways:'var(--green)',mode:'var(--pink)',drops:'var(--pink)',tech:'var(--cyan)',trends:'var(--yellow)'};
@@ -207,6 +210,8 @@
                 displayResults(currentItems,currentTitle+srcLabel,currentIntro);
                 addToHistory(currentItems,currentTitle);
                 showToast('DROP ERZEUGT — '+currentItems.length+' Treffer');
+                launchConfetti();
+                document.getElementById('btnPush').style.display='block';
             }catch(err){
                 console.error(err);
                 await minDelay;
@@ -366,6 +371,103 @@
                 navigator.serviceWorker.register('/static/sw.js').then(r=>console.log('SW registered')).catch(()=>{});
             });
         }
+
+        // ── Konfetti ──
+        function launchConfetti(){
+            if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+            const canvas=document.getElementById('confettiCanvas');
+            const ctx=canvas.getContext('2d');
+            canvas.width=window.innerWidth;
+            canvas.height=window.innerHeight;
+            canvas.style.cssText='position:fixed;top:0;left:0;z-index:99;pointer-events:none';
+            const colors=['#ff6a1a','#ffc21a','#39ff14','#2fe6a6','#d6336c','#e03a2b'];
+            const particles=[];
+            for(let i=0;i<60;i++){
+                particles.push({
+                    x:canvas.width/2+(Math.random()-.5)*200,
+                    y:canvas.height*.3+Math.random()*100,
+                    vx:(Math.random()-.5)*8,
+                    vy:(Math.random()-2)*6,
+                    size:4+Math.random()*8,
+                    color:colors[Math.floor(Math.random()*colors.length)],
+                    life:1,
+                    decay:.008+Math.random()*.02,
+                    rot:Math.random()*Math.PI*2
+                });
+            }
+            let frame=0;
+            function draw(){
+                ctx.clearRect(0,0,canvas.width,canvas.height);
+                let alive=0;
+                particles.forEach(p=>{
+                    p.x+=p.vx;p.y+=p.vy;p.vy+=.15;p.life-=p.decay;p.rot+=.1;
+                    if(p.life<=0||p.y>canvas.height+50)return;
+                    alive++;
+                    ctx.save();
+                    ctx.translate(p.x,p.y);
+                    ctx.rotate(p.rot);
+                    ctx.globalAlpha=p.life;
+                    ctx.fillStyle=p.color;
+                    ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size);
+                    ctx.restore();
+                });
+                if(alive>0&&frame<90){
+                    frame++;
+                    requestAnimationFrame(draw);
+                }else{
+                    ctx.clearRect(0,0,canvas.width,canvas.height);
+                }
+            }
+            draw();
+        }
+
+        // ── Cursor-Trail (Desktop) ──
+        if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+            const tcanvas=document.getElementById('cursorTrail');
+            const tc=tcanvas.getContext('2d');
+            tcanvas.width=window.innerWidth;tcanvas.height=window.innerHeight;
+            tcanvas.style.cssText='position:fixed;top:0;left:0;z-index:50;pointer-events:none';
+            window.addEventListener('resize',()=>{tcanvas.width=window.innerWidth;tcanvas.height=window.innerHeight;});
+            let trailPoints=[];
+            document.addEventListener('mousemove',e=>{
+                trailPoints.push({x:e.clientX,y:e.clientY,life:1});
+                if(trailPoints.length>16)trailPoints.shift();
+            });
+            function drawTrail(){
+                tc.clearRect(0,0,tcanvas.width,tcanvas.height);
+                for(let i=0;i<trailPoints.length;i++){
+                    const p=trailPoints[i];
+                    p.life-=.07;
+                    if(p.life<=0){trailPoints.splice(i,1);i--;continue;}
+                    tc.fillStyle='rgba(255,106,26,'+(p.life*.4)+')';
+                    tc.fillRect(p.x-3,p.y-3,6,6);
+                }
+                requestAnimationFrame(drawTrail);
+            }
+            drawTrail();
+        }
+
+        // ── Push Button ──
+        const btnPush=document.getElementById('btnPush');
+        btnPush.addEventListener('click',async()=>{
+            if(!('Notification' in window)){showToast('Benachrichtigungen nicht unterstützt',true);return;}
+            if(Notification.permission==='granted'){
+                const reg=await navigator.serviceWorker.ready;
+                reg.showNotification('Cypher News – Dein Drop ist da!',{body:'Persönlicher Newsletter mit 8 Treffern bereit.',icon:'/static/icon-192.png',vibrate:[200,100,200]});
+                showToast('Push aktiviert!');
+                btnPush.style.display='none';
+            }else if(Notification.permission==='denied'){
+                showToast('Benachrichtigungen blockiert',true);
+            }else{
+                const perm=await Notification.requestPermission();
+                if(perm==='granted'){
+                    btnPush.click();
+                }else{
+                    showToast('Benachrichtigungen abgelehnt',true);
+                }
+            }
+            if(navigator.vibrate)navigator.vibrate(15);
+        });
     </script>
 </body>
 </html>

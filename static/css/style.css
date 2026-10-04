@@ -738,6 +738,32 @@ body.no-scroll {
     border-color: var(--red);
 }
 
+/* ── Push button ── */
+.btn-push {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    background: var(--card);
+    color: var(--cyan);
+    border: 1px solid var(--cyan);
+    border-radius: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 12px;
+    transition: all .15s;
+    letter-spacing: .05em;
+}
+.btn-push:hover {
+    background: var(--cyan);
+    color: var(--bg);
+    box-shadow: 0 0 12px rgba(47, 230, 166, .3);
+}
+
+/* ── Confetti canvas ── */
+#confettiCanvas {
+    display: none;
+}
+
 /* ── Footer ── */
 .footer {
     text-align: center;
