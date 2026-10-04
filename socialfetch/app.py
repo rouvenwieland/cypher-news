@@ -2,7 +2,14 @@ from flask import Flask, request, jsonify
 import json
 import os
 import base64
+import subprocess
+import hashlib
+import time
+import re
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+
+import requests
 
 app = Flask(__name__)
 
@@ -13,6 +20,23 @@ DEMO_FILE = os.path.join(DATA_DIR, 'demo_social.json')
 SESSIONS_FILE = os.path.join(DATA_DIR, 'connections.json')
 
 os.makedirs(os.path.join(DATA_DIR, 'sessions'), exist_ok=True)
+
+NS = {'atom': 'http://www.w3.org/2005/Atom'}
+
+_cache = {}
+CACHE_TTL = 600
+USER_AGENT = 'CypherNews/1.0 (Hackathon Demo; contact@example.com)'
+
+
+def cache_get(key):
+    entry = _cache.get(key)
+    if entry and time.time() - entry['ts'] < CACHE_TTL:
+        return entry['data']
+    return None
+
+
+def cache_set(key, data):
+    _cache[key] = {'ts': time.time(), 'data': data}
 
 
 def load_demo():
@@ -36,22 +60,354 @@ def save_connections(conns):
         json.dump(conns, f)
 
 
-def thumbnail_b64():
-    paths = [os.path.join(IMG_DIR, f) for f in ['field_pix.jpg', 'money_pix.jpg', 'field_duo.jpg', 'money_duo.jpg']]
-    for p in paths:
-        if os.path.exists(p):
+def make_thumbnail(url_or_path, platform=''):
+    cache_key = f"thumb_{hashlib.md5(url_or_path.encode()).hexdigest()}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    tmp_in = f"/tmp/socialfetch_thumb_{os.getpid()}_{int(time.time()*1000)}"
+    try:
+        if url_or_path.startswith('http'):
+            r = requests.get(url_or_path, headers={'User-Agent': USER_AGENT}, timeout=10)
+            if r.status_code != 200:
+                return None
+            ext = '.jpg'
+            ct = r.headers.get('content-type', '')
+            if 'png' in ct:
+                ext = '.png'
+            elif 'webp' in ct:
+                ext = '.webp'
+            tmp_in += ext
+            with open(tmp_in, 'wb') as f:
+                f.write(r.content)
+        else:
+            tmp_in = url_or_path
+
+        result = subprocess.run(
+            ['convert', tmp_in, '-resize', '80x80^', '-gravity', 'center',
+             '-extent', '80x80', '-quality', '60', 'jpeg:-'],
+            capture_output=True, timeout=8
+        )
+        if result.returncode == 0 and 0 < len(result.stdout) < 81920:
+            b64 = base64.b64encode(result.stdout).decode('ascii')
+            cache_set(cache_key, b64)
+            return b64
+    except Exception:
+        pass
+    finally:
+        if tmp_in != url_or_path:
             try:
-                import subprocess
-                result = subprocess.run(
-                    ['convert', p, '-resize', '80x80^', '-gravity', 'center', '-extent', '80x80',
-                     '-quality', '60', 'jpeg:-'],
-                    capture_output=True, timeout=5
-                )
-                if result.returncode == 0 and len(result.stdout) < 81920:
-                    return base64.b64encode(result.stdout).decode('ascii')
+                os.unlink(tmp_in)
             except Exception:
                 pass
     return None
+
+
+def demo_thumbnail():
+    paths = [os.path.join(IMG_DIR, f) for f in ['field_pix.jpg', 'money_pix.jpg', 'field_duo.jpg', 'money_duo.jpg']]
+    for p in paths:
+        if os.path.exists(p):
+            thumb = make_thumbnail(p)
+            if thumb:
+                return thumb
+    return None
+
+
+def parse_rss_date(text):
+    if not text:
+        return datetime.now(timezone.utc).isoformat()
+    for fmt in ['%a, %d %b %Y %H:%M:%S %z', '%a, %d %b %Y %H:%M:%S %Z',
+                '%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%dT%H:%M:%SZ',
+                '%Y-%m-%dT%H:%M:%S.%f%z', '%Y-%m-%dT%H:%M:%S.%fZ']:
+        try:
+            return datetime.strptime(text.strip(), fmt).isoformat()
+        except Exception:
+            continue
+    return datetime.now(timezone.utc).isoformat()
+
+
+def text_element(el, tag):
+    child = el.find(tag)
+    if child is not None and child.text:
+        return child.text.strip()
+    return ''
+
+
+def scrape_youtube_channel(handle, hours=48):
+    handle = handle.lstrip('@')
+    cache_key = f"yt_{handle}_{hours}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    items = []
+    rss_items = []
+
+    def try_ytdlp():
+        nonlocal items
+        try:
+            result = subprocess.run(
+                ['yt-dlp', '--flat-playlist', '--dump-json', '--playlist-end', '5',
+                 f'https://www.youtube.com/@{handle}'],
+                capture_output=True, text=True, timeout=20
+            )
+            for line in result.stdout.strip().split('\n'):
+                if not line.strip():
+                    continue
+                try:
+                    v = json.loads(line)
+                    vi = scrape_youtube_video(v, handle, hours)
+                    if vi:
+                        items.append(vi)
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    try:
+        urls = [
+            f'https://www.youtube.com/feeds/videos.xml?channel_id={handle}',
+            f'https://www.youtube.com/feeds/videos.xml?user={handle}',
+        ]
+        rss_xml = None
+        for url in urls:
+            try:
+                r = requests.get(url, headers={'User-Agent': USER_AGENT}, timeout=10)
+                if r.status_code == 200 and '<feed' in r.text:
+                    rss_xml = r.text
+                    break
+            except Exception:
+                continue
+
+        if rss_xml:
+            root = ET.fromstring(rss_xml)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+            for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
+                try:
+                    published = parse_rss_date(entry.find('{http://www.w3.org/2005/Atom}published').text if entry.find('{http://www.w3.org/2005/Atom}published') is not None else '')
+                    try:
+                        pub_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                    except Exception:
+                        pub_dt = datetime.now(timezone.utc)
+                    if pub_dt < cutoff:
+                        continue
+
+                    title = text_element(entry, '{http://www.w3.org/2005/Atom}title')
+                    link_el = entry.find('{http://www.w3.org/2005/Atom}link')
+                    url = link_el.get('href', '') if link_el is not None else ''
+
+                    media_group = entry.find('{http://search.yahoo.com/mrss/}group')
+                    thumb_b64 = None
+                    if media_group is not None:
+                        thumb_el = media_group.find('{http://search.yahoo.com/mrss/}thumbnail')
+                        if thumb_el is not None:
+                            thumb_url = thumb_el.get('url', '')
+                            if thumb_url:
+                                thumb_b64 = make_thumbnail(thumb_url)
+
+                    item = {
+                        'platform': 'youtube',
+                        'account': f'@{handle}',
+                        'kind': 'video',
+                        'text': title,
+                        'url': url,
+                        'taken_at': published,
+                    }
+                    if thumb_b64:
+                        item['image_b64'] = thumb_b64
+                    rss_items.append(item)
+                except Exception:
+                    continue
+
+        items = rss_items
+        if not items:
+            try_ytdlp()
+
+        cache_set(cache_key, items)
+    except Exception:
+        try_ytdlp()
+    return items
+
+
+def scrape_youtube_video(video_json, handle, hours):
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        ts = video_json.get('timestamp') or video_json.get('upload_date')
+        if ts:
+            try:
+                if isinstance(ts, (int, float)):
+                    dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                else:
+                    dt = datetime.strptime(str(ts), '%Y%m%d').replace(tzinfo=timezone.utc)
+                if dt < cutoff:
+                    return None
+                published = dt.isoformat()
+            except Exception:
+                published = datetime.now(timezone.utc).isoformat()
+        else:
+            published = datetime.now(timezone.utc).isoformat()
+
+        vid = video_json.get('id', '')
+        url = f'https://www.youtube.com/watch?v={vid}' if vid else ''
+        title = video_json.get('title', '')
+
+        thumb_b64 = None
+        thumb_url = video_json.get('thumbnail') or video_json.get('thumbnails', [{}])[0].get('url', '')
+        if thumb_url:
+            thumb_b64 = make_thumbnail(thumb_url)
+
+        item = {
+            'platform': 'youtube',
+            'account': f'@{handle}',
+            'kind': 'video',
+            'text': title,
+            'url': url,
+            'taken_at': published,
+        }
+        if thumb_b64:
+            item['image_b64'] = thumb_b64
+        return item
+    except Exception:
+        return None
+
+
+def scrape_reddit(subreddit, hours=48):
+    subreddit = subreddit.lstrip('/r/').lstrip('r/')
+    cache_key = f"reddit_{subreddit}_{hours}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    items = []
+    try:
+        url = f'https://www.reddit.com/r/{subreddit}/top/.rss?t=day&limit=10'
+        r = requests.get(url, headers={'User-Agent': USER_AGENT}, timeout=10)
+        if r.status_code != 200:
+            return []
+
+        root = ET.fromstring(r.text)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+        for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
+            try:
+                published = parse_rss_date(
+                    entry.find('{http://www.w3.org/2005/Atom}updated').text
+                    if entry.find('{http://www.w3.org/2005/Atom}updated') is not None else ''
+                )
+                try:
+                    pub_dt = datetime.fromisoformat(published.replace('Z', '+00:00'))
+                except Exception:
+                    pub_dt = datetime.now(timezone.utc)
+                if pub_dt < cutoff:
+                    continue
+
+                title = text_element(entry, '{http://www.w3.org/2005/Atom}title')
+                link_el = entry.find('{http://www.w3.org/2005/Atom}link')
+                url = link_el.get('href', '') if link_el is not None else ''
+
+                content_el = entry.find('{http://www.w3.org/2005/Atom}content')
+                text = ''
+                if content_el is not None and content_el.text:
+                    text = re.sub(r'<[^>]+>', ' ', content_el.text)[:300].strip()
+
+                item = {
+                    'platform': 'reddit',
+                    'account': f'r/{subreddit}',
+                    'kind': 'post',
+                    'text': f'{title}: {text}' if text else title,
+                    'url': url,
+                    'taken_at': published,
+                }
+                items.append(item)
+            except Exception:
+                continue
+
+        cache_set(cache_key, items)
+    except Exception:
+        pass
+    return items
+
+
+def scrape_tiktok(handle, hours=48):
+    handle = handle.lstrip('@')
+    cache_key = f"tt_{handle}_{hours}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    items = []
+    try:
+        result = subprocess.run(
+            ['yt-dlp', '--flat-playlist', '--dump-json', '--playlist-end', '5',
+             f'https://www.tiktok.com/@{handle}'],
+            capture_output=True, text=True, timeout=20
+        )
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+        for line in result.stdout.strip().split('\n'):
+            if not line.strip():
+                continue
+            try:
+                v = json.loads(line)
+                ts = v.get('timestamp')
+                if ts:
+                    try:
+                        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                        if dt < cutoff:
+                            continue
+                        published = dt.isoformat()
+                    except Exception:
+                        published = datetime.now(timezone.utc).isoformat()
+                else:
+                    published = datetime.now(timezone.utc).isoformat()
+
+                title = v.get('title') or v.get('description', '')
+                vid = v.get('id', '')
+                url = v.get('webpage_url') or f'https://www.tiktok.com/@{handle}/video/{vid}'
+
+                thumb_b64 = None
+                thumb_url = v.get('thumbnail') or (v.get('thumbnails', [{}])[0].get('url') if v.get('thumbnails') else '')
+                if not thumb_url:
+                    try:
+                        info = subprocess.run(
+                            ['yt-dlp', '--dump-json', '--playlist-end', '1', url],
+                            capture_output=True, text=True, timeout=15
+                        )
+                        vi = json.loads(info.stdout)
+                        thumb_url = vi.get('thumbnail', '')
+                    except Exception:
+                        pass
+                if thumb_url:
+                    thumb_b64 = make_thumbnail(thumb_url)
+
+                item = {
+                    'platform': 'tiktok',
+                    'account': f'@{handle}',
+                    'kind': 'video',
+                    'text': title,
+                    'url': url,
+                    'taken_at': published,
+                }
+                if thumb_b64:
+                    item['image_b64'] = thumb_b64
+                items.append(item)
+            except Exception:
+                continue
+
+        cache_set(cache_key, items)
+    except Exception:
+        pass
+    return items
+
+
+SCRAPERS = {
+    'youtube': scrape_youtube_channel,
+    'reddit': scrape_reddit,
+    'tiktok': scrape_tiktok,
+    'instagram': None,
+}
 
 
 def demo_accounts():
@@ -87,11 +443,26 @@ def demo_feed(platform=None, accounts=None, hours=48):
                     continue
             except Exception:
                 pass
-        thumb = thumbnail_b64()
+        thumb = demo_thumbnail()
         entry = dict(item)
-        if thumb:
+        if thumb and 'image_b64' not in entry:
             entry['image_b64'] = thumb
         items.append(entry)
+    return items
+
+
+def live_feed(platform, accounts_list, hours):
+    scraper = SCRAPERS.get(platform)
+    if not scraper:
+        return []
+    items = []
+    for acc in accounts_list:
+        try:
+            result = scraper(acc, hours)
+            if result:
+                items.extend(result)
+        except Exception:
+            continue
     return items
 
 
@@ -122,18 +493,39 @@ def connect():
 def accounts():
     platform = request.args.get('platform', '')
     if platform:
-        all_accounts = demo_accounts()
-        return jsonify({'accounts': all_accounts.get(platform, []), 'demo': True})
+        demo_accs = demo_accounts()
+        return jsonify({'accounts': demo_accs.get(platform, []), 'demo': True})
     return jsonify({'accounts': demo_accounts(), 'demo': True})
 
 
 @app.route('/feed', methods=['GET'])
 def feed():
     platform = request.args.get('platform', '')
-    accounts = request.args.get('accounts', '')
+    accounts_str = request.args.get('accounts', '')
     hours = int(request.args.get('hours', '48'))
-    items = demo_feed(platform=platform or None, accounts=accounts, hours=hours)
-    return jsonify({'items': items, 'count': len(items), 'demo': True, '_note': 'DEMO DATA – sample posts only'})
+    try_live = request.args.get('live', '0') == '1'
+
+    live_items = []
+    if try_live:
+        accounts_list = [a.strip().lstrip('@') for a in accounts_str.split(',') if a.strip()] if accounts_str else []
+        for plat in SCRAPERS:
+            if platform and plat != platform:
+                continue
+            if accounts_list:
+                plat_accounts = accounts_list
+            else:
+                plat_accounts = demo_accounts().get(plat, [])
+            if plat_accounts:
+                plat_items = live_feed(plat, plat_accounts, hours)
+                if plat_items:
+                    live_items.extend(plat_items)
+
+    if live_items:
+        return jsonify({'items': live_items, 'count': len(live_items), 'demo': False})
+
+    demo_items = demo_feed(platform=platform or None, accounts=accounts_str, hours=hours)
+    return jsonify({'items': demo_items, 'count': len(demo_items), 'demo': True,
+                    '_note': 'DEMO DATA – sample posts only'})
 
 
 @app.route('/health', methods=['GET'])
