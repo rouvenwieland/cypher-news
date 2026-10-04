@@ -6,8 +6,10 @@ import subprocess
 import hashlib
 import time
 import re
+import io
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from PIL import Image
 
 import requests
 
@@ -27,6 +29,17 @@ _cache = {}
 CACHE_TTL = 600
 USER_AGENT = 'CypherNews/1.0 (Hackathon Demo; contact@example.com)'
 
+INSTAGRAM_SESSION_FILE = os.path.join(DATA_DIR, 'sessions', 'instagram.session')
+SOCIAL_ENV_FILE = os.path.join(os.path.expanduser('~'), '.config', 'hackathon', 'social.env')
+
+_ig_user = None
+_ig_pass = None
+_ig_logged_in = False
+_ig_login_attempted = False
+_ig_login_error = None
+_ig_instance = None
+_ig_profile = None
+
 
 def cache_get(key):
     entry = _cache.get(key)
@@ -37,6 +50,112 @@ def cache_get(key):
 
 def cache_set(key, data):
     _cache[key] = {'ts': time.time(), 'data': data}
+
+
+def _parse_social_env():
+    """Parse ~/.config/hackathon/social.env for IG_USER and IG_PASS.
+    Custom parser: handles values with $-signs, quotes, whitespace.
+    Never logs or returns the password."""
+    global _ig_user, _ig_pass
+    if _ig_user is not None:
+        return
+    try:
+        with open(SOCIAL_ENV_FILE, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('#') or '=' not in line:
+                    continue
+                key, _, val = line.partition('=')
+                key = key.strip()
+                val = val.strip().strip("'").strip('"')
+                if key == 'IG_USER':
+                    _ig_user = val
+                elif key == 'IG_PASS':
+                    _ig_pass = val
+    except FileNotFoundError:
+        app.logger.error(f"social.env not found at {SOCIAL_ENV_FILE}")
+    except Exception as e:
+        app.logger.error(f"Failed to parse social.env: {e}")
+
+
+def _init_instaloader():
+    """One-time Instaloader login with session persistence.
+    Never retries on failure (Challenge, 2FA, checkpoint, Rate-Limit)."""
+    global _ig_logged_in, _ig_login_attempted, _ig_login_error, _ig_instance, _ig_profile
+
+    if _ig_login_attempted:
+        return
+
+    _parse_social_env()
+    _ig_login_attempted = True
+
+    if not _ig_user or not _ig_pass:
+        _ig_login_error = 'social.env: IG_USER or IG_PASS missing'
+        return
+
+    import instaloader
+
+    L = instaloader.Instaloader(
+        user_agent=USER_AGENT,
+        download_pictures=False,
+        download_videos=False,
+        download_video_thumbnails=False,
+        download_geotags=False,
+        download_comments=False,
+        save_metadata=False,
+        compress_json=False,
+    )
+
+    if os.path.exists(INSTAGRAM_SESSION_FILE):
+        try:
+            L.load_session_from_file(_ig_user, INSTAGRAM_SESSION_FILE)
+            _ig_instance = L
+            _ig_logged_in = True
+            try:
+                _ig_profile = instaloader.Profile.from_username(L.context, _ig_user)
+            except Exception:
+                _ig_profile = None
+            return
+        except Exception:
+            os.unlink(INSTAGRAM_SESSION_FILE)
+
+    try:
+        L.login(_ig_user, _ig_pass)
+        os.makedirs(os.path.dirname(INSTAGRAM_SESSION_FILE), exist_ok=True)
+        L.save_session_to_file(INSTAGRAM_SESSION_FILE)
+        _ig_instance = L
+        _ig_logged_in = True
+        try:
+            _ig_profile = instaloader.Profile.from_username(L.context, _ig_user)
+        except Exception:
+            _ig_profile = None
+    except instaloader.exceptions.BadCredentialsException:
+        _ig_login_error = 'Bad credentials'
+    except instaloader.exceptions.TwoFactorAuthRequiredException:
+        _ig_login_error = '2FA required – cannot login with burner account'
+    except instaloader.exceptions.LoginException:
+        _ig_login_error = 'Challenge required – cannot proceed'
+    except instaloader.exceptions.ConnectionException as e:
+        _ig_login_error = f'Connection error: {e}'
+    except Exception as e:
+        err_msg = str(e).lower()
+        if 'checkpoint' in err_msg:
+            _ig_login_error = 'Account checkpoint triggered – cannot proceed'
+        elif 'rate' in err_msg and 'limit' in err_msg:
+            _ig_login_error = 'Rate limited – try again later'
+        elif 'login' in err_msg and 'required' in err_msg:
+            _ig_login_error = 'Login required'
+        else:
+            _ig_login_error = f'Login failed: {e}'
+
+
+def ig_login_status():
+    _init_instaloader()
+    return {
+        'logged_in': _ig_logged_in,
+        'error': _ig_login_error,
+        'display_name': _ig_user if _ig_logged_in else None,
+    }
 
 
 def load_demo():
@@ -402,11 +521,105 @@ def scrape_tiktok(handle, hours=48):
     return items
 
 
+def scrape_instagram(handle, hours=48):
+    """Scrape up to 4 posts/reels and current stories for an Instagram profile.
+    Requires successful login via _init_instaloader(). Falls back to empty list on error."""
+    handle = handle.lstrip('@')
+    cache_key = f"ig_{handle}_{hours}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
+    _init_instaloader()
+    items = []
+
+    if not _ig_logged_in or not _ig_instance:
+        return items
+
+    import instaloader
+
+    try:
+        profile = instaloader.Profile.from_username(_ig_instance.context, handle)
+    except Exception:
+        return items
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    try:
+        post_count = 0
+        for post in profile.get_posts():
+            if post_count >= 4:
+                break
+            try:
+                if post.date_utc.replace(tzinfo=timezone.utc) < cutoff:
+                    continue
+
+                caption = (post.caption[:300] if post.caption else '').replace('\n', ' ').strip()
+                post_url = f'https://www.instagram.com/p/{post.shortcode}/'
+
+                thumb_b64 = None
+                thumb_url = post.thumbnail_url if hasattr(post, 'thumbnail_url') and post.thumbnail_url else post.url
+                if thumb_url:
+                    thumb_b64 = make_thumbnail(thumb_url)
+
+                kind = 'reel' if post.is_video else 'post'
+
+                item = {
+                    'platform': 'instagram',
+                    'account': f'@{handle}',
+                    'kind': kind,
+                    'text': caption,
+                    'url': post_url,
+                    'taken_at': post.date_utc.replace(tzinfo=timezone.utc).isoformat(),
+                }
+                if thumb_b64:
+                    item['image_b64'] = thumb_b64
+                items.append(item)
+                post_count += 1
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    try:
+        profile_uid = profile.userid
+        for story_obj in _ig_instance.get_stories(userids=[profile_uid]):
+            for story_item in story_obj.get_items():
+                try:
+                    if story_item.date_utc.replace(tzinfo=timezone.utc) < cutoff:
+                        continue
+                    thumb_b64 = None
+                    if hasattr(story_item, 'thumbnail_url') and story_item.thumbnail_url:
+                        thumb_b64 = make_thumbnail(story_item.thumbnail_url)
+                    elif hasattr(story_item, 'url') and story_item.url:
+                        thumb_b64 = make_thumbnail(story_item.url)
+
+                    story_entry = {
+                        'platform': 'instagram',
+                        'account': f'@{handle}',
+                        'kind': 'story',
+                        'text': '',
+                        'url': f'https://www.instagram.com/stories/{handle}/',
+                        'taken_at': story_item.date_utc.replace(tzinfo=timezone.utc).isoformat(),
+                    }
+                    if thumb_b64:
+                        story_entry['image_b64'] = thumb_b64
+                    items.append(story_entry)
+                except Exception:
+                    continue
+    except Exception:
+        pass
+
+    cache_set(cache_key, items)
+    time.sleep(3)
+    return items
+
+
 SCRAPERS = {
     'youtube': scrape_youtube_channel,
     'reddit': scrape_reddit,
     'tiktok': scrape_tiktok,
-    'instagram': None,
+    'instagram': scrape_instagram,
 }
 
 

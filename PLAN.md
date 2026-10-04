@@ -56,6 +56,21 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 
 ## Tester-Status (Edgar)
 
+### Finaler Durchlauf 15:14 (Build be24d6a, ~2 Min.) — ALLES GRÜN
+- GET `/` → HTTP 200, 64 KB. Modellname `nvidia/nemotron-3-super-120b-a12b:free` sichtbar. ✓
+- POST `/api/generate` (n8n LIVE!) → HTTP 200, **8 Items**, source=n8n, ~23s Antwortzeit. ✓
+  - Titel: "Harry Styles sorgt für Konzert-Fieber in Berlin" — echte KI-Daten!
+  - Items: Harry Styles 4. Show, Klangstraße Berlin, PEOPLE Festival, Rob Fleming...
+- POST `/mock/newsletter` → HTTP 200, 20 items, source=mock. ✓
+- GET `/data/sample_newsletter.json` → HTTP 200, 8 entries. ✓
+- GET `/api/connections` → HTTP 200. ✓
+- Statische Dateien alle HTTP 200: CSS, JS, Fonts (3), Icons, Bilder (4), PWA (manifest.json, sw.js). ✓
+- Server-Konfiguration: `host='127.0.0.1', debug=False, port=5000`. ✓
+- Python-Syntax: app.py (326 Zeilen) kompiliert ohne Fehler. ✓
+- Kein harter Modellname in app.py. ✓
+- n8n läuft auf Port 5678 (healthz: ok). ✓
+- `git status`: clean, kein uncommitteter Code. ✓
+
 ### Deck V2 Final (15:00, Build 6f903d7) — Pitch-Präsentation Englisch + Drei Pixel-Erklärer
 - pitch/script.js: 11 englische Texte (s01-s11, je 25-40 Wörter, gesamt ~195s), Sprecher Ran/Rufus/Jaro. ✓
 - pitch/content.js: Alle Folien, Überschriften, Beschriftungen auf Englisch. ✓
@@ -102,7 +117,7 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - Keine neuen Bugs. App läuft sauber mit Social-Integration.
 
 ### Verbleibende Risiken
-- **n8n läuft LIVE (14:38)** auf Port 5678 — `/api/generate` liefert echte, von `nvidia/nemotron-3-super-120b-a12b:free` kuratierte Event-Daten in ~7s. **Muss vor Demo verifiziert werden**, dass n8n noch läuft (n8n-Webhook könnte zwischenzeitlich crashen).
+- **n8n läuft LIVE (15:14 bestätigt)** auf Port 5678 — `/api/generate` liefert echte, von `nvidia/nemotron-3-super-120b-a12b:free` kuratierte Event-Daten in ~23s. **Muss VOR Demo nochmal verifiziert werden**, dass n8n noch läuft (n8n-Webhook könnte zwischenzeitlich crashen).
 - **Fallback intakt**: Bei n8n-Ausfall zeigt die App sample_newsletter.json + demo_social.json (8+12=20 Items). Demo bleibt immer funktionierend.
 - Dummy-URLs `https://example.com/...` in Mock-/Fallback-Daten. Bei echter n8n-Antwort kommen gültige URLs. Nicht demo-blockierend.
 - demo_social.json enthält 12 Beispieldaten — ausreichend für Demo, aber keine echten Live-Daten von Social-APIs (socialfetch baut Ran gerade).
