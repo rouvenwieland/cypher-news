@@ -809,6 +809,19 @@
             showToast(`${platform} getrennt`);
         }
 
+        function showConnectDialog(platform) {
+            const pdef = PLATFORMS.find(p => p.id === platform);
+            const modal = document.getElementById('connectModal');
+            document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label}`;
+            document.getElementById('modalPass').style.display = pdef.needsPassword ? '' : 'none';
+            document.getElementById('modalPass').value = '';
+            document.getElementById('modalUser').value = '';
+            document.getElementById('modalUser').placeholder = pdef.needsPassword ? 'Benutzername (Zweitkonto!)' : 'Handle (@name oder URL)';
+            document.getElementById('modalNote').textContent = '🔒 Zugangsdaten bleiben NUR lokal auf deinem Gerät – kein Upload an Server oder KI.';
+            modal.style.display = 'flex';
+            modal._platform = platform;
+        }
+
         function addPublicHandle(platform) {
             const pdef = PLATFORMS.find(p => p.id === platform);
             const modal = document.getElementById('connectModal');
@@ -818,16 +831,6 @@
             document.getElementById('modalUser').value = '';
             document.getElementById('modalUser').placeholder = '@Handle oder Kanalname (z.B. @technews)';
             document.getElementById('modalNote').textContent = 'ℹ️ Öffentlich zugänglich — kein Login nötig. Deine Zugangsdaten sind nicht erforderlich.';
-            modal.style.display = 'flex';
-            modal._platform = platform;
-        }
-            const pdef = PLATFORMS.find(p => p.id === platform);
-            const modal = document.getElementById('connectModal');
-            document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label}`;
-            document.getElementById('modalPass').style.display = pdef.needsPassword ? '' : 'none';
-            document.getElementById('modalPass').value = '';
-            document.getElementById('modalUser').value = '';
-            document.getElementById('modalUser').placeholder = pdef.needsPassword ? 'Benutzername (Zweitkonto!)' : 'Handle (@name oder URL)';
             modal.style.display = 'flex';
             modal._platform = platform;
         }
