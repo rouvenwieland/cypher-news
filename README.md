@@ -25,9 +25,9 @@ Das Modell wird aus der Umgebungsvariable `$MODEL_PRIMARY` gelesen — kein Mode
 ## Architektur (5 Sätze)
 
 - **Frontend**: Vanilla HTML/CSS/JS mit Matrix-Rain-Canvas, CSS-Animationen und localStorage.
-- **Backend**: Python Flask mit zwei Routen: `GET /` (Template-Rendering) und `POST /mock/newsletter` (Mock-Webhook).
-- **Mock-Endpunkt**: Simuliert den erwarteten n8n-Webhook-Vertrag und liefert 8 Items mit Kategorie, Titel, Summary, Quelle, URL und Datum.
-- **Fallback**: Bei Fehlern lädt der Client `data/sample_newsletter.json` — 8 offline verfügbare Beispiel-Einträge.
+- **Backend**: Python Flask mit vier Routen: `GET /` (Template), `POST /api/generate` (n8n-Live-Integration), `POST /mock/newsletter` (Mock-Webhook) und `GET /data/sample_newsletter.json` (offline Fallback-Daten).
+- **n8n-Integration**: Der `/api/generate`-Endpoint ruft einen n8n-Webhook auf, der öffentliche Quellen (RSS, YouTube, Reddit etc.) durchsucht und via OpenRouter-KI zusammenfasst. Bei Timeout (22s) folgt 3-stufiger Fallback: n8n → sample_newsletter.json → Mock-Daten.
+- **Fallback**: Bei Fehlern lädt der Client `data/sample_newsletter.json` — 8 offline verfügbare Beispiel-Einträge, dann Mock-Daten als letzte Instanz.
 - **KI-Modell**: Modellname aus `$MODEL_PRIMARY` wird im Footer und in der Terminal-Animation angezeigt.
 
 ## Open-Source-KI-Nutzung
