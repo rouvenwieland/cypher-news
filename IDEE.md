@@ -34,3 +34,6 @@ Die Idee bestimmt ALLES (Name, Design, Texte, Beispiele). Kein Bezug zu Musik/Ra
 - **Design: Cypher-Vibe** (Underground, Retro-Pixel, warmes Schwarz, Orange/Rot/Gelb, Neongrün, Körnung, Glitch, Matrix-Regen). Volle Vorgaben in DESIGN.md – unbedingt umsetzen. Keine Fotos von Personen, nur Motive aus static/img und generierte Muster.
 - Beispielthemen der Demo: Konzerte in Berlin, Giveaways, Kleidungsdrops, Tech-News, allgemeine Trends.
 - Wichtig: Ziel ist eine außergewöhnlich schöne, lebendige Oberfläche (bewegte Elemente wie bei modernen Instagram-Seiten) PLUS ein funktionierender n8n-Anschluss.
+
+## AKTUALISIERUNG 14:15 (Rouven, verbindlich): CONNECTORS + SOCIAL
+Lies **SOCIAL-SPEC.md** – das ist jetzt der wichtigste Teil. Kern: Nutzer verbinden ihre Konten (Instagram/TikTok/YouTube/Reddit), wählen Accounts aus, schreiben ein großes Notizfeld, und der Newsletter fasst Posts, Reels UND STORIES inklusive Bildinhalt zusammen (nativ gescrapt), damit man nicht scrollen muss. Funktion vor Politur: Es muss end-to-end laufen (mit Demo-Daten-Fallback).
