@@ -1,10 +1,13 @@
-const CACHE_NAME = 'ki-newsletter-cache-v1';
+const CACHE_NAME = 'cypher-news-v2';
 const urlsToCache = [
   '/',
   '/static/icon-192.png',
   '/static/icon-512.png',
   '/static/manifest.json',
-  '/data/sample_newsletter.json'
+  '/data/sample_newsletter.json',
+  '/static/fonts/PressStart2P.ttf',
+  '/static/fonts/VT323.ttf',
+  '/static/fonts/SpaceGrotesk.ttf'
 ];
 
 self.addEventListener('install', event => {
