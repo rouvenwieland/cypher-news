@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KI-Newsletter</title>
+    <link rel="manifest" href="/manifest.json">
     <style>
         :root {
             --bg-color: #f5f5f5;
@@ -152,6 +153,19 @@
     </div>
 
     <script>
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
         document.getElementById('themeBtn').addEventListener('click', () => {
             document.body.classList.toggle('dark');
             const btn = document.getElementById('themeBtn');
