@@ -1,11 +1,11 @@
 {
-  "name": "KI-Newsletter",
-  "short_name": "KI-Newsletter",
-  "description": "Personalisierter KI-Newsletter für Events und Giveaways",
+  "name": "Cypher News",
+  "short_name": "Cypher News",
+  "description": "Dein täglicher KI-Drop mit Events, Giveaways und Trends",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#007bff",
+  "background_color": "#130e0b",
+  "theme_color": "#ff6a1a",
   "icons": [
     {
       "src": "/static/icon-192.png",
