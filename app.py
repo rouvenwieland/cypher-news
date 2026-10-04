@@ -175,12 +175,14 @@ def api_generate():
             social_items = [dict(d, _demo=True) for d in all_demo]
             social_source = 'demo'
 
+    quality = body.get('quality', 'fast')
     payload = {
         "preferences": preferences,
         "sources": sources,
         "date": date,
         "accounts": accounts,
-        "social_items": social_items
+        "social_items": social_items,
+        "quality": quality
     }
 
     n8n_result = None

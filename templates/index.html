@@ -47,6 +47,14 @@
             <div class="onboarding-label">DEIN DROP</div>
             <textarea id="topicsInput" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, deine Lieblingskünstler, No-Gos ..." rows="8"></textarea>
 
+            <div class="quality-row" id="qualityRow">
+                <span class="quality-label">Modus</span>
+                <div class="quality-toggle" id="qualityToggle">
+                    <button class="q-btn active" data-q="fast">⚡ SCHNELL</button>
+                    <button class="q-btn" data-q="high">🧠 GENAU</button>
+                </div>
+            </div>
+
             <div class="chips" id="topicChips">
                 <span class="chip" data-topic="Konzerte Berlin">Konzerte Berlin<span class="check">✓</span></span>
                 <span class="chip" data-topic="Giveaways">Giveaways<span class="check">✓</span></span>
@@ -81,7 +89,8 @@
                 <div class="line">&gt; lese YouTube-Feeds …</div>
                 <div class="line">&gt; filtere Rauschen mit KI …</div>
                 <div class="line">&gt; n8n-Workflow läuft …</div>
-                <div class="line">&gt; OpenRouter {{ model_name }} fasst zusammen …</div>
+                <div class="line" id="terminalModel">&gt; OpenRouter {{ model_name }} fasst zusammen …</div>
+                <div class="line quality-info" id="terminalQuality" style="display:none">&gt; Schreibmodus: GENAU (Nemotron Ultra) …</div>
                 <div class="line">&gt; schreibe deinen Drop …</div>
                 <div class="line">&gt; fertig.</div>
                 <div class="progress">
@@ -99,6 +108,7 @@
                 <h2 id="introTitle">DEIN DROP</h2>
                 <div class="intro-date" id="introDate"></div>
                 <div class="count" id="introCount">8 Treffer</div>
+                <div class="intro-model" id="introModel" style="display:none"></div>
                 <p id="introText"></p>
                 <div class="countdown" id="countdown">Nächster Drop um 08:00</div>
             </div>
@@ -160,7 +170,7 @@
                     <input type="text" id="modalUser" placeholder="Benutzername">
                     <input type="password" id="modalPass" placeholder="Passwort (nur für Instagram)">
                 </div>
-                <p class="modal-note">🔒 Zugangsdaten bleiben NUR lokal auf deinem Gerät – kein Upload an Server oder KI.</p>
+                <p class="modal-note" id="modalNote">🔒 Zugangsdaten bleiben NUR lokal auf deinem Gerät – kein Upload an Server oder KI.</p>
                 <div class="modal-actions">
                     <button class="modal-btn cancel" id="modalCancel">ABBRECHEN</button>
                     <button class="modal-btn confirm" id="modalConfirm">VERBINDEN</button>
@@ -305,6 +315,16 @@
         }
         let stopBurst = null;
 
+        // ── Quality toggle ──
+        let qualityMode = 'fast';
+        document.querySelectorAll('.quality-toggle .q-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.quality-toggle .q-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                qualityMode = btn.dataset.q;
+            });
+        });
+
         // ── DROP Button ──
         document.getElementById('dropBtn').addEventListener('click', async () => {
             if (navigator.vibrate) navigator.vibrate(15);
@@ -327,6 +347,11 @@
 
             const tw = document.getElementById('terminalWrapper');
             tw.classList.add('visible');
+            if (qualityMode === 'high') {
+                document.getElementById('terminalQuality').classList.add('visible');
+            } else {
+                document.getElementById('terminalQuality').classList.remove('visible');
+            }
             document.getElementById('resultsArea').style.display = 'none';
             document.body.classList.add('no-scroll');
 
@@ -343,7 +368,7 @@
                 const resp = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today, accounts: activeConns }),
+                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today, accounts: activeConns, quality: qualityMode }),
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
@@ -353,8 +378,9 @@
                 currentItems = data.items || [];
                 currentTitle = data.title || 'DEIN DROP';
                 currentIntro = data.intro || '';
+                currentMeta = data.meta || {};
                 const srcLabel = (data.source === 'n8n') ? ' (live via n8n + OpenRouter)' : (data.source === 'mock' ? ' (Mock)' : (data.source === 'fallback' ? ' (Offline)' : ''));
-                displayResults(currentItems, currentTitle + srcLabel, currentIntro);
+                displayResults(currentItems, currentTitle + srcLabel, currentIntro, currentMeta);
                 addToHistory(currentItems, currentTitle);
                 showToast('DROP ERZEUGT — ' + currentItems.length + ' Treffer');
                 launchConfetti();
@@ -383,14 +409,25 @@
 
         // ── Display results ──
         let viewMode = 'stories';
-        function displayResults(items, title, intro) {
+        let currentMeta = {};
+        function displayResults(items, title, intro, meta) {
+            if (meta) currentMeta = meta;
             const area = document.getElementById('resultsArea');
             area.style.display = 'block';
 
             // Intro card
             document.getElementById('introTitle').textContent = title;
             document.getElementById('introDate').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-            document.getElementById('introCount').textContent = items.length + ' Treffer aus 5 Quellen';
+            const srcCount = (meta && meta.sources) ? meta.sources : 5;
+            const imgCtn = (meta && meta.images_analyzed != null) ? meta.images_analyzed : 0;
+            const socialCtn = (meta && meta.social_items != null) ? meta.social_items : 0;
+            let introCountText = items.length + ' Treffer aus ' + srcCount + ' Quellen';
+            if (socialCtn > 0) introCountText += ' · ' + socialCtn + ' Social-Beiträge';
+            if (imgCtn > 0) introCountText += ' · ' + imgCtn + ' Bilder ausgewertet';
+            document.getElementById('introCount').textContent = introCountText;
+            const modelName = (meta && meta.model) ? meta.model : '';
+            document.getElementById('introModel').textContent = modelName ? 'n8n · ' + modelName : '';
+            document.getElementById('introModel').style.display = modelName ? 'block' : 'none';
             document.getElementById('introText').textContent = intro;
             updateCountdown();
 
@@ -430,8 +467,8 @@
                         <div class="card-header">
                             <span class="cat-pill">${item.category}</span>
                             <span class="kind-badge" style="border-color:${kindColor};color:${kindColor}">${kindLabel}</span>
-                            ${item.platform ? `<span class="social-badge">${PLATFORM_ICONS[item.platform] || ''} @${item.account || item.source.replace(/^.*?: @?/, '')}</span>` : ''}
-                            ${isDemo ? '<span class="demo-tag">Beispieldaten</span>' : ''}
+                            ${item.platform ? `<span class="social-badge">${PLATFORM_SVG[item.platform] || PLATFORM_ICONS[item.platform] || ''} @${item.account || item.source.replace(/^.*?: @?/, '')}</span>` : ''}
+                            ${isDemo ? '<span class="demo-tag">BEISPIELDATEN</span>' : ''}
                             <span class="card-index">${String(i + 1).padStart(2, '0')}/${String(items.length).padStart(2, '0')}</span>
                         </div>
                         <h3>${item.title}</h3>
@@ -465,8 +502,8 @@
                     <div class="feed-card-body">
                         <span class="cat-pill">${item.category}</span>
                         <span class="kind-badge-sm" style="border-color:${kindColor};color:${kindColor}">${kindLabel}</span>
-                        ${item.platform ? `<span class="social-badge-sm">${PLATFORM_ICONS[item.platform] || ''} @${item.account || ''}</span>` : ''}
-                        ${isDemo ? '<span class="demo-tag-sm">Beispieldaten</span>' : ''}
+                        ${item.platform ? `<span class="social-badge-sm">${PLATFORM_SVG[item.platform] || PLATFORM_ICONS[item.platform] || ''} @${item.account || ''}</span>` : ''}
+                        ${isDemo ? '<span class="demo-tag-sm">BEISPIELDATEN</span>' : ''}
                         <h4>${item.title}</h4>
                         <span class="src">${item.source} · ${item.when}</span>
                     </div>
@@ -663,13 +700,21 @@
 
         // ── Connect page ──
         const PLATFORMS = [
-            { id: 'Instagram', icon: '📷', label: 'Instagram', desc: 'Posts + Stories deiner Follows', needsPassword: true },
-            { id: 'TikTok', icon: '🎵', label: 'TikTok', desc: 'Reels, Trends, Creator-Posts', needsPassword: false },
-            { id: 'YouTube', icon: '▶️', label: 'YouTube', desc: 'Neue Videos von Kanälen', needsPassword: false },
-            { id: 'Reddit', icon: '🤖', label: 'Reddit', desc: 'Top-Posts aus deinen Subs', needsPassword: false },
-            { id: 'RSS', icon: '📡', label: 'RSS', desc: 'Freie Feeds & Webseiten', needsPassword: false },
+            { id: 'Instagram', icon: '📷', label: 'Instagram', desc: 'Posts + Stories deiner Follows', needsPassword: true, public: false },
+            { id: 'TikTok', icon: '🎵', label: 'TikTok', desc: 'Reels, Trends, Creator-Posts', needsPassword: false, public: true },
+            { id: 'YouTube', icon: '▶️', label: 'YouTube', desc: 'Neue Videos von Kanälen', needsPassword: false, public: true },
+            { id: 'Reddit', icon: '🤖', label: 'Reddit', desc: 'Top-Posts aus deinen Subs', needsPassword: false, public: true },
+            { id: 'RSS', icon: '📡', label: 'RSS', desc: 'Freie Feeds & Webseiten', needsPassword: false, public: true },
         ];
-        const PLATFORM_ICONS = {Instagram: '📷', TikTok: '🎵', YouTube: '▶️', Reddit: '🤖', RSS: '📡'};
+        const PLATFORM_SVG = {
+            Instagram: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="3" r="1" fill="currentColor"/></svg>`,
+            TikTok: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 2h2v3H9V2zM7 5v6c0 1 .8 2 1.5 2s1.5-1 1.5-2V5h2.5v.5C11 6 10 7 8 7V5H7z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`,
+            YouTube: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="3" width="12" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><polygon points="6,5 6,9 10,7" fill="currentColor"/></svg>`,
+            Reddit: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/><path d="M4 9q3 2 6 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`,
+            RSS: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="3" cy="11" r="1.5" fill="currentColor"/><path d="M1 5c0 4 3 7 7 7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M1 1c0 6 5 11 11 11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"/></svg>`,
+        };
+        const PLATFORM_ICONS = {Instagram: 'IG', TikTok: 'TT', YouTube: 'YT', Reddit: 'RD', RSS: 'RS'};
+        const PLATFORM_LABELS = {Instagram: '📷 IG', TikTok: '🎵 TT', YouTube: '▶️ YT', Reddit: '🤖 RD', RSS: '📡 RS'};
         const KIND_LABELS = {post: 'POST', story: 'STORY', reel: 'REEL', video: 'VIDEO', news: 'NEWS'};
         const KIND_COLORS = {post: 'var(--cyan)', story: 'var(--pink)', reel: 'var(--yellow)', video: 'var(--red)', news: 'var(--green)'};
 
@@ -693,12 +738,23 @@
             grid.innerHTML = PLATFORMS.map(p => {
                 const conn = connectedAccounts[p.id] || [];
                 const isConnected = conn.length > 0;
-                let statusText = 'nicht verbunden';
-                if (isConnected) {
+                let statusHTML = '';
+                let buttonHTML = '';
+
+                if (p.public) {
+                    statusHTML = '<div class="connect-status live">● LIVE — öffentlich, kein Login nötig</div>';
+                    buttonHTML = '<span class="btn-live-badge">✔ ÖFFENTLICH</span>';
+                } else if (isConnected) {
                     const names = conn.slice(0, 2).map(a => '@' + a).join(', ');
-                    statusText = conn.length > 2 ? `verbunden: ${names} +${conn.length - 2}` : `verbunden: ${names}`;
+                    const statusText = conn.length > 2 ? `verbunden: ${names} +${conn.length - 2}` : `verbunden: ${names}`;
+                    statusHTML = `<div class="connect-status connected">verknüpft: ${statusText}</div>`;
+                    buttonHTML = `<button class="btn-connect disconnect" data-platform="${p.id}">TRENNEN</button>`;
+                } else {
+                    statusHTML = '<div class="connect-status">nicht verbunden — Beispieldaten</div>';
+                    buttonHTML = `<button class="btn-connect" data-platform="${p.id}">VERBINDEN</button>`;
                 }
-                return `<div class="connect-card ${isConnected ? 'connected' : ''}">
+
+                return `<div class="connect-card ${isConnected ? 'connected' : ''} ${p.public ? 'public' : ''}">
                     <div class="connect-card-head">
                         <span class="connect-icon">${p.icon}</span>
                         <div>
@@ -706,8 +762,8 @@
                             <small>${p.desc}</small>
                         </div>
                     </div>
-                    <div class="connect-status">${statusText}</div>
-                    <button class="btn-connect ${isConnected ? 'disconnect' : ''}" data-platform="${p.id}">${isConnected ? 'TRENNEN' : 'VERBINDEN'}</button>
+                    ${statusHTML}
+                    ${buttonHTML}
                 </div>`;
             }).join('');
 
@@ -716,6 +772,11 @@
                     const plat = btn.dataset.platform;
                     if (btn.classList.contains('disconnect')) {
                         handleDisconnect(plat);
+                        return;
+                    }
+                    const pdef = PLATFORMS.find(p => p.id === plat);
+                    if (pdef && pdef.public) {
+                        addPublicHandle(plat);
                         return;
                     }
                     showConnectDialog(plat);
@@ -748,7 +809,18 @@
             showToast(`${platform} getrennt`);
         }
 
-        function showConnectDialog(platform) {
+        function addPublicHandle(platform) {
+            const pdef = PLATFORMS.find(p => p.id === platform);
+            const modal = document.getElementById('connectModal');
+            document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label} (öffentlich)`;
+            document.getElementById('modalPass').style.display = 'none';
+            document.getElementById('modalPass').value = '';
+            document.getElementById('modalUser').value = '';
+            document.getElementById('modalUser').placeholder = '@Handle oder Kanalname (z.B. @technews)';
+            document.getElementById('modalNote').textContent = 'ℹ️ Öffentlich zugänglich — kein Login nötig. Deine Zugangsdaten sind nicht erforderlich.';
+            modal.style.display = 'flex';
+            modal._platform = platform;
+        }
             const pdef = PLATFORMS.find(p => p.id === platform);
             const modal = document.getElementById('connectModal');
             document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label}`;
@@ -780,8 +852,27 @@
             modal.style.display = 'none';
             const pdef = PLATFORMS.find(p => p.id === platform);
             const needsPw = pdef && pdef.needsPassword;
+            const isPublic = pdef && pdef.public;
             if (needsPw && !password) {
                 showToast('Passwort erforderlich für Instagram', true);
+                return;
+            }
+
+            if (isPublic) {
+                const cleanHandle = username.replace(/^@/, '');
+                connectedAccounts[platform] = [...new Set([...(connectedAccounts[platform] || []), cleanHandle])];
+                hiddenAccounts.delete(`${platform}:${cleanHandle}`);
+                localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
+                localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
+                try {
+                    await fetch('/api/social/connect', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ platform, username: cleanHandle })
+                    });
+                } catch (e) {}
+                renderConnectPage();
+                showToast(`${platform}: @${cleanHandle} hinzugefügt`);
                 return;
             }
 
@@ -971,7 +1062,7 @@
                         document.getElementById('onboarding').style.display = 'none';
                         document.getElementById('pageSaved').style.display = 'none';
                         document.getElementById('pageHistory').style.display = 'none';
-                        displayResults(hist[idx].items, hist[idx].title, 'Verlauf vom ' + new Date(hist[idx].date).toLocaleString('de-DE'));
+                        displayResults(hist[idx].items, hist[idx].title, 'Verlauf vom ' + new Date(hist[idx].date).toLocaleString('de-DE'), null);
                     }
                 });
             });

@@ -7,3 +7,4 @@ __pycache__/
 data/sessions/
 data/connections.json
 *.env
+venv/
