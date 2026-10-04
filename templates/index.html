@@ -31,6 +31,12 @@
             </div>
         </header>
 
+        <nav class="tab-nav" id="tabNav">
+            <button class="tab-btn active" data-tab="drop">DROP</button>
+            <button class="tab-btn" data-tab="saved">★ GEMERKT</button>
+            <button class="tab-btn" data-tab="history">▼ VERLAUF</button>
+        </nav>
+
         <div class="ticker" id="ticker">
             <div class="ticker__inner" id="tickerInner"></div>
         </div>
@@ -112,7 +118,12 @@
             <div class="feed" id="feedContainer"></div>
         </div>
 
-        <div class="history-section" id="historySection">
+        <div class="tab-page" id="pageSaved">
+            <h3>★ GEMERKT</h3>
+            <div id="savedContainer"><p class="empty">Noch nichts gemerkt. Tippe ★ auf einer Karte.</p></div>
+        </div>
+
+        <div class="tab-page" id="pageHistory">
             <h3>▼ VERLAUF</h3>
             <div id="historyContainer"><p class="empty">Noch kein Drop. Sag uns, was dich interessiert.</p></div>
         </div>
@@ -434,27 +445,31 @@
             document.querySelectorAll('.btn-save, .btn-save-inline').forEach(btn => {
                 btn.addEventListener('click', function () {
                     const title = this.dataset.title;
+                    const item = currentItems.find(i => i.title === title);
                     const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
-                    if (saved.includes(title)) {
-                        saved.splice(saved.indexOf(title), 1);
+                    const idx = saved.findIndex(s => s.title === title);
+                    if (idx !== -1) {
+                        saved.splice(idx, 1);
                         this.textContent = this.classList.contains('btn-save-inline') ? '★' : '★ MERKEN';
                         this.classList.remove('saved');
                         showToast('Aus Gemerkt entfernt');
                     } else {
-                        saved.push(title);
+                        saved.push(item || { title, summary: '', source: '', url: '', when: '', category: '' });
                         this.textContent = this.classList.contains('btn-save-inline') ? '★' : '★ GEMERKT';
                         this.classList.add('saved');
                         showToast('Gemerkt!');
                     }
                     localStorage.setItem('cypherSaved', JSON.stringify(saved));
+                    renderSaved();
                 });
             });
         }
 
         function restoreSavedState() {
             const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
+            const titles = saved.map(s => s.title);
             document.querySelectorAll('.btn-save, .btn-save-inline').forEach(btn => {
-                if (saved.includes(btn.dataset.title)) {
+                if (titles.includes(btn.dataset.title)) {
                     btn.textContent = btn.classList.contains('btn-save-inline') ? '★' : '★ GEMERKT';
                     btn.classList.add('saved');
                 }
@@ -529,6 +544,65 @@
         }
         setInterval(updateCountdown, 60000);
 
+        // ── Tab navigation ──
+        let currentTab = 'drop';
+        document.querySelectorAll('#tabNav .tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentTab = btn.dataset.tab;
+                document.querySelectorAll('#tabNav .tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                updateTabVisibility();
+            });
+        });
+        function updateTabVisibility() {
+            document.getElementById('onboarding').style.display = currentTab === 'drop' ? '' : 'none';
+            document.getElementById('resultsArea').style.display = currentTab === 'drop' ? document.getElementById('resultsArea').style.display : 'none';
+            document.getElementById('pageSaved').style.display = currentTab === 'saved' ? 'block' : 'none';
+            document.getElementById('pageHistory').style.display = currentTab === 'history' ? 'block' : 'none';
+            if (currentTab === 'drop' && document.getElementById('resultsArea').style.display === 'none') {
+                document.getElementById('onboarding').style.display = '';
+            }
+        }
+
+        // ── Saved ──
+        function renderSaved() {
+            const container = document.getElementById('savedContainer');
+            const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
+            if (saved.length === 0) {
+                container.innerHTML = '<p class="empty">Noch nichts gemerkt. Tippe ★ auf einer Karte.</p>';
+                return;
+            }
+            const imgSources = ['field_pix', 'money_pix', 'field_duo', 'money_duo', 'field_pix', 'money_duo', 'money_pix', 'field_duo'];
+            container.innerHTML = saved.map((item, i) => {
+                const cat = (item.category || '').toLowerCase();
+                const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
+                return `<div class="feed-card cat-${cat}" data-cat="${cat}">
+                    <div class="feed-card-img"><img src="${img}" alt="" loading="lazy"></div>
+                    <div class="feed-card-body">
+                        <span class="cat-pill">${item.category || ''}</span>
+                        <h4>${item.title || ''}</h4>
+                        <span class="src">${item.source || ''} · ${item.when || ''}</span>
+                    </div>
+                    <div class="feed-card-actions">
+                        <a href="${item.url || '#'}" target="_blank" rel="noopener" class="feed-link">↗</a>
+                        <button class="btn-save-inline saved" data-title="${item.title || ''}">★</button>
+                    </div>
+                </div>`;
+            }).join('');
+            document.querySelectorAll('#savedContainer .btn-save-inline').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const title = this.dataset.title;
+                    const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
+                    const idx = saved.findIndex(s => s.title === title);
+                    if (idx !== -1) { saved.splice(idx, 1); }
+                    localStorage.setItem('cypherSaved', JSON.stringify(saved));
+                    renderSaved();
+                    restoreSavedState();
+                    showToast('Aus Gemerkt entfernt');
+                });
+            });
+        }
+
         // ── History ──
         function addToHistory(items, title) {
             const entry = { title, date: new Date().toISOString(), count: items.length, items };
@@ -545,7 +619,7 @@
             container.innerHTML = hist.map((h, i) => {
                 const d = new Date(h.date);
                 return `<div class="feed-card" style="cursor:pointer" data-idx="${i}">
-                    <span style="font-family:VT323;font-size:13px;color:var(--dim)">${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span style="font-family:VT323;font-size:13px;color:var(--dim)" class="hist-date">${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
                     <div class="info"><h4 style="font-size:14px">${h.title}</h4></div>
                     <span style="font-size:12px;color:var(--dim)">${h.count} Treffer</span>
                 </div>`;
@@ -554,12 +628,21 @@
                 card.addEventListener('click', function () {
                     const idx = parseInt(this.dataset.idx);
                     const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
-                    if (hist[idx]) { displayResults(hist[idx].items, hist[idx].title, 'Verlauf vom ' + new Date(hist[idx].date).toLocaleString('de-DE')); }
+                    if (hist[idx]) {
+                        document.querySelectorAll('#tabNav .tab-btn').forEach(b => b.classList.remove('active'));
+                        document.querySelector('#tabNav .tab-btn[data-tab="drop"]').classList.add('active');
+                        currentTab = 'drop';
+                        document.getElementById('onboarding').style.display = 'none';
+                        document.getElementById('pageSaved').style.display = 'none';
+                        document.getElementById('pageHistory').style.display = 'none';
+                        displayResults(hist[idx].items, hist[idx].title, 'Verlauf vom ' + new Date(hist[idx].date).toLocaleString('de-DE'));
+                    }
                 });
             });
         }
         renderHistory();
-        window.addEventListener('load', () => { renderHistory(); });
+        renderSaved();
+        window.addEventListener('load', () => { renderHistory(); renderSaved(); });
 
         // ── Service Worker ──
         if ('serviceWorker' in navigator) {
