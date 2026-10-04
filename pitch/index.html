@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cypher News — Pitch</title>
+<link rel="stylesheet" href="deck.css">
+</head>
+<body>
+
+<canvas id="rain"></canvas>
+<div class="grain"></div>
+<div class="vignette"></div>
+
+<div id="deck"></div>
+
+<div id="speaker-panel">
+  <div class="speaker-avatar-wrap">
+    <canvas class="speaker-avatar" data-agent="jaro" width="56" height="56"></canvas>
+    <span class="speaker-status-led"></span>
+  </div>
+  <div class="speaker-info">
+    <span class="speaker-name">Jaro</span>
+    <span class="speaker-role">Presenter</span>
+    <div class="speech-bubble speech-cursor"></div>
+  </div>
+</div>
+
+<div id="progress-bar"><div id="progress-fill"></div></div>
+<div id="page-indicator">01/11</div>
+<div id="voice-indicator">V: Sprache aus</div>
+<div id="fs-hint"></div>
+<div class="nav-hint">← → Leertaste · O Übersicht · F Vollbild · N Sprecher</div>
+
+<div id="overview"></div>
+
+<script src="content.js"></script>
+<script src="deck.js"></script>
+</body>
+</html>
