@@ -241,6 +241,10 @@
                 `;
                 historyContainer.prepend(card);
             });
+            // Save to localStorage
+            const current = JSON.parse(localStorage.getItem('newsletterHistory') || '[]');
+            const updated = [...items, ...current];
+            localStorage.setItem('newsletterHistory', JSON.stringify(updated));
         }
 
         // Load history from localStorage on page load (optional)
