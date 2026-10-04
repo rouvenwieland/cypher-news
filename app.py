@@ -8,7 +8,7 @@ MODEL_PRIMARY = os.environ.get('MODEL_PRIMARY', 'unknown')
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', model_name=MODEL_PRIMARY)
 
 @app.route('/mock/newsletter', methods=['POST'])
 def mock_newsletter():
