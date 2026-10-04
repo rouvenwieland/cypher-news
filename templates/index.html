@@ -44,6 +44,7 @@
         </div>
 
         <div class="onboarding" id="onboarding">
+            <div class="onboarding-label">DEIN DROP</div>
             <textarea id="topicsInput" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, deine Lieblingskünstler, No-Gos ..." rows="8"></textarea>
 
             <div class="chips" id="topicChips">
@@ -57,6 +58,7 @@
                 <span class="chip" data-topic="Rap">Rap<span class="check">✓</span></span>
             </div>
 
+            <div class="source-label">QUELLEN</div>
             <div class="source-row">
                 <input type="text" id="sourceInput" placeholder="@Account oder URL">
                 <select id="sourcePlatform">
@@ -95,6 +97,7 @@
             <!-- Intro card -->
             <div class="intro-card" id="introCard">
                 <h2 id="introTitle">DEIN DROP</h2>
+                <div class="intro-date" id="introDate"></div>
                 <div class="count" id="introCount">8 Treffer</div>
                 <p id="introText"></p>
                 <div class="countdown" id="countdown">Nächster Drop um 08:00</div>
@@ -218,7 +221,11 @@
 
         // ── Topic chips ──
         document.querySelectorAll('#topicChips .chip').forEach(chip => {
-            chip.addEventListener('click', () => chip.classList.toggle('active'));
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('active');
+                chip.classList.add('bounce');
+                setTimeout(() => chip.classList.remove('bounce'), 300);
+            });
         });
 
         // ── Source chips ──
@@ -381,7 +388,8 @@
             area.style.display = 'block';
 
             // Intro card
-            document.getElementById('introTitle').textContent = title + ' · ' + new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            document.getElementById('introTitle').textContent = title;
+            document.getElementById('introDate').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
             document.getElementById('introCount').textContent = items.length + ' Treffer aus 5 Quellen';
             document.getElementById('introText').textContent = intro;
             updateCountdown();
@@ -627,7 +635,7 @@
             const diff = next - now;
             const h = Math.floor(diff / 3600000);
             const m = Math.floor((diff % 3600000) / 60000);
-            document.getElementById('countdown').textContent = `Nächster Drop in ${h}h ${m}m`;
+            document.getElementById('countdown').textContent = `Nächster Drop um 08:00 — noch ${h}h ${m}m`;
         }
         setInterval(updateCountdown, 60000);
 
@@ -856,6 +864,8 @@
                         return;
                     }
                     this.classList.toggle('active');
+                    this.classList.add('bounce');
+                    setTimeout(() => this.classList.remove('bounce'), 300);
                     const key = `${plat}:${acc}`;
                     if (this.classList.contains('active')) {
                         hiddenAccounts.delete(key);
