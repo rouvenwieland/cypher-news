@@ -56,6 +56,23 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 
 ## Tester-Status (Edgar)
 
+### Live-Durchlauf 14:38 (Build e7f898f, ~6 Min.) — ECHTER n8n-Modellaufruf
+- GET `/` → HTTP 200, 57 KB. Modellname `nvidia/nemotron-3-super-120b-a12b:free` zweimal sichtbar. ✓
+- POST `/api/generate` (n8n LIVE!) → HTTP 200, **8 Items**, source=n8n, 7s Antwortzeit. ✓
+  - Titel: "Harry Styles sorgt für Konzert-Fieber in Berlin" — echte, relevante Event-Daten!
+  - Items: Konzerte (Harry Styles 4. Show, Klangstraße Berlin, PEOPLE Festival), Giveaways, Mode, Tech...
+- POST `/mock/newsletter` → HTTP 200, 20 items, source=mock. ✓
+- GET `/data/sample_newsletter.json` → HTTP 200. ✓
+- GET `/data/demo_social.json` → HTTP 200. ✓
+- GET `/api/social/accounts` → HTTP 200, 4 platforms, demo=True. ✓
+- Statische Dateien alle HTTP 200:
+  - CSS, JS, Fonts, Icons, Bilder, PWA (manifest.json, sw.js). ✓
+- Server-Konfiguration: `host='127.0.0.1', debug=False, port=5000`. ✓
+- Python-Syntax-Check: app.py (283 Zeilen) kompiliert ohne Fehler. ✓
+- Kein harter Modellname in app.py. ✓
+- n8n läuft auf Port 5678 (node-MainThread). ✓
+- **WOW-Moment live bestätigt**: Echte KI-kuratierte Event-Daten in <10s. ✓
+
 ### Komplett-Durchlauf 14:16 (Build 96d0633, ~5 Min.)
 - GET `/` → HTTP 200, 47 KB. Modellname `nvidia/nemotron-3-super-120b-a12b` im Footer, kein harter Modellname. ✓
 - POST `/mock/newsletter` → HTTP 200, **20 Items** (8 core + 12 social aus demo_social.json). ✓
@@ -78,7 +95,7 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - Keine neuen Bugs. App läuft sauber mit Social-Integration.
 
 ### Verbleibende Risiken
-- **n8n nicht live**: N8N_WEBHOOK_URL aktuell nicht gesetzt → /api/generate hängt 22s im Timeout, dann Fallback. Für Demo vorher n8n starten oder N8N_WEBHOOK_URL setzen.
+- **n8n läuft LIVE (14:38)** auf Port 5678 — `/api/generate` liefert echte, von `nvidia/nemotron-3-super-120b-a12b:free` kuratierte Event-Daten in ~7s. **Muss vor Demo verifiziert werden**, dass n8n noch läuft (n8n-Webhook könnte zwischenzeitlich crashen).
+- **Fallback intakt**: Bei n8n-Ausfall zeigt die App sample_newsletter.json + demo_social.json (8+12=20 Items). Demo bleibt immer funktionierend.
 - Dummy-URLs `https://example.com/...` in Mock-/Fallback-Daten. Bei echter n8n-Antwort kommen gültige URLs. Nicht demo-blockierend.
 - demo_social.json enthält 12 Beispieldaten — ausreichend für Demo, aber keine echten Live-Daten von Social-APIs (socialfetch baut Ran gerade).
-- **WOW-Moment live getestet** (13:53): n8n-Antwort <5s mit echten Konzerte-in-Berlin-Daten. Muss vor Demo verifiziert werden.
