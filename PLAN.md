@@ -54,6 +54,8 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - Überschreitung der Zeit durch zu komplexes UI → Fokus auf Kernfunktionen, UI einfach halten
 - Öffentliche Quellen liefern keine relevanten Ergebnisse → Beispiel-Daten verwenden, um WOW-Moment zu zeigen
 - Auswahl der Quellen könnte zu komplex werden → auf wenige voreingestellte Optionen beschränken
+- Mock-Daten verwenden Dummy-URLs (`https://example.com/...`); bei echter n8n-Antwort müssten URLs gültig sein. MVP-Nutzwert gegeben.
+- localStorage-Load beim Seiten-Open ruft addToHistory erneut auf (pot. Duplikat in History-Cards); kosmetisch, nicht demo-blockierend.
 
 ## Tester-Status (Edgar)
 - Smoke-Tests serverseitig (timeout 12s), alle 9 durchgelaufen:
