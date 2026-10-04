@@ -33,7 +33,7 @@
         </header>
 
         <nav class="tab-nav" id="tabNav">
-            <button class="tab-btn active" data-tab="drop">DROP</button>
+            <button class="tab-btn active" data-tab="drop">DAILY</button>
             <button class="tab-btn" data-tab="connect">VERBINDEN</button>
             <button class="tab-btn" data-tab="saved">★ GEMERKT</button>
             <button class="tab-btn" data-tab="history">▼ VERLAUF</button>
@@ -231,7 +231,7 @@
             const bx = bc.getContext('2d');
             bc.width = window.innerWidth;
             bc.height = window.innerHeight;
-            bc.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100dvh;z-index:1;pointer-events:none;opacity:0;transition:opacity .5s';
+            bc.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100dvh;z-index:1;pointer-events:none;opacity:0;transition:opacity .5s';
             let bCols, bDrops;
             function bSize() { bCols = Math.floor(bc.width / 14); bDrops = Array(bCols).fill(0).map(() => Math.random() * bc.height / 14); }
             bSize();
@@ -297,28 +297,42 @@
 
             const minDelay = new Promise(r => setTimeout(r, 3000));
 
+            let fetchFailed = false;
+            let fetchErrorMsg = '';
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 50000);
+
             try {
                 const resp = await fetch('/api/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today, accounts: activeConns })
+                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today, accounts: activeConns }),
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 const data = await resp.json();
                 await minDelay;
 
                 currentItems = data.items || [];
                 currentTitle = data.title || 'DEIN DROP';
                 currentIntro = data.intro || '';
-                const srcLabel = (data.source === 'n8n') ? ' (live via n8n + OpenRouter)' : (data.source === 'mock' ? ' (Mock)' : '');
+                const srcLabel = (data.source === 'n8n') ? ' (live via n8n + OpenRouter)' : (data.source === 'mock' ? ' (Mock)' : (data.source === 'fallback' ? ' (Offline)' : ''));
                 displayResults(currentItems, currentTitle + srcLabel, currentIntro);
                 addToHistory(currentItems, currentTitle);
                 showToast('DROP ERZEUGT — ' + currentItems.length + ' Treffer');
                 launchConfetti();
                 document.getElementById('btnPush').style.display = 'block';
             } catch (err) {
+                clearTimeout(timeoutId);
                 console.error(err);
+                fetchFailed = true;
+                if (err.name === 'AbortError') {
+                    fetchErrorMsg = 'Zeitüberschreitung – Server oder n8n braucht zu lange.';
+                } else {
+                    fetchErrorMsg = 'Verbindungsfehler zum Server.';
+                }
                 await minDelay;
-                showToast('Fehler beim Laden', true);
+                showToast(fetchErrorMsg, true);
             }
 
             stopBurst && stopBurst();

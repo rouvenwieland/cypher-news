@@ -101,7 +101,7 @@ def api_generate():
         payload['social_items'] = demo_social_items()
 
     try:
-        resp = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=22)
+        resp = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=40)
         if resp.status_code == 200:
             data = resp.json()
             items = data.get('items', [])
