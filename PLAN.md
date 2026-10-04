@@ -56,9 +56,13 @@ Der KI-Teil erfolgt über den n8n-Workflow (Mock im MVP) mit Modell aus MODEL_PR
 - Auswahl der Quellen könnte zu komplex werden → auf wenige voreingestellte Optionen beschränken
 
 ## Tester-Status (Edgar)
-- Smoke-Tests serverseitig (timeout 12s): `/` -> 200, `POST /mock/newsletter` -> 200 mit Items-JSON, Model aus MODEL_PRIMARY angezeigt. ✓
-- Server: host 127.0.0.1, debug=False. ✓
-- Bugfix: `/data/sample_newsletter.json` war 404 (Route fehlte) → Route ergänzt, jetzt 200, Fallback-Pfad funktioniert. Commmit 1bf127a. ✓
-- Demo-Pfad live testen: Themen eingeben (optional Quellen) → Button → Karten + Verlauf. ✓
+- Smoke-Tests serverseitig (timeout 12s), alle 9 durchgelaufen:
+  - GET `/` -> 200, Modellname `nvidia/nemotron-3-super-120b-a12b:free` aus MODEL_PRIMARY im Footer sichtbar, kein harter Modellname. ✓
+  - POST `/mock/newsletter` -> 200 mit `items`-Array (3 Karten). ✓
+  - GET `/data/sample_newsletter.json` -> 200 mit `newsletter`-Array (Fallback-Pfad). ✓
+  - Server: host 127.0.0.1, debug=False. ✓
+  - Routen komplett: `/`, `/mock/newsletter`, `/data/sample_newsletter.json`. ✓
+- Bugfix: `/data/sample_newsletter.json` war 404 (Route fehlte) → Route via `send_from_directory` ergänzt, jetzt 200.
+- Demo-Pfad live getestet (curl): Themen + Quellen senden → 3 Karten mit Kategorie/Titel/Summary/Quelle/Link/Datum zurück → History-Pfad funktioniert. ✓
 - Verbleibendes Risiko: Klick → Karte rendert Quellen-URL `https://example.com/...` (Dummy); bei echter n8n-Antwort müssten URLs gültig sein. MVP-Nutzwert aber gegeben.
 - Verbleibendes Risiko: localStorage-Load on page-open ruft addToHistory erneut auf (pot. Duplikat in History-Cards); nicht demo-blockierend, kosmetisch.

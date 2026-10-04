@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import os
 import json
 from datetime import datetime
@@ -51,6 +51,11 @@ def mock_newsletter():
         ]
     }
     return jsonify(mock_response)
+
+@app.route('/data/sample_newsletter.json')
+def sample_newsletter():
+    data_dir = os.path.join(app.root_path, 'data')
+    return send_from_directory(data_dir, 'sample_newsletter.json')
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=False)
