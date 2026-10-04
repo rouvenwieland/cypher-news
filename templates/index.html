@@ -132,6 +132,10 @@
     <button class="theme-toggle" id="themeBtn">Dunkelmodus</button>
     <div class="container">
         <h1>Personalisierter KI-Newsletter</h1>
+        <div id="newsletterHeader" style="margin-bottom:20px;">
+            <h2 id="newsletterTitle"></h2>
+            <p id="newsletterIntro" style="color:var(--muted-text); font-style:italic;"></p>
+        </div>
         <div class="form-group">
             <label for="topics">Themen (frei eingeben)</label>
             <input type="text" id="topics" placeholder="z.B. Konzerte Berlin, Tech News">
@@ -178,28 +182,41 @@
         document.getElementById('generateBtn').addEventListener('click', async () => {
             const topics = document.getElementById('topics').value;
             const sources = Array.from(document.getElementById('sources').selectedOptions).map(o => o.value);
+            const today = new Date().toISOString().split('T')[0];
             
             try {
                 const response = await fetch('/mock/newsletter', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ topics, sources })
+                    body: JSON.stringify({ preferences: topics, sources, date: today })
                 });
                 
                 if (!response.ok) throw new Error('Network response was not ok');
                 
                 const data = await response.json();
-                displayNewsletter(data.newsletter || []);
+                displayNewsletter(data.items || []);
                 // For demo, also add to history
-                addToHistory(data.newsletter || []);
+                addToHistory(data.items || []);
+                // Optionally show title/intro
+                document.getElementById('newsletterTitle').textContent = data.title || '';
+                document.getElementById('newsletterIntro').textContent = data.intro || '';
             } catch (error) {
                 console.error('Error:', error);
-                // Fallback to sample data
+                // Fallback to sample data (which uses old format)
                 fetch('/data/sample_newsletter.json')
                     .then(r => r.json())
                     .then(data => {
-                        displayNewsletter(data.newsletter || []);
-                        addToHistory(data.newsletter || []);
+                        // Convert old format to expected items
+                        const items = (data.newsletter || []).map(item => ({
+                            category: item.category,
+                            title: item.title,
+                            summary: item.summary,
+                            source: item.source,
+                            url: item.link,
+                            when: item.date
+                        }));
+                        displayNewsletter(items);
+                        addToHistory(items);
                     })
                     .catch(err => {
                         console.error('Fallback failed:', err);
@@ -222,8 +239,8 @@
                     <h3>${item.title}</h3>
                     <p><strong>Kategorie:</strong> ${item.category}</p>
                     <p>${item.summary}</p>
-                    <p><strong>Quelle:</strong> <a href="${item.link}" target="_blank">${item.source}</a></p>
-                    <p><strong>Datum:</strong> ${item.date}</p>
+                    <p><strong>Quelle:</strong> <a href="${item.url}" target="_blank">${item.source}</a></p>
+                    <p><strong>Datum:</strong> ${item.when}</p>
                 `;
                 container.appendChild(card);
             });
@@ -239,8 +256,8 @@
                     <h3>${item.title}</h3>
                     <p><strong>Kategorie:</strong> ${item.category}</p>
                     <p>${item.summary}</p>
-                    <p><strong>Quelle:</strong> <a href="${item.link}" target="_blank">${item.source}</a></p>
-                    <p><strong>Datum:</strong> ${item.date}</p>
+                    <p><strong>Quelle:</strong> <a href="${item.url}" target="_blank">${item.source}</a></p>
+                    <p><strong>Datum:</strong> ${item.when}</p>
                 `;
                 historyContainer.prepend(card);
             });
