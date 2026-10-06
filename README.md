@@ -25,7 +25,7 @@ python -m pytest -q tests         # Tests
 Modell-IDs ändern sich oft (Free-Modelle verschwinden): immer in den Umgebungsvariablen setzen, nie im Code. `MODEL_FALLBACK` ist optional.
 
 ## Veröffentlichen (kostenlos)
-Siehe [DEPLOY.md](DEPLOY.md) (Hugging Face Space mit Docker, Backup der Datenbank, täglicher Cron per GitHub Actions).
+Siehe [DEPLOY.md](DEPLOY.md) (Render Free ohne Kreditkarte, Datenbank-Backup in ein privates Hugging-Face-Dataset, Keep-awake per GitHub Actions).
 
 ## Technik
 Flask + SQLite, Vanilla JS-PWA, kein Build-Schritt. Ordner: `cypher/` (Quellen, KI, Pipeline, Scheduler, Push, Backup), `templates/`, `static/`, `tests/`. `n8n/` und `pitch/` stammen vom Hackathon (n8n-Workflow-Prototyp, Pitch-Präsentation) und sind nicht Teil der App.

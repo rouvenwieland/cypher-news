@@ -1,11 +1,11 @@
-# Keeps the free Hugging Face Space awake so its built-in scheduler can build the daily drops.
+# Keeps the free free Render service awake so its built-in scheduler can build the daily drops.
 # No secrets needed. Change APP_URL if your Space has another name.
 name: keep-awake
 on:
-  schedule: [{ cron: '*/20 * * * *' }]
+  schedule: [{ cron: '*/10 * * * *' }]
   workflow_dispatch:
 env:
-  APP_URL: https://rouvenwieland-cypher-news.hf.space
+  APP_URL: https://cypher-news.onrender.com
 jobs:
   ping:
     runs-on: ubuntu-latest
