@@ -1,4 +1,10 @@
-Flask==3.0.3
-requests==2.32.3
-instaloader==4.15.3
-pillow==12.3.0
+flask==3.0.3
+gunicorn==23.0.0
+requests>=2.32
+pillow>=11
+cryptography>=43
+feedparser==6.0.11
+pywebpush>=2.0
+yt-dlp[default,curl-cffi]>=2025.1.1
+huggingface_hub>=0.25
+curl_cffi>=0.7

@@ -1,0 +1,25 @@
+# Render Blueprint: free web service, no credit card. Deploy: render.com > New > Blueprint > pick this repo.
+services:
+  - type: web
+    name: cypher-news
+    runtime: docker
+    plan: free
+    branch: main
+    healthCheckPath: /healthz
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true                   # Render creates a random value, nothing to type
+      - key: MODEL_PRIMARY
+        value: nvidia/nemotron-3-super-120b-a12b:free
+      - key: MODEL_FALLBACK
+        value: nvidia/nemotron-3-ultra-550b-a55b:free
+      - key: MODEL_VISION
+        value: google/gemma-4-31b-it:free,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free   # tried in order (Gemma is often rate limited)
+      - key: SCHEDULER
+        value: "1"
+      - key: BACKUP_REPO
+        value: rouvenwieland/cypher-news-data
+      - key: HF_TOKEN                          # write token, only used to back up the DB to a private dataset
+        sync: false
+      - key: IMPRINT_TEXT
+        sync: false

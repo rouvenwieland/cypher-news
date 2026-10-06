@@ -1,51 +1,33 @@
 # Cypher News — Daily Drop
 
-Ein personalisierter KI-Newsletter im Retro-Pixel-Look. Nutzer geben Themen ein, wählen Quellen und bekommen einen täglichen "Drop" mit Events, Giveaways und Trends — kuratiert von offener KI. Gebaut für den Hacktoberfest Hack Day Berlin 2026.
+Dein persönlicher KI-Newsletter. Du schreibst einmal, was dich interessiert, und sagst, welchen öffentlichen Accounts du folgst (Instagram, TikTok, YouTube, Reddit, Bluesky, Mastodon, RSS). Jeden Tag scannt Cypher News diese Quellen plus Google News, lässt ein **offenes Sprachmodell** (über OpenRouter) auswerten und schickt dir einen kurzen "Drop" als installierbare Web-App (PWA) mit Push-Nachricht. Weniger Scrollen, keine FOMO.
 
-## Starten
+## Was die App kann
+- Mehrere Nutzer, **ohne E-Mail und ohne Passwort**: Konto = Cookie + Wiederherstellungscode (Daten-Export und Konto löschen inklusive).
+- Quellen: Google News, Reddit, YouTube, Bluesky, Mastodon, RSS, TikTok und Instagram (öffentliche Profile, best effort), Massen-Import einer Follow-Liste.
+- **Teilen in die App** (Web Share Target): Posts, Links und Story-Screenshots direkt aus Instagram/TikTok an Cypher News teilen; das Vision-Modell liest Datum, Ort, Aktion aus.
+- KI: Texte und Bildauswertung mit offenen Modellen, Modellnamen nur aus Umgebungsvariablen. **Eigener OpenRouter-Schlüssel pro Nutzer** (verschlüsselt gespeichert) oder optionales Gratis-Kontingent über den Server-Schlüssel.
+- Täglicher Drop zur gewählten Uhrzeit (Scheduler), Web-Push, Verlauf, Merken, 👍/👎-Feedback fließt ins Ranking, Deduplizierung über Tage.
+- Datenschutz: keine Passwörter fremder Dienste, kein Login-Scraping, SSRF-Schutz, CSP, Rate-Limits.
 
-1. Abhängigkeiten installieren: `pip install -r requirements.txt`
-2. App starten: `python app.py`
-3. Im Browser öffnen: http://127.0.0.1:5000
+## Bewusst NICHT enthalten
+Anmeldung mit Instagram/TikTok-Passwort. Das verstößt gegen die AGB der Plattformen, führt zu Kontosperren und wäre ein Sicherheitsrisiko. Stattdessen: öffentliche Profile + "Teilen in die App". Öffentliche Instagram-/TikTok-Abrufe werden von den Plattformen oft blockiert; was nicht erreichbar war, zeigt der Drop an.
 
-## Verwendetes offenes Modell
+## Lokal starten
+```bash
+pip install -r requirements.txt
+python -m cypher.vapid            # gibt SECRET_KEY und VAPID-Schlüssel aus (nicht committen!)
+export SECRET_KEY=...  MODEL_PRIMARY=<Modell-ID von openrouter.ai/models>  MODEL_VISION=<Vision-Modell>
+export COOKIE_SECURE=0            # nur lokal ohne https
+python app.py                     # http://127.0.0.1:5000
+python -m pytest -q tests         # Tests
+```
+Modell-IDs ändern sich oft (Free-Modelle verschwinden): immer in den Umgebungsvariablen setzen, nie im Code. `MODEL_FALLBACK` ist optional.
 
-| Modell | Lizenz | Anbieter |
-|---|---|---|
-| `nvidia/nemotron-3-super-120b-a12b:free` | OpenRouter Free (Apache 2.0) | OpenRouter API |
+## Veröffentlichen (kostenlos)
+Siehe [DEPLOY.md](DEPLOY.md) (Render Free ohne Kreditkarte, Datenbank-Backup in ein privates Hugging-Face-Dataset, Keep-awake per GitHub Actions).
 
-Das Modell wird aus der Umgebungsvariable `$MODEL_PRIMARY` gelesen — kein Modellname ist im Code hardgecodet.
+## Technik
+Flask + SQLite, Vanilla JS-PWA, kein Build-Schritt. Ordner: `cypher/` (Quellen, KI, Pipeline, Scheduler, Push, Backup), `templates/`, `static/`, `tests/`. `n8n/` und `pitch/` stammen vom Hackathon (n8n-Workflow-Prototyp, Pitch-Präsentation) und sind nicht Teil der App.
 
-## Demo-Pfad (3 Klicks)
-
-1. App öffnen → Matrix-Rain-Hintergrund, Ticker, "Cypher News" Logo
-2. Themen eintippen und Quellen-Chips antippen
-3. "DROP ERZEUGEN" klicken → Terminal-Animation → Story-Karten mit Events
-
-## Architektur (5 Sätze)
-
-- **Frontend**: Vanilla HTML/CSS/JS mit Matrix-Rain-Canvas, CSS-Animationen und localStorage.
-- **Backend**: Python Flask mit vier Routen: `GET /` (Template), `POST /api/generate` (n8n-Live-Integration), `POST /mock/newsletter` (Mock-Webhook) und `GET /data/sample_newsletter.json` (offline Fallback-Daten).
-- **n8n-Integration**: Der `/api/generate`-Endpoint ruft einen n8n-Webhook auf, der öffentliche Quellen (RSS, YouTube, Reddit etc.) durchsucht und via OpenRouter-KI zusammenfasst. Bei Timeout (22s) folgt 3-stufiger Fallback: n8n → sample_newsletter.json → Mock-Daten.
-- **Fallback**: Bei Fehlern lädt der Client `data/sample_newsletter.json` — 8 offline verfügbare Beispiel-Einträge, dann Mock-Daten als letzte Instanz.
-- **KI-Modell**: Modellname aus `$MODEL_PRIMARY` wird im Footer und in der Terminal-Animation angezeigt.
-
-## Open-Source-KI-Nutzung
-
-- Modellname aus `$MODEL_PRIMARY` (nie hardgecodet)
-- n8n als KI-Provider gemäß Hackathon-Thema
-- Alle Datenquellen öffentlich (RSS, YouTube, Reddit, TikTok, Instagram)
-- Keine personenbezogenen Daten in Prompts
-
----
-
-## Hackathon submission summary (Hacktoberfest Hack Day Berlin 2026)
-
-**Cypher News - Daily Drop**: a personal AI newsletter. Connect Instagram, TikTok, YouTube, Reddit and RSS, write what you care about in one big note, and get one daily "drop" that summarizes posts, reels, videos and stories (including image content) so you do not have to scroll.
-
-- **n8n is the backbone** (`n8n/workflow.json`, generated by `n8n/build_workflow.py`): Webhook -> Plan -> RSS Read -> Collect -> Vision -> Writer Prompt -> Writer -> Router -> Parse -> Respond.
-- **Open-weight models only:** text with Nemotron 3 Super (fast) or Ultra (precise) with DeepSeek V4 as fallback, images with Qwen 3.8 27B (vision) via OpenRouter; the presentation voices are generated locally with the open-source TTS Piper.
-- **Social connectors** (`socialfetch/`): Reddit, YouTube and TikTok are read publicly without login; Instagram (posts and stories) uses a login via instaloader. Honest limits: Instagram may require a security checkpoint for new accounts, and scraping is against the platforms' terms; the prototype therefore falls back to clearly labeled sample data and the production path would be the official APIs.
-- **Run it:** start n8n, import `n8n/workflow.json`, set `OPENROUTER_API_KEY` and `MODEL_PRIMARY`, then `./start.sh`. The pitch deck (with spoken narration by three pixel characters) is in `pitch/` (`python3 -m http.server 8700 -d pitch`).
-- Built in 4 hours by a team of AI agents (planner, builder, tester, presenter) coordinated with Paperclip and OpenCode, supervised by the human team.
-- License: MIT.
+Lizenz: MIT. Verwendete Modelle laufen unter ihren eigenen Lizenzen (siehe Modellseite bei OpenRouter).

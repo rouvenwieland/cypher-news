@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="de"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ 'Datenschutz' if page == 'privacy' else 'Impressum' }} - Cypher News</title>
+<link rel="stylesheet" href="/static/css/style.css"><link rel="stylesheet" href="/static/css/app.css"></head>
+<body><div class="app legal">
+<a href="/" class="btn-link">← zurück</a>
+{% if page == 'privacy' %}
+<h1>Datenschutz</h1>
+<p><b>Was wir speichern:</b> Deine Notizen, die Liste deiner Quellen, Uhrzeit, deine Drops der letzten 30 Tage, Gemerktes, geteilte Inhalte und, wenn du sie einträgst, deinen OpenRouter-Schlüssel (verschlüsselt) und ein Push-Abo. Keine E-Mail, kein Passwort, keine Namen. Dein Konto ist an ein zufälliges Cookie auf deinem Gerät gebunden.</p>
+<p><b>Was an die KI geht:</b> Zum Schreiben deines Drops senden wir deine Notizen und die öffentlich gesammelten Beiträge (Texte, Bildausschnitte) an OpenRouter und das dort gewählte offene Modell. Free-Modelle können Anfragen protokollieren. Schreibe deshalb keine privaten Daten in die Notizen und teile keine Bilder mit Personen.</p>
+<p><b>Quellen:</b> Wir lesen nur öffentlich zugängliche Seiten (RSS, öffentliche Profile). Wir fragen nie nach Passwörtern anderer Dienste.</p>
+<p><b>Deine Rechte:</b> Unter Profil &gt; Konto &amp; Daten kannst du alle Daten exportieren und dein Konto samt Daten sofort löschen.</p>
+<p><b>Cookies:</b> Ein technisch notwendiges Cookie (<code>cn_token</code>) für die Anmeldung. Kein Tracking, keine Werbung.</p>
+{% else %}
+<h1>Impressum</h1>
+{% if imprint %}<p style="white-space:pre-line">{{ imprint }}</p>{% else %}<p>Der Betreiber dieser Instanz hat noch keine Angaben hinterlegt (Umgebungsvariable <code>IMPRINT_TEXT</code>).</p>{% endif %}
+{% endif %}
+</div></body></html>
