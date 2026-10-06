@@ -154,3 +154,10 @@ def test_zero_config_secrets(client, monkeypatch):
     assert db.decrypt(token) == 'hello'
     k1 = push.public_key(); assert len(k1) > 60 and push.public_key() == k1
     assert client.get('/api/me').get_json()['vapid'] == k1
+
+
+def test_source_test_endpoint(client):
+    start(client)
+    r = client.post('/api/sources/test', json={'platform': 'reddit', 'value': 'r/berlin'}).get_json()
+    assert r['count'] == 1 and 'Mauerpark' in r['sample']
+    assert client.post('/api/sources/test', json={'platform': 'evil', 'value': 'x'}).status_code == 400

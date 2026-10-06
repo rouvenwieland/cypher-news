@@ -177,6 +177,21 @@ def detect(u):
     return jsonify(platform=p, value=v)
 
 
+@app.route('/api/sources/test', methods=['POST'])
+@api
+def test_source(u):
+    """Tries one source right now so the user sees whether it is reachable."""
+    if not rate_limit('srctest:' + u['id'], 30, 600):
+        return jsonify(error='rate_limited'), 429
+    b = request.get_json(silent=True) or {}
+    p, v = str(b.get('platform', '')), str(b.get('value', ''))[:300]
+    if p not in sources.FETCHERS or p == 'news':
+        return jsonify(error='bad_platform'), 400
+    t = time.time()
+    items = sources.FETCHERS[p](v)
+    return jsonify(count=len(items), seconds=round(time.time() - t, 1), sample=(items[0]['text'][:90] if items else ''))
+
+
 @app.route('/api/sources/import', methods=['POST'])
 @api
 def import_sources(u):

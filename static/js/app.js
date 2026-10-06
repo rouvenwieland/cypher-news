@@ -101,6 +101,11 @@ async function addSource() {
     if (!d.platform) { toast('Plattform nicht erkannt. Nutze einen Link, r/name oder name@instanz.', true); return; }
     if (!sources.some((s) => s.platform === d.platform && s.value === d.value)) sources.push({platform: d.platform, value: d.value});
     $('sourceInput').value = ''; renderSources();
+    toast('Prüfe ' + d.value + ' …');
+    try {
+      const t = await api('/api/sources/test', 'POST', {platform: d.platform, value: d.value});
+      toast(t.count ? `✔ ${t.count} aktuelle Beiträge gefunden` : 'Hinzugefügt, aber gerade nicht erreichbar. Tipp: Teile Posts direkt in die App.', !t.count);
+    } catch (e) { /* adding already worked */ }
   } catch (e) { toast('Konnte Quelle nicht hinzufügen.', true); }
 }
 $('sourceAdd').addEventListener('click', addSource);
