@@ -1,105 +1,25 @@
-const CACHE_STATIC = 'cypher-news-static-v3';
-const CACHE_DROP = 'cypher-news-drop-v1';
+const CACHE = 'cypher-news-v4';
+const SHELL = ['/static/css/style.css', '/static/css/app.css', '/static/js/rain.js', '/static/js/app.js', '/static/icon-192.png', '/static/icon-512.png',
+  '/static/fonts/PressStart2P.ttf', '/static/fonts/VT323.ttf', '/static/fonts/SpaceGrotesk.ttf'];
 
-const STATIC_URLS = [
-  '/',
-  '/static/css/style.css',
-  '/static/js/rain.js',
-  '/static/icon-192.png',
-  '/static/icon-512.png',
-  '/static/manifest.json',
-  '/data/sample_newsletter.json',
-  '/static/img/field_pix.jpg',
-  '/static/img/field_duo.jpg',
-  '/static/img/money_pix.jpg',
-  '/static/img/money_duo.jpg',
-  '/static/fonts/PressStart2P.ttf',
-  '/static/fonts/VT323.ttf',
-  '/static/fonts/SpaceGrotesk.ttf'
-];
+self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())));
+self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())));
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_STATIC)
-      .then(cache => cache.addAll(STATIC_URLS))
-      .then(() => self.skipWaiting())
-  );
-});
-
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(names => {
-      return Promise.all(
-        names.filter(n => n !== CACHE_STATIC && n !== CACHE_DROP)
-          .map(n => caches.delete(n))
-      );
-    }).then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
-
-  if (url.pathname === '/api/generate' && event.request.method === 'POST') {
-    event.respondWith(
-      fetch(event.request.clone())
-        .then(response => {
-          if (response.ok) {
-            const cloned = response.clone();
-            caches.open(CACHE_DROP).then(cache => {
-              cache.put('/last-drop', cloned);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match('/last-drop').then(r => {
-            return r || caches.match('/data/sample_newsletter.json');
-          });
-        })
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request)
-      .then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
-          }
-          const cloned = response.clone();
-          caches.open(CACHE_STATIC).then(cache => {
-            cache.put(event.request, cloned);
-          });
-          return response;
-        }).catch(() => {
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-        });
-      })
-  );
-});
-
-self.addEventListener('push', event => {
-  if (event.data) {
-    const data = event.data.json();
-    const opts = { body: data.body || '', icon: '/static/icon-192.png', badge: '/static/icon-192.png', vibrate: [200, 100, 200] };
-    event.waitUntil(self.registration.showNotification(data.title || 'Cypher News', opts));
+self.addEventListener('fetch', (e) => {
+  const u = new URL(e.request.url);
+  if (e.request.method !== 'GET' || u.origin !== location.origin || u.pathname.startsWith('/api/')) return; // never cache user data
+  if (u.pathname.startsWith('/static/')) {
+    e.respondWith(caches.match(e.request).then((c) => c || fetch(e.request)));
+  } else {
+    e.respondWith(fetch(e.request).catch(() => caches.match('/static/icon-192.png')));
   }
 });
 
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(clients => {
-      if (clients.length > 0) {
-        clients[0].focus();
-      } else {
-        clients.openWindow('/');
-      }
-    })
-  );
+self.addEventListener('push', (e) => {
+  let d = {}; try { d = e.data.json(); } catch (err) {}
+  e.waitUntil(self.registration.showNotification(d.title || 'Cypher News', {body: d.body || '', icon: '/static/icon-192.png', badge: '/static/icon-192.png', data: {url: d.url || '/'}}));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({type: 'window'}).then((cs) => cs.length ? cs[0].focus() : clients.openWindow((e.notification.data && e.notification.data.url) || '/')));
 });

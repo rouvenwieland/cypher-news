@@ -1,0 +1,6 @@
+__pycache__/
+.git
+data/*.db
+node_modules
+pitch/audio
+.env

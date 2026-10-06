@@ -4,21 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Cypher News - Daily Drop</title>
+    <meta name="description" content="Dein täglicher KI-Newsletter: Cypher News scrollt für dich durch Feeds, Videos und News und fasst zusammen, was dich interessiert.">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="icon" href="/static/icon-192.png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="theme-color" content="#130e0b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/app.css">
     <script src="/static/js/rain.js" defer></script>
+    <script src="/static/js/app.js" defer></script>
 </head>
-<body>
-
+<body data-vapid="{{ vapid }}" data-model="{{ model_name }}">
     <svg id="grainOverlay" aria-hidden="true">
         <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/></filter>
         <rect width="100%" height="100%" filter="url(#grain)"/>
     </svg>
-
     <canvas id="rainCanvas" aria-hidden="true"></canvas>
-    <canvas id="burstCanvas" aria-hidden="true"></canvas>
     <div id="vignette" aria-hidden="true"></div>
     <div id="bgGradient" aria-hidden="true"></div>
 
@@ -26,1168 +28,125 @@
         <header class="header">
             <div class="logo" id="logo">CYPHER NEWS</div>
             <div class="subtitle">DAILY DROP<span class="cursor">█</span></div>
-            <div class="top-bar">
-                <span class="clock" id="clock"></span>
-                <span class="badge">HEUTE</span>
-            </div>
         </header>
 
-        <nav class="tab-nav" id="tabNav">
-            <button class="tab-btn active" data-tab="drop">DAILY</button>
-            <button class="tab-btn" data-tab="connect">VERBINDEN</button>
-            <button class="tab-btn" data-tab="saved">★ GEMERKT</button>
-            <button class="tab-btn" data-tab="history">▼ VERLAUF</button>
-        </nav>
-
-        <div class="ticker" id="ticker">
-            <div class="ticker__inner" id="tickerInner"></div>
-        </div>
-
-        <div class="onboarding" id="onboarding">
-            <div class="onboarding-label">DEIN DROP</div>
-            <textarea id="topicsInput" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, deine Lieblingskünstler, No-Gos ..." rows="8"></textarea>
-
-            <div class="quality-row" id="qualityRow">
-                <span class="quality-label">Modus</span>
-                <div class="quality-toggle" id="qualityToggle">
-                    <button class="q-btn active" data-q="fast">⚡ SCHNELL</button>
-                    <button class="q-btn" data-q="high">🧠 GENAU</button>
-                </div>
+        <!-- Willkommen (ohne Sitzung) -->
+        <section id="welcome" class="panel" hidden>
+            <h2 class="hero">Nichts mehr verpassen.<br>Kein Scrollen mehr.</h2>
+            <p>Sag einmal, was dich interessiert und wem du folgst. Jeden Tag scannt Cypher News Feeds, Videos und News für dich und schreibt dir einen kurzen Drop: Konzerte, Giveaways, Drops, Trends. Mit offenen KI-Modellen, ohne Anmeldung mit E-Mail oder Passwort.</p>
+            <ul class="bullets">
+                <li>Kostenlos und Open Source (MIT)</li>
+                <li>Keine Passwörter fremder Konten, nur öffentliche Quellen</li>
+                <li>Teilen in die App: Instagram-Posts und Story-Screenshots einfach an Cypher News teilen</li>
+            </ul>
+            <button class="btn-drop" id="btnStart"><span class="spark">◆</span> LOSLEGEN <span class="spark">◆</span></button>
+            <button class="btn-link" id="btnShowRestore">Ich habe schon ein Konto (Wiederherstellungscode)</button>
+            <div id="restoreBox" hidden>
+                <input type="text" id="restoreCode" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off">
+                <button class="btn-small" id="btnRestore">WIEDERHERSTELLEN</button>
             </div>
+        </section>
 
-            <div class="chips" id="topicChips">
-                <span class="chip" data-topic="Konzerte Berlin">Konzerte Berlin<span class="check">✓</span></span>
-                <span class="chip" data-topic="Giveaways">Giveaways<span class="check">✓</span></span>
-                <span class="chip" data-topic="Kleidungsdrops">Kleidungsdrops<span class="check">✓</span></span>
-                <span class="chip" data-topic="Tech-News">Tech-News<span class="check">✓</span></span>
-                <span class="chip" data-topic="Trends">Trends<span class="check">✓</span></span>
-                <span class="chip" data-topic="Streetwear">Streetwear<span class="check">✓</span></span>
-                <span class="chip" data-topic="Techno">Techno<span class="check">✓</span></span>
-                <span class="chip" data-topic="Rap">Rap<span class="check">✓</span></span>
-            </div>
+        <div id="mainApp" hidden>
+            <nav class="tab-nav" id="tabNav">
+                <button class="tab-btn active" data-tab="drop">HEUTE</button>
+                <button class="tab-btn" data-tab="profile">PROFIL</button>
+                <button class="tab-btn" data-tab="saved">★</button>
+                <button class="tab-btn" data-tab="history">VERLAUF</button>
+            </nav>
 
-            <div class="source-label">QUELLEN</div>
-            <div class="source-row">
-                <input type="text" id="sourceInput" placeholder="@Account oder URL">
-                <select id="sourcePlatform">
-                    <option value="Instagram">📷 IG</option>
-                    <option value="TikTok">🎵 TT</option>
-                    <option value="YouTube">▶️ YT</option>
-                    <option value="Reddit">🤖 Reddit</option>
-                    <option value="RSS">📡 RSS</option>
-                </select>
-            </div>
-            <div class="source-chips" id="sourceChips"></div>
-
-            <button class="btn-drop" id="dropBtn"><span class="spark">◆</span> DROP ERZEUGEN <span class="spark">◆</span></button>
-        </div>
-
-        <!-- ── Terminal loading ── -->
-        <div class="terminal-wrapper" id="terminalWrapper">
-            <div class="terminal" id="terminal">
-                <div class="line">&gt; scanne Quellen …</div>
-                <div class="line">&gt; lese YouTube-Feeds …</div>
-                <div class="line">&gt; filtere Rauschen mit KI …</div>
-                <div class="line">&gt; n8n-Workflow läuft …</div>
-                <div class="line" id="terminalModel">&gt; OpenRouter {{ model_name }} fasst zusammen …</div>
-                <div class="line quality-info" id="terminalQuality" style="display:none">&gt; Schreibmodus: GENAU (Nemotron Ultra) …</div>
-                <div class="line">&gt; schreibe deinen Drop …</div>
-                <div class="line">&gt; fertig.</div>
-                <div class="progress">
-                    <span class="block"></span><span class="block"></span><span class="block"></span>
-                    <span class="block"></span><span class="block"></span><span class="block"></span>
-                    <span class="block"></span><span class="block"></span>
-                </div>
-            </div>
-        </div>
-
-        <!-- ── Results ── -->
-        <div id="resultsArea" style="display:none;">
-            <!-- Intro card -->
-            <div class="intro-card" id="introCard">
-                <h2 id="introTitle">DEIN DROP</h2>
-                <div class="intro-date" id="introDate"></div>
-                <div class="count" id="introCount">8 Treffer</div>
-                <div class="intro-model" id="introModel" style="display:none"></div>
-                <p id="introText"></p>
-                <div class="countdown" id="countdown">Nächster Drop um 08:00</div>
-            </div>
-
-            <button class="btn-push" id="btnPush" style="display:none">📲 AUF DEM HANDY ERHALTEN</button>
-
-            <!-- View toggle -->
-            <div class="view-toggle">
-                <button id="btnStories" class="active">STORIES</button>
-                <button id="btnFeed">FEED</button>
-            </div>
-
-            <!-- Progress bar for stories -->
-            <div class="story-progress" id="storyProgress"></div>
-
-            <!-- Category filters (feed only) -->
-            <div class="cat-filters" id="catFilters"></div>
-
-            <!-- Stories container -->
-            <div class="stories-container" id="storiesContainer">
-                <div class="stories-inner" id="storiesInner"></div>
-            </div>
-
-            <!-- Feed container -->
-            <div class="feed" id="feedContainer"></div>
-        </div>
-
-        <div class="tab-page" id="pageConnect">
-            <h3>VERBINDEN</h3>
-            <p class="connect-sub">Verbindet eure Accounts – der Drop fasst Posts, Reels &amp; Stories zusammen. <br><strong>Nur eigenes Zweitkonto verwenden.</strong> Zugangsdaten bleiben lokal auf deinem Gerät.</p>
-            <div class="connect-grid" id="connectGrid"></div>
-            <div class="connect-accounts" id="connectAccounts" style="display:none">
-                <div class="account-search-row">
-                    <input type="text" class="account-search" id="accountSearch" placeholder="Accounts durchsuchen …">
-                    <div class="manual-add-row">
-                        <input type="text" id="manualHandle" placeholder="@Handle manuell hinzufügen">
-                        <select id="manualPlatform">
-                            <option value="Instagram">📷 IG</option>
-                            <option value="TikTok">🎵 TT</option>
-                            <option value="YouTube">▶️ YT</option>
-                            <option value="Reddit">🤖 Reddit</option>
-                            <option value="RSS">📡 RSS</option>
-                        </select>
-                        <button id="manualAddBtn">+</button>
+            <!-- HEUTE -->
+            <section class="tab-page" id="pageDrop" style="display:block">
+                <div class="panel" id="setupHint" hidden></div>
+                <button class="btn-drop" id="dropBtn"><span class="spark">◆</span> DROP JETZT ERZEUGEN <span class="spark">◆</span></button>
+                <p class="hint" id="dropInfo"></p>
+                <div class="terminal-wrapper" id="terminalWrapper"><div class="terminal" id="terminal"></div></div>
+                <div id="resultsArea" hidden>
+                    <div class="intro-card">
+                        <h2 id="introTitle"></h2>
+                        <div class="intro-date" id="introDate"></div>
+                        <div class="count" id="introCount"></div>
+                        <p id="introText"></p>
+                        <div class="intro-model" id="introModel"></div>
                     </div>
+                    <div class="view-toggle">
+                        <button id="btnStories" class="active">STORIES</button>
+                        <button id="btnFeed">FEED</button>
+                    </div>
+                    <div class="story-progress" id="storyProgress"></div>
+                    <div class="cat-filters" id="catFilters"></div>
+                    <div class="stories-container" id="storiesContainer"><div class="stories-inner" id="storiesInner"></div></div>
+                    <div class="feed" id="feedContainer"></div>
                 </div>
-                <p class="connect-sub">Accounts, denen du folgen willst (aktiv = wird eingesammelt):</p>
-                <div id="accountSelections"></div>
-            </div>
-            <p class="demo-badge">BETA: Demo-Modus – Beispieldaten statt Live-Scraping</p>
-        </div>
+            </section>
 
-        <!-- Connect Dialog Modal -->
-        <div class="modal-overlay" id="connectModal" style="display:none">
-            <div class="modal-card">
-                <h4 class="modal-title">VERBINDEN</h4>
-                <p class="modal-hint" id="modalHint"></p>
-                <div class="modal-fields">
-                    <input type="text" id="modalUser" placeholder="Benutzername">
-                    <input type="password" id="modalPass" placeholder="Passwort (nur für Instagram)">
+            <!-- PROFIL -->
+            <section class="tab-page" id="pageProfile">
+                <h3>DEIN DROP</h3>
+                <div class="onboarding">
+                    <textarea id="notes" rows="7" maxlength="4000" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, Lieblingskünstler, No-Gos ..."></textarea>
+                    <div class="chips" id="topicChips"></div>
+
+                    <div class="source-label">QUELLEN (ÖFFENTLICH, OHNE LOGIN)</div>
+                    <p class="hint">Instagram, TikTok, YouTube, Reddit, Bluesky, Mastodon oder RSS. Link oder @Handle einfügen.</p>
+                    <div class="source-row">
+                        <input type="text" id="sourceInput" placeholder="@account, r/berlin, Link ..." autocomplete="off" autocapitalize="off">
+                        <button class="btn-small" id="sourceAdd">+</button>
+                    </div>
+                    <div class="source-chips" id="sourceChips"></div>
+                    <details class="more">
+                        <summary>Viele Accounts auf einmal importieren</summary>
+                        <p class="hint">Füge deine Follow-Liste ein (ein Handle oder Link pro Zeile). Bei Instagram kannst du sie unter Einstellungen &gt; Deine Aktivität &gt; Informationen herunterladen exportieren.</p>
+                        <select id="importPlatform"><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="bluesky">Bluesky</option></select>
+                        <textarea id="importText" rows="4" placeholder="@account1&#10;@account2"></textarea>
+                        <button class="btn-small" id="importBtn">IMPORTIEREN</button>
+                    </details>
+                    <p class="hint warn">Hinweis: Instagram und TikTok blockieren automatisches Lesen oft. Was nicht erreichbar ist, siehst du im Drop. Sicher klappt es mit <b>Teilen in die App</b>: Post oder Story-Screenshot teilen und „Cypher News“ wählen.</p>
+
+                    <div class="quality-row"><span class="quality-label">Uhrzeit</span>
+                        <select id="dropHour"></select></div>
+                    <div class="quality-row"><span class="quality-label">Modus</span>
+                        <div class="quality-toggle"><button class="q-btn active" data-q="fast">⚡ SCHNELL</button><button class="q-btn" data-q="high">🧠 GENAU</button></div></div>
+                    <button class="btn-drop" id="saveProfile">SPEICHERN</button>
                 </div>
-                <p class="modal-note" id="modalNote">🔒 Zugangsdaten bleiben NUR lokal auf deinem Gerät – kein Upload an Server oder KI.</p>
-                <div class="modal-actions">
-                    <button class="modal-btn cancel" id="modalCancel">ABBRECHEN</button>
-                    <button class="modal-btn confirm" id="modalConfirm">VERBINDEN</button>
+
+                <h3>KI-SCHLÜSSEL</h3>
+                <div class="panel" id="keyBox">
+                    <p class="hint">Die KI läuft über <b>OpenRouter</b> mit offenen Modellen. Ein eigener, kostenloser Schlüssel macht dich unabhängig und ohne Limits der App. So geht’s: auf <b>openrouter.ai</b> kostenlos registrieren, unter „Keys“ einen Schlüssel erstellen und hier einfügen. Er wird verschlüsselt gespeichert.</p>
+                    <div id="keyStatus" class="hint"></div>
+                    <input type="password" id="keyInput" placeholder="sk-or-..." autocomplete="off">
+                    <div class="btn-row"><button class="btn-small" id="keySave">SPEICHERN</button><button class="btn-small ghost" id="keyDelete">ENTFERNEN</button></div>
                 </div>
-            </div>
+
+                <h3>BENACHRICHTIGUNG</h3>
+                <div class="panel">
+                    <p class="hint" id="pushInfo">Bekomme eine Nachricht, wenn dein Drop fertig ist. Auf dem iPhone muss die App zuerst zum Home-Bildschirm hinzugefügt werden.</p>
+                    <button class="btn-small" id="pushBtn">PUSH AKTIVIEREN</button>
+                </div>
+
+                <h3>KONTO &amp; DATEN</h3>
+                <div class="panel">
+                    <p class="hint">Du hast kein Passwort. Dein Konto hängt an diesem Gerät. Mit dem Wiederherstellungscode kommst du auf einem anderen Gerät hinein. Du bekommst ihn nur einmal angezeigt.</p>
+                    <div class="btn-row"><a class="btn-small" href="/api/export">DATEN EXPORTIEREN</a><button class="btn-small ghost" id="deleteAccount">KONTO LÖSCHEN</button></div>
+                    <p class="hint"><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="https://github.com/rouvenwieland/cypher-news" target="_blank" rel="noopener">Open Source</a></p>
+                </div>
+            </section>
+
+            <section class="tab-page" id="pageSaved"><h3>★ GEMERKT</h3><div id="savedContainer"></div></section>
+            <section class="tab-page" id="pageHistory"><h3>▼ VERLAUF</h3><div id="historyContainer"></div></section>
         </div>
 
-        <div class="tab-page" id="pageSaved">
-            <h3>★ GEMERKT</h3>
-            <div id="savedContainer"><p class="empty">Noch nichts gemerkt. Tippe ★ auf einer Karte.</p></div>
-        </div>
-
-        <div class="tab-page" id="pageHistory">
-            <h3>▼ VERLAUF</h3>
-            <div id="historyContainer"><p class="empty">Noch kein Drop. Sag uns, was dich interessiert.</p></div>
-        </div>
-
-        <div class="footer">
-            Modell: {{ model_name }} (OpenRouter Free) • Cypher News 2026
-        </div>
+        <div class="footer">Modell: {{ model_name }} (offenes Modell via OpenRouter) • Cypher News 2026 • <a href="/datenschutz">Datenschutz</a> • <a href="/impressum">Impressum</a></div>
     </div>
 
+    <div class="modal-overlay" id="recoveryModal" style="display:none">
+        <div class="modal-card">
+            <h4 class="modal-title">DEIN CODE</h4>
+            <p class="modal-hint">Speichere diesen Wiederherstellungscode (Screenshot oder Passwortmanager). Ohne ihn kannst du dein Konto auf einem neuen Gerät nicht öffnen. Er wird nicht noch einmal angezeigt.</p>
+            <div class="code" id="recoveryCode"></div>
+            <div class="modal-actions"><button class="modal-btn cancel" id="copyCode">KOPIEREN</button><button class="modal-btn confirm" id="closeCode">GESPEICHERT</button></div>
+        </div>
+    </div>
     <div class="toast" id="toast"></div>
-    <canvas id="confettiCanvas" aria-hidden="true"></canvas>
-    <canvas id="cursorTrail" aria-hidden="true"></canvas>
-
-    <script>
-        const CAT_COLORS = {konzerte: 'var(--orange)', giveaways: 'var(--green)', mode: 'var(--pink)', drops: 'var(--pink)', tech: 'var(--cyan)', trends: 'var(--yellow)', streetwear: 'var(--pink)', techno: 'var(--orange)', rap: 'var(--red)', sonstiges: 'var(--red)'};
-
-        // ── Glitch logo ──
-        setInterval(() => {
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-            document.getElementById('logo').classList.add('glitch');
-            setTimeout(() => document.getElementById('logo').classList.remove('glitch'), 500);
-        }, 6000);
-
-        // ── Clock ──
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').textContent = now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-        }
-        updateClock(); setInterval(updateClock, 30000);
-
-        // ── Ticker ──
-        const TICKER_HEADLINES = [
-            { t: 'KI-Durchbruch in Bildverarbeitung', cat: 'tech' },
-            { t: 'Freiluftkonzert im Mauerpark heute Abend', cat: 'konzerte' },
-            { t: 'SNEAKRS Raffle: Travis Scott x Nike', cat: 'mode' },
-            { t: 'ACRONYM Popup nur dieses WE in Mitte', cat: 'mode' },
-            { t: '5 Trends, die diese Woche viral gehen', cat: 'trends' },
-            { t: 'Techno-Nacht im Club OST Berlin', cat: 'konzerte' },
-            { t: 'Gewinne 1 Jahr Cloud-Speicher', cat: 'giveaways' },
-            { t: 'OpenAI Verse 2: Open-Source-Bildmodell', cat: 'tech' },
-        ];
-        const tickerInner = document.getElementById('tickerInner');
-        const tickerHTML = TICKER_HEADLINES.map(h => `<span class="ticker__item cat-${h.cat}"><span class="ticker__dot">✦</span>${h.t}</span>`).join('');
-        tickerInner.innerHTML = tickerHTML + tickerHTML;
-
-        // ── Topic chips ──
-        document.querySelectorAll('#topicChips .chip').forEach(chip => {
-            chip.addEventListener('click', () => {
-                chip.classList.toggle('active');
-                chip.classList.add('bounce');
-                setTimeout(() => chip.classList.remove('bounce'), 300);
-            });
-        });
-
-        // ── Source chips ──
-        const sourceInput = document.getElementById('sourceInput');
-        const sourcePlatform = document.getElementById('sourcePlatform');
-        const sourceChips = document.getElementById('sourceChips');
-        const sources = [];
-
-        function addSource(value, platform) {
-            if (!value.trim() || sources.find(s => s.value === value)) return;
-            sources.push({ value: value.trim(), platform });
-            renderSources();
-            sourceInput.value = '';
-        }
-        function removeSource(value) {
-            const idx = sources.findIndex(s => s.value === value);
-            if (idx !== -1) { sources.splice(idx, 1); renderSources(); }
-        }
-        function renderSources() {
-            sourceChips.innerHTML = sources.map(s => `<span class="source-chip">${s.platform}: @${s.value}<span class="remove" data-value="${s.value}">&times;</span></span>`).join('');
-            sourceChips.querySelectorAll('.remove').forEach(el => el.addEventListener('click', () => removeSource(el.dataset.value)));
-        }
-        sourceInput.addEventListener('keydown', e => {
-            if (e.key === 'Enter') { e.preventDefault(); addSource(sourceInput.value, sourcePlatform.value); }
-        });
-
-        // ── Current data ──
-        let currentItems = [], currentTitle = '', currentIntro = '';
-
-        // ── Toast ──
-        function showToast(msg, isError) {
-            const t = document.getElementById('toast');
-            t.textContent = msg; t.className = 'toast show' + (isError ? ' error' : '');
-            setTimeout(() => t.classList.remove('show'), 2500);
-        }
-
-        // ── Matrix burst ──
-        function startBurst() {
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-            const bc = document.getElementById('burstCanvas');
-            const bx = bc.getContext('2d');
-            bc.width = window.innerWidth;
-            bc.height = window.innerHeight;
-            bc.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100dvh;z-index:1;pointer-events:none;opacity:0;transition:opacity .5s';
-            let bCols, bDrops;
-            function bSize() { bCols = Math.floor(bc.width / 14); bDrops = Array(bCols).fill(0).map(() => Math.random() * bc.height / 14); }
-            bSize();
-            const bChars = '01<>/#$%&*+=@ABCDEF';
-            let burstActive = true;
-            bx.fillStyle = 'rgba(19,14,11,.95)';
-            bx.fillRect(0, 0, bc.width, bc.height);
-            bc.style.opacity = '1';
-            function bTick() {
-                if (!burstActive) {
-                    bx.fillStyle = 'rgba(19,14,11,.08)';
-                    bx.fillRect(0, 0, bc.width, bc.height);
-                    if (bDrops.every(d => d === 0)) { bc.style.opacity = '0'; return; }
-                    bDrops = bDrops.map(d => d > bc.height / 14 + 5 ? 0 : d + (Math.random() * 0.5));
-                    requestAnimationFrame(bTick);
-                    return;
-                }
-                bx.fillStyle = 'rgba(19,14,11,.06)';
-                bx.fillRect(0, 0, bc.width, bc.height);
-                bx.font = '15px VT323';
-                bx.shadowBlur = Math.random() < 0.2 ? 8 : 0;
-                bx.shadowColor = '#39ff14';
-                bDrops.forEach((d, i) => {
-                    bx.fillStyle = Math.random() < 0.25 ? '#39ff14' : (Math.random() < 0.5 ? '#ff6a1a' : '#fff3df');
-                    bx.fillText(bChars[Math.floor(Math.random() * bChars.length)], i * 14, d * 14);
-                    bDrops[i] = d * 14 > bc.height && Math.random() > 0.92 ? 0 : d + (Math.random() < 0.15 ? 2 : 1.3);
-                });
-                bx.shadowBlur = 0;
-                requestAnimationFrame(bTick);
-            }
-            bTick();
-            return () => { burstActive = false; };
-        }
-        let stopBurst = null;
-
-        // ── Quality toggle ──
-        let qualityMode = 'fast';
-        document.querySelectorAll('.quality-toggle .q-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.quality-toggle .q-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                qualityMode = btn.dataset.q;
-            });
-        });
-
-        // ── DROP Button ──
-        document.getElementById('dropBtn').addEventListener('click', async () => {
-            if (navigator.vibrate) navigator.vibrate(15);
-            const topics = document.getElementById('topicsInput').value;
-            const activeChips = [...document.querySelectorAll('#topicChips .chip.active')].map(c => c.dataset.topic);
-            const allTopics = [topics, ...activeChips].filter(Boolean).join(', ');
-            const srcList = sources.map(s => `${s.platform}:${s.value}`);
-            const today = new Date().toISOString().split('T')[0];
-
-            const activeConns = {};
-            Object.entries(connectedAccounts).forEach(([plat, accts]) => {
-                if (!accts) return;
-                const active = accts.filter(a => !hiddenAccounts.has(`${plat}:${a}`));
-                if (active.length > 0) activeConns[plat] = active;
-            });
-
-            const btn = document.getElementById('dropBtn');
-            btn.classList.add('loading');
-            btn.disabled = true;
-
-            const tw = document.getElementById('terminalWrapper');
-            tw.classList.add('visible');
-            if (qualityMode === 'high') {
-                document.getElementById('terminalQuality').classList.add('visible');
-            } else {
-                document.getElementById('terminalQuality').classList.remove('visible');
-            }
-            document.getElementById('resultsArea').style.display = 'none';
-            document.body.classList.add('no-scroll');
-
-            stopBurst = startBurst();
-
-            const minDelay = new Promise(r => setTimeout(r, 3000));
-
-            let fetchFailed = false;
-            let fetchErrorMsg = '';
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 50000);
-
-            try {
-                const resp = await fetch('/api/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ preferences: allTopics, sources: srcList, date: today, accounts: activeConns, quality: qualityMode }),
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-                const data = await resp.json();
-                await minDelay;
-
-                currentItems = data.items || [];
-                currentTitle = data.title || 'DEIN DROP';
-                currentIntro = data.intro || '';
-                currentMeta = data.meta || {};
-                const srcLabel = (data.source === 'n8n') ? ' (live via n8n + OpenRouter)' : (data.source === 'mock' ? ' (Mock)' : (data.source === 'fallback' ? ' (Offline)' : ''));
-                displayResults(currentItems, currentTitle + srcLabel, currentIntro, currentMeta);
-                addToHistory(currentItems, currentTitle);
-                showToast('DROP ERZEUGT — ' + currentItems.length + ' Treffer');
-                launchConfetti();
-                document.getElementById('btnPush').style.display = 'block';
-            } catch (err) {
-                clearTimeout(timeoutId);
-                console.error(err);
-                fetchFailed = true;
-                if (err.name === 'AbortError') {
-                    fetchErrorMsg = 'Zeitüberschreitung – Server oder n8n braucht zu lange.';
-                } else {
-                    fetchErrorMsg = 'Verbindungsfehler zum Server.';
-                }
-                await minDelay;
-                showToast(fetchErrorMsg, true);
-            }
-
-            stopBurst && stopBurst();
-            stopBurst = null;
-            tw.classList.remove('visible');
-            btn.classList.remove('loading');
-            btn.disabled = false;
-            document.body.classList.remove('no-scroll');
-            setTimeout(() => document.getElementById('resultsArea').scrollIntoView({ behavior: 'smooth' }), 200);
-        });
-
-        // ── Display results ──
-        let viewMode = 'stories';
-        let currentMeta = {};
-        function displayResults(items, title, intro, meta) {
-            if (meta) currentMeta = meta;
-            const area = document.getElementById('resultsArea');
-            area.style.display = 'block';
-
-            // Intro card
-            document.getElementById('introTitle').textContent = title;
-            document.getElementById('introDate').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
-            const srcCount = (meta && meta.sources) ? meta.sources : 5;
-            const imgCtn = (meta && meta.images_analyzed != null) ? meta.images_analyzed : 0;
-            const socialCtn = (meta && meta.social_items != null) ? meta.social_items : 0;
-            let introCountText = items.length + ' Treffer aus ' + srcCount + ' Quellen';
-            if (socialCtn > 0) introCountText += ' · ' + socialCtn + ' Social-Beiträge';
-            if (imgCtn > 0) introCountText += ' · ' + imgCtn + ' Bilder ausgewertet';
-            document.getElementById('introCount').textContent = introCountText;
-            const modelName = (meta && meta.model) ? meta.model : '';
-            document.getElementById('introModel').textContent = modelName ? 'n8n · ' + modelName : '';
-            document.getElementById('introModel').style.display = modelName ? 'block' : 'none';
-            document.getElementById('introText').textContent = intro;
-            updateCountdown();
-
-            // Progress bar
-            const prog = document.getElementById('storyProgress');
-            prog.innerHTML = items.map((_, i) => `<span class="prog-seg" data-idx="${i}"></span>`).join('');
-            document.getElementById('storyProgress').style.display = 'flex';
-
-            // Category filters (delegation)
-            const cats = [...new Set(items.map(i => i.category.toLowerCase()))];
-            const catFilters = document.getElementById('catFilters');
-            catFilters.innerHTML = cats.map(c => `<span class="chip active" data-cat="${c}">${c}</span>`).join('');
-            catFilters.onclick = e => {
-                const chip = e.target.closest('.chip');
-                if (!chip) return;
-                chip.classList.toggle('active');
-                renderView();
-            };
-
-            // Stories
-            const inner = document.getElementById('storiesInner');
-            const imgSources = ['field_pix', 'money_pix', 'field_duo', 'money_duo', 'field_pix', 'money_duo', 'money_pix', 'field_duo'];
-            inner.innerHTML = items.map((item, i) => {
-                const cat = item.category.toLowerCase();
-                const kind = item.kind || 'news';
-                const kindLabel = KIND_LABELS[kind] || kind.toUpperCase();
-                const kindColor = KIND_COLORS[kind] || 'var(--dim)';
-                const hasThumb = !!item.image;
-                const img = hasThumb ? item.image : ('/static/img/' + imgSources[i % imgSources.length] + '.jpg');
-                const isDemo = item._demo === true;
-                const fadeIn = 0.6 + i * 0.06;
-                return `<div class="story-card cat-${cat}" data-cat="${cat}" style="animation-delay:${fadeIn}s">
-                    <div class="card-parallax" data-speed="0.4">
-                        <img src="${img}" alt="" loading="lazy">
-                    </div>
-                    <div class="card-body">
-                        <div class="card-header">
-                            <span class="cat-pill">${item.category}</span>
-                            <span class="kind-badge" style="border-color:${kindColor};color:${kindColor}">${kindLabel}</span>
-                            ${item.platform ? `<span class="social-badge">${PLATFORM_SVG[item.platform] || PLATFORM_ICONS[item.platform] || ''} @${item.account || item.source.replace(/^.*?: @?/, '')}</span>` : ''}
-                            ${isDemo ? '<span class="demo-tag">BEISPIELDATEN</span>' : ''}
-                            <span class="card-index">${String(i + 1).padStart(2, '0')}/${String(items.length).padStart(2, '0')}</span>
-                        </div>
-                        <h3>${item.title}</h3>
-                        <p class="summary">${item.summary}</p>
-                        <div class="meta-row">
-                            <span>${item.source} · ${item.when}</span>
-                        </div>
-                        <div class="actions">
-                            <a href="${item.url}" target="_blank" rel="noopener" class="btn-open-wrap"><button class="btn-open">ÖFFNEN ↗</button></a>
-                            <button class="btn-save" data-title="${item.title}">★ MERKEN</button>
-                            <button class="btn-share" data-title="${item.title}" data-url="${item.url}">TEILEN</button>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
-
-            // Feed
-            const feed = document.getElementById('feedContainer');
-            feed.innerHTML = items.map((item, i) => {
-                const cat = item.category.toLowerCase();
-                const kind = item.kind || 'news';
-                const kindLabel = KIND_LABELS[kind] || kind.toUpperCase();
-                const kindColor = KIND_COLORS[kind] || 'var(--dim)';
-                const hasThumb = !!item.image;
-                const img = hasThumb ? item.image : ('/static/img/' + imgSources[i % imgSources.length] + '.jpg');
-                const isDemo = item._demo === true;
-                return `<div class="feed-card cat-${cat}" data-cat="${cat}" style="animation-delay:${0.05 * i}s">
-                    <div class="feed-card-img">
-                        <img src="${img}" alt="" loading="lazy">
-                    </div>
-                    <div class="feed-card-body">
-                        <span class="cat-pill">${item.category}</span>
-                        <span class="kind-badge-sm" style="border-color:${kindColor};color:${kindColor}">${kindLabel}</span>
-                        ${item.platform ? `<span class="social-badge-sm">${PLATFORM_SVG[item.platform] || PLATFORM_ICONS[item.platform] || ''} @${item.account || ''}</span>` : ''}
-                        ${isDemo ? '<span class="demo-tag-sm">BEISPIELDATEN</span>' : ''}
-                        <h4>${item.title}</h4>
-                        <span class="src">${item.source} · ${item.when}</span>
-                    </div>
-                    <div class="feed-card-actions">
-                        <a href="${item.url}" target="_blank" rel="noopener" class="feed-link">↗</a>
-                        <button class="btn-save-inline" data-title="${item.title}">★</button>
-                    </div>
-                </div>`;
-            }).join('');
-
-            // Set view
-            viewMode = 'stories';
-            document.getElementById('btnStories').classList.add('active');
-            document.getElementById('btnFeed').classList.remove('active');
-            document.getElementById('storiesContainer').classList.remove('hidden');
-            document.getElementById('feedContainer').classList.remove('active');
-            document.getElementById('catFilters').style.display = 'none';
-            document.getElementById('storyProgress').style.display = 'flex';
-            updateStoriesProgress();
-
-            // Save buttons
-            setupSaveButtons();
-            // Share buttons
-            setupShareButtons();
-            // Feed 3D tilt
-            setupTilt();
-            // Stories parallax
-            setupParallax();
-
-            // Restore saved state
-            restoreSavedState();
-        }
-
-        function renderView() {
-            const activeCats = [...document.querySelectorAll('#catFilters .chip.active')].map(c => c.dataset.cat);
-            const selector = viewMode === 'stories' ? '#storiesInner .story-card' : '#feedContainer .feed-card';
-            document.querySelectorAll(selector).forEach(card => {
-                card.style.display = activeCats.length === 0 || activeCats.includes(card.dataset.cat) ? '' : 'none';
-            });
-        }
-
-        // ── Stories progress ──
-        function updateStoriesProgress() {
-            const stories = document.getElementById('storiesContainer');
-            const segs = document.querySelectorAll('#storyProgress .prog-seg');
-            stories.addEventListener('scroll', () => {
-                const scrollLeft = stories.scrollLeft;
-                const cardWidth = stories.offsetWidth;
-                const idx = Math.round(scrollLeft / cardWidth);
-                segs.forEach((s, i) => s.classList.toggle('active', i <= idx));
-            }, { passive: true });
-        }
-
-        // ── Parallax ──
-        function setupParallax() {
-            const stories = document.getElementById('storiesContainer');
-            stories.addEventListener('scroll', () => {
-                document.querySelectorAll('#storiesInner .story-card .card-parallax img').forEach(img => {
-                    const card = img.closest('.story-card');
-                    const rect = card.getBoundingClientRect();
-                    const containerRect = stories.getBoundingClientRect();
-                    const offset = rect.left - containerRect.left;
-                    const translate = offset * 0.15;
-                    img.style.transform = `translateX(${translate}px) scale(1.05)`;
-                });
-            }, { passive: true });
-        }
-
-        // ── Save buttons ──
-        function setupSaveButtons() {
-            document.querySelectorAll('.btn-save, .btn-save-inline').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const title = this.dataset.title;
-                    const item = currentItems.find(i => i.title === title);
-                    const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
-                    const idx = saved.findIndex(s => s.title === title);
-                    if (idx !== -1) {
-                        saved.splice(idx, 1);
-                        this.textContent = this.classList.contains('btn-save-inline') ? '★' : '★ MERKEN';
-                        this.classList.remove('saved');
-                        showToast('Aus Gemerkt entfernt');
-                    } else {
-                        saved.push(item || { title, summary: '', source: '', url: '', when: '', category: '' });
-                        this.textContent = this.classList.contains('btn-save-inline') ? '★' : '★ GEMERKT';
-                        this.classList.add('saved');
-                        showToast('Gemerkt!');
-                    }
-                    localStorage.setItem('cypherSaved', JSON.stringify(saved));
-                    renderSaved();
-                });
-            });
-        }
-
-        function restoreSavedState() {
-            const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
-            const titles = saved.map(s => s.title);
-            document.querySelectorAll('.btn-save, .btn-save-inline').forEach(btn => {
-                if (titles.includes(btn.dataset.title)) {
-                    btn.textContent = btn.classList.contains('btn-save-inline') ? '★' : '★ GEMERKT';
-                    btn.classList.add('saved');
-                }
-            });
-        }
-
-        // ── Share buttons ──
-        function setupShareButtons() {
-            document.querySelectorAll('.btn-share').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const title = this.dataset.title;
-                    const url = this.dataset.url;
-                    if (navigator.share) {
-                        navigator.share({ title, url }).catch(() => { });
-                    } else {
-                        navigator.clipboard.writeText(url).then(() => showToast('Link kopiert: ' + title))
-                            .catch(() => showToast('Teilen nicht möglich', true));
-                    }
-                });
-            });
-        }
-
-        // ── 3D Tilt on feed cards (desktop) ──
-        function setupTilt() {
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-            if (!('ontouchstart' in window)) {
-                document.querySelectorAll('#feedContainer .feed-card').forEach(card => {
-                    card.addEventListener('mousemove', e => {
-                        const r = card.getBoundingClientRect();
-                        const px = (e.clientX - r.left) / r.width - 0.5;
-                        const py = (e.clientY - r.top) / r.height - 0.5;
-                        card.style.transform = `perspective(600px) rotateY(${px * 6}deg) rotateX(${-py * 6}deg)`;
-                    });
-                    card.addEventListener('mouseleave', () => {
-                        card.style.transform = 'perspective(600px) rotateY(0deg) rotateX(0deg)';
-                    });
-                });
-            }
-        }
-
-        // ── View toggle ──
-        document.getElementById('btnStories').addEventListener('click', () => {
-            viewMode = 'stories';
-            document.getElementById('btnStories').classList.add('active');
-            document.getElementById('btnFeed').classList.remove('active');
-            document.getElementById('storiesContainer').classList.remove('hidden');
-            document.getElementById('feedContainer').classList.remove('active');
-            document.getElementById('catFilters').style.display = 'none';
-            document.getElementById('storyProgress').style.display = 'flex';
-        });
-        document.getElementById('btnFeed').addEventListener('click', () => {
-            viewMode = 'feed';
-            document.getElementById('btnFeed').classList.add('active');
-            document.getElementById('btnStories').classList.remove('active');
-            document.getElementById('storiesContainer').classList.add('hidden');
-            document.getElementById('feedContainer').classList.add('active');
-            document.getElementById('catFilters').style.display = 'flex';
-            document.getElementById('storyProgress').style.display = 'none';
-            setupTilt();
-        });
-
-        // ── Countdown ──
-        function updateCountdown() {
-            const now = new Date();
-            const next = new Date(now);
-            next.setHours(8, 0, 0, 0);
-            if (now >= next) next.setDate(next.getDate() + 1);
-            const diff = next - now;
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            document.getElementById('countdown').textContent = `Nächster Drop um 08:00 — noch ${h}h ${m}m`;
-        }
-        setInterval(updateCountdown, 60000);
-
-        // ── Tab navigation ──
-        let currentTab = 'drop';
-        document.querySelectorAll('#tabNav .tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentTab = btn.dataset.tab;
-                document.querySelectorAll('#tabNav .tab-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                updateTabVisibility();
-            });
-        });
-        function updateTabVisibility() {
-            document.getElementById('onboarding').style.display = currentTab === 'drop' ? '' : 'none';
-            document.getElementById('resultsArea').style.display = currentTab === 'drop' ? document.getElementById('resultsArea').style.display : 'none';
-            document.getElementById('pageConnect').style.display = currentTab === 'connect' ? 'block' : 'none';
-            document.getElementById('pageSaved').style.display = currentTab === 'saved' ? 'block' : 'none';
-            document.getElementById('pageHistory').style.display = currentTab === 'history' ? 'block' : 'none';
-            if (currentTab === 'drop' && document.getElementById('resultsArea').style.display === 'none') {
-                document.getElementById('onboarding').style.display = '';
-            }
-            if (currentTab === 'connect') renderConnectPage();
-        }
-
-        // ── Connect page ──
-        const PLATFORMS = [
-            { id: 'Instagram', icon: '📷', label: 'Instagram', desc: 'Posts + Stories deiner Follows', needsPassword: true, public: false },
-            { id: 'TikTok', icon: '🎵', label: 'TikTok', desc: 'Reels, Trends, Creator-Posts', needsPassword: false, public: true },
-            { id: 'YouTube', icon: '▶️', label: 'YouTube', desc: 'Neue Videos von Kanälen', needsPassword: false, public: true },
-            { id: 'Reddit', icon: '🤖', label: 'Reddit', desc: 'Top-Posts aus deinen Subs', needsPassword: false, public: true },
-            { id: 'RSS', icon: '📡', label: 'RSS', desc: 'Freie Feeds & Webseiten', needsPassword: false, public: true },
-        ];
-        const PLATFORM_SVG = {
-            Instagram: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="11" cy="3" r="1" fill="currentColor"/></svg>`,
-            TikTok: `<svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 2h2v3H9V2zM7 5v6c0 1 .8 2 1.5 2s1.5-1 1.5-2V5h2.5v.5C11 6 10 7 8 7V5H7z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`,
-            YouTube: `<svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="3" width="12" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><polygon points="6,5 6,9 10,7" fill="currentColor"/></svg>`,
-            Reddit: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="6" r="1" fill="currentColor"/><path d="M4 9q3 2 6 0" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>`,
-            RSS: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="3" cy="11" r="1.5" fill="currentColor"/><path d="M1 5c0 4 3 7 7 7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M1 1c0 6 5 11 11 11" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"/></svg>`,
-        };
-        const PLATFORM_ICONS = {Instagram: 'IG', TikTok: 'TT', YouTube: 'YT', Reddit: 'RD', RSS: 'RS'};
-        const PLATFORM_LABELS = {Instagram: '📷 IG', TikTok: '🎵 TT', YouTube: '▶️ YT', Reddit: '🤖 RD', RSS: '📡 RS'};
-        const KIND_LABELS = {post: 'POST', story: 'STORY', reel: 'REEL', video: 'VIDEO', news: 'NEWS'};
-        const KIND_COLORS = {post: 'var(--cyan)', story: 'var(--pink)', reel: 'var(--yellow)', video: 'var(--red)', news: 'var(--green)'};
-
-        let connectedAccounts = {};
-        let hiddenAccounts = new Set();
-
-        async function loadServerConnections() {
-            try {
-                const resp = await fetch('/api/connections');
-                const data = await resp.json();
-                connectedAccounts = data.connections || {};
-                hiddenAccounts = new Set(JSON.parse(localStorage.getItem('cypherHiddenAccounts') || '[]'));
-            } catch (e) {
-                connectedAccounts = JSON.parse(localStorage.getItem('cypherConnections') || '{}');
-            }
-        }
-        loadServerConnections();
-
-        function renderConnectPage() {
-            const grid = document.getElementById('connectGrid');
-            grid.innerHTML = PLATFORMS.map(p => {
-                const conn = connectedAccounts[p.id] || [];
-                const isConnected = conn.length > 0;
-                let statusHTML = '';
-                let buttonHTML = '';
-
-                if (p.public) {
-                    statusHTML = '<div class="connect-status live">● LIVE — öffentlich, kein Login nötig</div>';
-                    buttonHTML = '<span class="btn-live-badge">✔ ÖFFENTLICH</span>';
-                } else if (isConnected) {
-                    const names = conn.slice(0, 2).map(a => '@' + a).join(', ');
-                    const statusText = conn.length > 2 ? `verbunden: ${names} +${conn.length - 2}` : `verbunden: ${names}`;
-                    statusHTML = `<div class="connect-status connected">verknüpft: ${statusText}</div>`;
-                    buttonHTML = `<button class="btn-connect disconnect" data-platform="${p.id}">TRENNEN</button>`;
-                } else {
-                    statusHTML = '<div class="connect-status">nicht verbunden — Beispieldaten</div>';
-                    buttonHTML = `<button class="btn-connect" data-platform="${p.id}">VERBINDEN</button>`;
-                }
-
-                return `<div class="connect-card ${isConnected ? 'connected' : ''} ${p.public ? 'public' : ''}">
-                    <div class="connect-card-head">
-                        <span class="connect-icon">${p.icon}</span>
-                        <div>
-                            <strong>${p.label}</strong>
-                            <small>${p.desc}</small>
-                        </div>
-                    </div>
-                    ${statusHTML}
-                    ${buttonHTML}
-                </div>`;
-            }).join('');
-
-            grid.querySelectorAll('.btn-connect').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const plat = btn.dataset.platform;
-                    if (btn.classList.contains('disconnect')) {
-                        handleDisconnect(plat);
-                        return;
-                    }
-                    const pdef = PLATFORMS.find(p => p.id === plat);
-                    if (pdef && pdef.public) {
-                        addPublicHandle(plat);
-                        return;
-                    }
-                    showConnectDialog(plat);
-                });
-            });
-
-            const accDiv = document.getElementById('connectAccounts');
-            const totalAccts = Object.values(connectedAccounts).flat();
-            if (totalAccts.length === 0) {
-                accDiv.style.display = 'none';
-                return;
-            }
-            accDiv.style.display = 'block';
-            renderAccountSelections();
-        }
-
-        function handleDisconnect(platform) {
-            Object.keys(connectedAccounts[platform] || {}).forEach(async (acc) => {
-                try {
-                    await fetch('/api/connections', {
-                        method: 'DELETE',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ platform, username: acc })
-                    });
-                } catch (e) {}
-            });
-            delete connectedAccounts[platform];
-            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-            renderConnectPage();
-            showToast(`${platform} getrennt`);
-        }
-
-        function showConnectDialog(platform) {
-            const pdef = PLATFORMS.find(p => p.id === platform);
-            const modal = document.getElementById('connectModal');
-            document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label}`;
-            document.getElementById('modalPass').style.display = pdef.needsPassword ? '' : 'none';
-            document.getElementById('modalPass').value = '';
-            document.getElementById('modalUser').value = '';
-            document.getElementById('modalUser').placeholder = pdef.needsPassword ? 'Benutzername (Zweitkonto!)' : 'Handle (@name oder URL)';
-            document.getElementById('modalNote').textContent = '🔒 Zugangsdaten bleiben NUR lokal auf deinem Gerät – kein Upload an Server oder KI.';
-            modal.style.display = 'flex';
-            modal._platform = platform;
-        }
-
-        function addPublicHandle(platform) {
-            const pdef = PLATFORMS.find(p => p.id === platform);
-            const modal = document.getElementById('connectModal');
-            document.getElementById('modalHint').textContent = `${pdef.icon} ${pdef.label} (öffentlich)`;
-            document.getElementById('modalPass').style.display = 'none';
-            document.getElementById('modalPass').value = '';
-            document.getElementById('modalUser').value = '';
-            document.getElementById('modalUser').placeholder = '@Handle oder Kanalname (z.B. @technews)';
-            document.getElementById('modalNote').textContent = 'ℹ️ Öffentlich zugänglich — kein Login nötig. Deine Zugangsdaten sind nicht erforderlich.';
-            modal.style.display = 'flex';
-            modal._platform = platform;
-        }
-
-        document.getElementById('modalCancel').addEventListener('click', () => {
-            document.getElementById('connectModal').style.display = 'none';
-        });
-        document.getElementById('connectModal').addEventListener('click', (e) => {
-            if (e.target === document.getElementById('connectModal')) {
-                document.getElementById('connectModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('modalConfirm').addEventListener('click', async () => {
-            const modal = document.getElementById('connectModal');
-            const platform = modal._platform;
-            const username = document.getElementById('modalUser').value.trim();
-            const password = document.getElementById('modalPass').value;
-            if (!username) { showToast('Benutzername/Handle erforderlich', true); return; }
-            if (!platform) return;
-
-            modal.style.display = 'none';
-            const pdef = PLATFORMS.find(p => p.id === platform);
-            const needsPw = pdef && pdef.needsPassword;
-            const isPublic = pdef && pdef.public;
-            if (needsPw && !password) {
-                showToast('Passwort erforderlich für Instagram', true);
-                return;
-            }
-
-            if (isPublic) {
-                const cleanHandle = username.replace(/^@/, '');
-                connectedAccounts[platform] = [...new Set([...(connectedAccounts[platform] || []), cleanHandle])];
-                hiddenAccounts.delete(`${platform}:${cleanHandle}`);
-                localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
-                localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                try {
-                    await fetch('/api/social/connect', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ platform, username: cleanHandle })
-                    });
-                } catch (e) {}
-                renderConnectPage();
-                showToast(`${platform}: @${cleanHandle} hinzugefügt`);
-                return;
-            }
-
-            try {
-                const body = { platform, username };
-                if (password) body.password = password;
-                const resp = await fetch('/api/social/connect', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                });
-                const data = await resp.json();
-                if (resp.ok && (data.ok || !data.error)) {
-                    const display = data.display_name || username;
-                    connectedAccounts[platform] = [...new Set([...(connectedAccounts[platform] || []), display])];
-                    localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                    renderConnectPage();
-                    showToast(`${platform}: verbunden als @${display}`);
-                    fetchAccountSuggestions(platform);
-                } else {
-                    showToast(data.error || 'Fehler beim Verbinden', true);
-                }
-            } catch (e) {
-                showToast(`Netzwerkfehler`, true);
-            }
-        });
-
-        async function fetchAccountSuggestions(platform) {
-            try {
-                const resp = await fetch(`/api/social/accounts?platform=${platform}`);
-                const data = await resp.json();
-                const accts = data.accounts || {};
-                if (typeof accts === 'object' && !Array.isArray(accts)) {
-                    const platAccts = accts[platform] || [];
-                    if (platAccts.length > 0) {
-                        const existing = new Set(connectedAccounts[platform] || []);
-                        const newAccts = platAccts.filter(a => !existing.has(a));
-                        if (newAccts.length > 0) {
-                            connectedAccounts[platform] = [...(connectedAccounts[platform] || []), ...newAccts];
-                            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                            renderAccountSelections();
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        function renderAccountSelections() {
-            const selDiv = document.getElementById('accountSelections');
-            const searchTerm = (document.getElementById('accountSearch')?.value || '').toLowerCase();
-
-            let html = '';
-            Object.entries(connectedAccounts).forEach(([plat, accts]) => {
-                if (!accts || accts.length === 0) return;
-                const platIcon = PLATFORM_ICONS[plat] || '';
-                const filtered = accts.filter(a => a.toLowerCase().includes(searchTerm));
-                if (filtered.length === 0 && searchTerm) return;
-                html += `<div class="account-group"><span class="account-group-label">${platIcon} ${plat}</span><div class="account-chips">`;
-                filtered.forEach(acc => {
-                    const isHidden = hiddenAccounts.has(`${plat}:${acc}`);
-                    html += `<span class="chip ${isHidden ? '' : 'active'}" data-platform="${plat}" data-account="${acc}">
-                        ${acc}<span class="check">✓</span><span class="remove-acc">&times;</span>
-                    </span>`;
-                });
-                html += '</div></div>';
-            });
-            selDiv.innerHTML = html || '<p class="empty" style="padding:20px">Keine Accounts gefunden. Verbinde eine Plattform.</p>';
-
-            selDiv.querySelectorAll('.chip').forEach(chip => {
-                chip.addEventListener('click', function(e) {
-                    const plat = this.dataset.platform;
-                    const acc = this.dataset.account;
-                    if (e.target.classList.contains('remove-acc')) {
-                        connectedAccounts[plat] = connectedAccounts[plat].filter(a => a !== acc);
-                        if (connectedAccounts[plat].length === 0) delete connectedAccounts[plat];
-                        localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-                        hiddenAccounts.delete(`${plat}:${acc}`);
-                        localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
-                        renderAccountSelections();
-                        return;
-                    }
-                    this.classList.toggle('active');
-                    this.classList.add('bounce');
-                    setTimeout(() => this.classList.remove('bounce'), 300);
-                    const key = `${plat}:${acc}`;
-                    if (this.classList.contains('active')) {
-                        hiddenAccounts.delete(key);
-                    } else {
-                        hiddenAccounts.add(key);
-                    }
-                    localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
-                });
-            });
-        }
-
-        document.getElementById('accountSearch')?.addEventListener('input', renderAccountSelections);
-
-        document.getElementById('manualAddBtn')?.addEventListener('click', () => {
-            const handle = document.getElementById('manualHandle').value.trim();
-            const platform = document.getElementById('manualPlatform').value;
-            if (!handle) { showToast('Handle eingeben', true); return; }
-            const cleanHandle = handle.replace(/^@/, '');
-            connectedAccounts[platform] = [...new Set([...(connectedAccounts[platform] || []), cleanHandle])];
-            hiddenAccounts.delete(`${platform}:${cleanHandle}`);
-            localStorage.setItem('cypherHiddenAccounts', JSON.stringify([...hiddenAccounts]));
-            localStorage.setItem('cypherConnections', JSON.stringify(connectedAccounts));
-            document.getElementById('manualHandle').value = '';
-            renderAccountSelections();
-            showToast(`${platform}: @${cleanHandle} hinzugefügt`);
-        });
-
-        document.getElementById('manualHandle')?.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                document.getElementById('manualAddBtn').click();
-            }
-        });
-
-        // ── Saved ──
-        function renderSaved() {
-            const container = document.getElementById('savedContainer');
-            const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
-            if (saved.length === 0) {
-                container.innerHTML = '<p class="empty">Noch nichts gemerkt. Tippe ★ auf einer Karte.</p>';
-                return;
-            }
-            const imgSources = ['field_pix', 'money_pix', 'field_duo', 'money_duo', 'field_pix', 'money_duo', 'money_pix', 'field_duo'];
-            container.innerHTML = saved.map((item, i) => {
-                const cat = (item.category || '').toLowerCase();
-                const img = '/static/img/' + imgSources[i % imgSources.length] + '.jpg';
-                return `<div class="feed-card cat-${cat}" data-cat="${cat}">
-                    <div class="feed-card-img"><img src="${img}" alt="" loading="lazy"></div>
-                    <div class="feed-card-body">
-                        <span class="cat-pill">${item.category || ''}</span>
-                        <h4>${item.title || ''}</h4>
-                        <span class="src">${item.source || ''} · ${item.when || ''}</span>
-                    </div>
-                    <div class="feed-card-actions">
-                        <a href="${item.url || '#'}" target="_blank" rel="noopener" class="feed-link">↗</a>
-                        <button class="btn-save-inline saved" data-title="${item.title || ''}">★</button>
-                    </div>
-                </div>`;
-            }).join('');
-            document.querySelectorAll('#savedContainer .btn-save-inline').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const title = this.dataset.title;
-                    const saved = JSON.parse(localStorage.getItem('cypherSaved') || '[]');
-                    const idx = saved.findIndex(s => s.title === title);
-                    if (idx !== -1) { saved.splice(idx, 1); }
-                    localStorage.setItem('cypherSaved', JSON.stringify(saved));
-                    renderSaved();
-                    restoreSavedState();
-                    showToast('Aus Gemerkt entfernt');
-                });
-            });
-        }
-
-        // ── History ──
-        function addToHistory(items, title) {
-            const entry = { title, date: new Date().toISOString(), count: items.length, items };
-            const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
-            hist.unshift(entry);
-            if (hist.length > 7) hist.length = 7;
-            localStorage.setItem('cypherHistory', JSON.stringify(hist));
-            renderHistory();
-        }
-        function renderHistory() {
-            const container = document.getElementById('historyContainer');
-            const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
-            if (hist.length === 0) { container.innerHTML = '<p class="empty">Noch kein Drop. Sag uns, was dich interessiert.</p>'; return; }
-            container.innerHTML = hist.map((h, i) => {
-                const d = new Date(h.date);
-                return `<div class="feed-card" style="cursor:pointer" data-idx="${i}">
-                    <span style="font-family:VT323;font-size:13px;color:var(--dim)" class="hist-date">${d.toLocaleDateString('de-DE')} ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
-                    <div class="info"><h4 style="font-size:14px">${h.title}</h4></div>
-                    <span style="font-size:12px;color:var(--dim)">${h.count} Treffer</span>
-                </div>`;
-            }).join('');
-            document.querySelectorAll('#historyContainer .feed-card').forEach(card => {
-                card.addEventListener('click', function () {
-                    const idx = parseInt(this.dataset.idx);
-                    const hist = JSON.parse(localStorage.getItem('cypherHistory') || '[]');
-                    if (hist[idx]) {
-                        document.querySelectorAll('#tabNav .tab-btn').forEach(b => b.classList.remove('active'));
-                        document.querySelector('#tabNav .tab-btn[data-tab="drop"]').classList.add('active');
-                        currentTab = 'drop';
-                        document.getElementById('onboarding').style.display = 'none';
-                        document.getElementById('pageSaved').style.display = 'none';
-                        document.getElementById('pageHistory').style.display = 'none';
-                        displayResults(hist[idx].items, hist[idx].title, 'Verlauf vom ' + new Date(hist[idx].date).toLocaleString('de-DE'), null);
-                    }
-                });
-            });
-        }
-        renderHistory();
-        renderSaved();
-        window.addEventListener('load', () => { renderHistory(); renderSaved(); });
-
-        // ── Service Worker ──
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/sw.js').then(r => console.log('SW registered')).catch(() => { });
-            });
-        }
-
-        // ── Konfetti ──
-        function launchConfetti() {
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-            const canvas = document.getElementById('confettiCanvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:99;pointer-events:none;display:block';
-            const colors = ['#ff6a1a', '#ffc21a', '#39ff14', '#2fe6a6', '#d6336c', '#e03a2b'];
-            const particles = [];
-            for (let i = 0; i < 60; i++) {
-                particles.push({
-                    x: canvas.width / 2 + (Math.random() - .5) * 200, y: canvas.height * .3 + Math.random() * 100,
-                    vx: (Math.random() - .5) * 8, vy: (Math.random() - 2) * 6,
-                    size: 4 + Math.random() * 8, color: colors[Math.floor(Math.random() * colors.length)],
-                    life: 1, decay: .008 + Math.random() * .02, rot: Math.random() * Math.PI * 2
-                });
-            }
-            let frame = 0;
-            function draw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                let alive = 0;
-                particles.forEach(p => {
-                    p.x += p.vx; p.y += p.vy; p.vy += .15; p.life -= p.decay; p.rot += .1;
-                    if (p.life <= 0 || p.y > canvas.height + 50) return;
-                    alive++;
-                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.globalAlpha = p.life;
-                    ctx.fillStyle = p.color; ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size); ctx.restore();
-                });
-                if (alive > 0 && frame < 90) { frame++; requestAnimationFrame(draw); }
-                else { ctx.clearRect(0, 0, canvas.width, canvas.height); canvas.style.display = 'none'; }
-            }
-            draw();
-        }
-
-        // ── Cursor-Trail ──
-        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            const tcanvas = document.getElementById('cursorTrail');
-            const tc = tcanvas.getContext('2d');
-            tcanvas.width = window.innerWidth; tcanvas.height = window.innerHeight;
-            tcanvas.style.cssText = 'position:fixed;top:0;left:0;z-index:50;pointer-events:none';
-            window.addEventListener('resize', () => { tcanvas.width = window.innerWidth; tcanvas.height = window.innerHeight; });
-            let trailPoints = [];
-            document.addEventListener('mousemove', e => {
-                trailPoints.push({ x: e.clientX, y: e.clientY, life: 1 });
-                if (trailPoints.length > 16) trailPoints.shift();
-            });
-            function drawTrail() {
-                tc.clearRect(0, 0, tcanvas.width, tcanvas.height);
-                for (let i = 0; i < trailPoints.length; i++) {
-                    const p = trailPoints[i];
-                    p.life -= .07;
-                    if (p.life <= 0) { trailPoints.splice(i, 1); i--; continue; }
-                    tc.fillStyle = 'rgba(255,106,26,' + (p.life * .4) + ')';
-                    tc.fillRect(p.x - 3, p.y - 3, 6, 6);
-                }
-                requestAnimationFrame(drawTrail);
-            }
-            drawTrail();
-        }
-
-        // ── Push Button ──
-        let deferredPrompt = null;
-        window.addEventListener('beforeinstallprompt', e => {
-            e.preventDefault();
-            deferredPrompt = e;
-            document.getElementById('btnPush').style.display = 'block';
-            document.getElementById('btnPush').textContent = '📲 AUF DEM HANDY ERHALTEN';
-        });
-        window.addEventListener('appinstalled', () => {
-            deferredPrompt = null;
-            document.getElementById('btnPush').textContent = '📲 INSTALLIERT ✓';
-            document.getElementById('btnPush').style.display = 'block';
-            showToast('App installiert!');
-        });
-
-        const btnPush = document.getElementById('btnPush');
-        btnPush.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                deferredPrompt = null;
-                if (outcome === 'accepted') {
-                    showToast('App wird installiert …');
-                    btnPush.textContent = '📲 INSTALLIERT ✓';
-                    return;
-                }
-            }
-
-            if (!('Notification' in window)) { showToast('Benachrichtigungen nicht unterstützt', true); return; }
-            if (Notification.permission === 'granted') {
-                const reg = await navigator.serviceWorker.ready;
-                reg.showNotification('Cypher News – Dein Drop ist da!', { body: 'Persönlicher Newsletter mit ' + currentItems.length + ' Treffern bereit.', icon: '/static/icon-192.png', vibrate: [200, 100, 200] });
-                showToast('Push aktiviert — Drop kommt auf dein Handy!');
-                btnPush.textContent = '📲 PUSH AKTIV ✓';
-            } else if (Notification.permission === 'denied') {
-                showToast('Benachrichtigungen blockiert', true);
-            } else {
-                const perm = await Notification.requestPermission();
-                if (perm === 'granted') {
-                    btnPush.click();
-                } else {
-                    showToast('Benachrichtigungen abgelehnt', true);
-                }
-            }
-            if (navigator.vibrate) navigator.vibrate(15);
-        });
-    </script>
 </body>
 </html>

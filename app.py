@@ -1,326 +1,350 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
-import os
-import json
-import threading
-from datetime import datetime, timezone
+"""Cypher News - Daily Drop. Multi-user Flask app (SQLite). Run: gunicorn app:app  |  python app.py"""
+import base64, io, json, os, re, threading, time
+from collections import defaultdict
+from functools import wraps
+from urllib.parse import urlparse
 
-import requests
+from flask import Flask, jsonify, make_response, redirect, render_template, request, send_from_directory
+
+from cypher import ai, backup, db, push, scheduler, sources
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 6 * 1024 * 1024
+COOKIE = 'cn_token'
+PRIMARY = os.environ.get('MODEL_PRIMARY', '')
+SECURE = os.environ.get('COOKIE_SECURE', '1') == '1'
 
-MODEL_PRIMARY = os.environ.get('MODEL_PRIMARY', 'unknown')
-N8N_WEBHOOK_URL = os.environ.get('N8N_WEBHOOK_URL', 'http://127.0.0.1:5678/webhook/newsletter')
-SOCIALFETCH_URL = os.environ.get('SOCIALFETCH_URL', 'http://127.0.0.1:5090')
-
-CONNECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'data', 'connections.json')
-CONNECTIONS_LOCK = threading.Lock()
-
-MOCK_ITEMS = [
-    {"category": "Konzerte", "title": "Freiluftkonzert im Mauerpark heute Abend", "summary": "Kostenloses Konzert mit drei lokalen Indie-Bands ab 19 Uhr. Picknickdecke nicht vergessen – Eintritt frei.", "source": "Eventkalender Berlin", "url": "https://example.com/concert-mauerpark", "when": ""},
-    {"category": "Konzerte", "title": "Techno-Nacht im Club OST", "summary": "Lokale DJs legen ab 23 Uhr auf. Eintritt frei bis Mitternacht, danach 10 €. Line-up: DJ Spacer, MIRA, KX6000.", "source": "Club OST Berlin", "url": "https://example.com/club-ost", "when": ""},
-    {"category": "Giveaways", "title": "Gewinne ein Jahr lang kostenlosen Cloud-Speicher", "summary": "TechStartup verlost 50× 2TB Cloud-Speicher. Teilnahme per Newsletter-Anmeldung bis Sonntag 23:59 Uhr.", "source": "TechGiveaway", "url": "https://example.com/giveaway-cloud", "when": ""},
-    {"category": "Giveaways", "title": "SNEAKRS Raffle: Travis Scott x Nike Air Max", "summary": "Die neue Kollaboration droppt heute um 10 Uhr exklusiv in der SNEAKRS-App. 3.000 Paare weltweit.", "source": "SNEAKRS App", "url": "https://example.com/sneakrs-travis", "when": ""},
-    {"category": "Mode", "title": "ACRONYM® öffnet Popup-Store in Berlin-Mitte", "summary": "Limitierte Herbstkollektion nur dieses Wochenende in der Rosenthaler Straße. Early-Access ab 9 Uhr.", "source": "Highsnobiety", "url": "https://example.com/acronym-popup", "when": ""},
-    {"category": "Mode", "title": "Vivienne Westwood Archive Sale Online", "summary": "Bis zu 70% auf ausgewählte Archiv-Stücke. Nur 48 Stunden online – Code ARCHIVE48 beim Checkout.", "source": "Vivienne Westwood", "url": "https://example.com/vw-archive-sale", "when": ""},
-    {"category": "Tech", "title": "OpenAI leakt Verse 2: Open-Source-Bildmodell mit 8B Parametern", "summary": "Neues Modell erreicht State-of-the-Art auf 5 Benchmarks. Apache-2.0-Lizenz, läuft auf einzelner RTX 4090.", "source": "Hacker News", "url": "https://example.com/verse-2-oss", "when": ""},
-    {"category": "Trends", "title": "5 Trends, die diese Woche jeder teilt", "summary": "Von KI-generierten Avataren bis Bio-3D-Druck: Das sind die Themen, die gerade viral gehen.", "source": "YouTube TrendCheck", "url": "https://example.com/weekly-trends", "when": ""}
-]
-
-CATEGORY_MAP = {
-    'konzerte': 'Konzerte', 'concert': 'Konzerte', 'gig': 'Konzerte', 'club': 'Konzerte',
-    'giveaway': 'Giveaways', 'gewinnspiel': 'Giveaways', 'raffle': 'Giveaways',
-    'mode': 'Mode', 'fashion': 'Mode', 'drop': 'Mode', 'sneaker': 'Mode', 'streetwear': 'Mode',
-    'tech': 'Tech', 'ai': 'Tech', 'opensource': 'Tech',
-    'snack': 'Trends', 'food': 'Trends', 'trends': 'Trends',
-    'hackathon': 'Tech',
-}
+_hits = defaultdict(list)
+_hits_lock = threading.Lock()
 
 
-def classify_social(text):
-    t = text.lower()
-    for key, cat in CATEGORY_MAP.items():
-        if key in t:
-            return cat
-    return 'Sonstiges'
+def rate_limit(name, limit, per):
+    ip = (request.headers.get('X-Forwarded-For', request.remote_addr) or '?').split(',')[0].strip()
+    k = (name, ip)
+    now = time.time()
+    with _hits_lock:
+        _hits[k] = [t for t in _hits[k] if now - t < per]
+        if len(_hits[k]) >= limit:
+            return False
+        _hits[k].append(now)
+    return True
 
 
-def social_items_from_raw(raw_items):
-    items = []
-    for s in (raw_items or []):
-        img = s.get('image_b64', '')
-        img_src = s.get('image', '')
-        items.append({
-            'category': classify_social(s.get('text', '')),
-            'title': s.get('text', '')[:80] + ('...' if len(s.get('text', '')) > 80 else ''),
-            'summary': s.get('text', ''),
-            'source': f"{s.get('platform', '')}: @{s.get('account', '')}",
-            'url': s.get('url', ''),
-            'when': s.get('taken_at', '')[:10] if s.get('taken_at') else '',
-            'kind': s.get('kind', 'post'),
-            'platform': s.get('platform', ''),
-            'account': s.get('account', ''),
-            'image': img_src or (f'data:image/jpeg;base64,{img}' if img else ''),
-            '_demo': s.get('_demo', False),
-        })
-    return items
+@app.after_request
+def headers(r):
+    r.headers['X-Content-Type-Options'] = 'nosniff'
+    r.headers['Referrer-Policy'] = 'same-origin'
+    r.headers['X-Frame-Options'] = 'DENY'
+    r.headers['Content-Security-Policy'] = ("default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
+                                            "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+    return r
 
 
-def load_demo_social_raw():
-    try:
-        path = os.path.join(app.root_path, 'data', 'demo_social.json')
-        with open(path, 'r') as f:
-            d = json.load(f)
-        items = d.get('social_items', [])
-        for item in items:
-            item['_demo'] = True
-        return items
-    except Exception:
-        return []
+def api(fn):
+    """Auth via cookie + CSRF guard (same-origin + JSON for writes)."""
+    @wraps(fn)
+    def w(*a, **kw):
+        if request.method not in ('GET', 'HEAD'):
+            o = request.headers.get('Origin')
+            if o and urlparse(o).netloc != request.host:
+                return jsonify(error='forbidden'), 403
+        u = db.user_by_token(request.cookies.get(COOKIE))
+        if not u:
+            return jsonify(error='no_session'), 401
+        return fn(u, *a, **kw)
+    return w
 
 
-def demo_social_items():
-    return social_items_from_raw(load_demo_social_raw())
+def set_cookie(resp, token):
+    resp.set_cookie(COOKIE, token, max_age=60 * 60 * 24 * 365, httponly=True, samesite='Lax', secure=SECURE)
+    return resp
 
 
-def load_connections():
-    try:
-        with CONNECTIONS_LOCK:
-            with open(CONNECTIONS_FILE, 'r') as f:
-                return json.load(f)
-    except Exception:
-        return {}
+def profile(u):
+    free_left = 0
+    if os.environ.get('OPENROUTER_API_KEY'):
+        day = scheduler.local_now(u).strftime('%Y-%m-%d')
+        free_left = max(0, scheduler.FREE_PER_DAY - (u['free_used'] if u['free_used_day'] == day else 0))
+    return {'notes': u['notes'], 'sources': json.loads(u['sources'] or '[]'), 'drop_hour': u['drop_hour'], 'quality': u['quality'],
+            'has_key': bool(db.decrypt(u['key_enc'])), 'free_left': free_left, 'push': bool(u['push_sub']),
+            'last_drop_day': u['last_drop_day']}
 
 
-def save_connections(conns):
-    with CONNECTIONS_LOCK:
-        os.makedirs(os.path.dirname(CONNECTIONS_FILE), exist_ok=True)
-        with open(CONNECTIONS_FILE, 'w') as f:
-            json.dump(conns, f)
-
-
-def today_str():
-    return datetime.now().strftime('%Y-%m-%d')
-
-def mock_response(include_social=True):
-    t = today_str()
-    items = [{**i, "when": t} for i in MOCK_ITEMS]
-    if include_social:
-        social = demo_social_items()
-        items = items + social
-    return {"title": "DEIN DROP", "date": t, "intro": f"{len(items)} Treffer aus 5+ Quellen – kuratiert von KI für dich.", "items": items, "source": "mock"}
-
-def fallback_from_file():
-    data_path = os.path.join(app.root_path, 'data', 'sample_newsletter.json')
-    with open(data_path, 'r') as f:
-        d = json.load(f)
-    items = [{"category": i["category"], "title": i["title"], "summary": i["summary"],
-              "source": i["source"], "url": i["link"], "when": i["date"]} for i in d.get("newsletter", [])]
-    social = demo_social_items()
-    items = items + social
-    return {"title": "DEIN DROP (Offline)", "date": today_str(),
-            "intro": f"Fallback: Beispiel-Drop mit {len(items)} Treffern.", "items": items, "source": "fallback"}
-
+# ---------- pages ----------
 @app.route('/')
 def index():
-    return render_template('index.html', model_name=MODEL_PRIMARY)
-
-@app.route('/api/generate', methods=['POST'])
-def api_generate():
-    body = request.get_json(silent=True) or {}
-    preferences = body.get('preferences', '')
-    sources = body.get('sources', [])
-    date = body.get('date', today_str())
-    accounts = body.get('accounts', {})
-    use_demo = body.get('demo', False)
-
-    social_items = []
-    social_source = 'none'
-
-    if accounts:
-        from concurrent.futures import ThreadPoolExecutor
-        plats = {p: [a for a in (lst or []) if a] for p, lst in accounts.items()}
-        plats = {p: l for p, l in plats.items() if l}
-
-        def fetch_live(plat):
-            if use_demo:
-                return plat, []
-            try:
-                r = requests.get(f'{SOCIALFETCH_URL}/feed', params={'platform': plat, 'accounts': ','.join(plats[plat]), 'hours': 72, 'live': '1'}, timeout=28)
-                if r.status_code == 200:
-                    d = r.json()
-                    return plat, ([] if d.get('demo') else d.get('items', []))
-            except Exception:
-                pass
-            return plat, []
-
-        live_by_plat = {}
-        if plats:
-            with ThreadPoolExecutor(max_workers=4) as ex:
-                for plat, items_ in ex.map(fetch_live, list(plats)):
-                    live_by_plat[plat] = items_
-        all_demo = load_demo_social_raw()
-        for plat, lst in plats.items():
-            got = live_by_plat.get(plat, [])
-            if got:
-                social_items.extend(got[:8])
-                social_source = 'live'
-            else:  # kein Live-Ergebnis (z.B. Instagram ohne Login): gekennzeichnete Beispieldaten dieser Plattform
-                req = set(a.lstrip('@').lower() for a in lst)
-                demo = [d for d in all_demo if d.get('platform') == plat and d.get('account', '').lstrip('@').lower() in req] or [d for d in all_demo if d.get('platform') == plat][:3]
-                for d in demo:
-                    d = dict(d); d['_demo'] = True; social_items.append(d)
-                if social_source == 'none':
-                    social_source = 'demo'
-        if not plats and use_demo:
-            social_items = [dict(d, _demo=True) for d in all_demo]
-            social_source = 'demo'
-
-    quality = body.get('quality', 'fast')
-    payload = {
-        "preferences": preferences,
-        "sources": sources,
-        "date": date,
-        "accounts": accounts,
-        "social_items": social_items,
-        "quality": quality
-    }
-
-    n8n_result = None
-    try:
-        resp = requests.post(N8N_WEBHOOK_URL, json=payload, timeout=40)
-        if resp.status_code == 200:
-            n8n_result = resp.json()
-    except Exception:
-        pass
-
-    if n8n_result:
-        items = n8n_result.get('items', [])
-        seen = set()
-        for item in items:
-            if 'url' not in item:
-                item['url'] = ''
-            if 'when' not in item:
-                item['when'] = ''
-            if 'kind' not in item:
-                item['kind'] = 'news'
-            if social_source in ('demo', 'demo_fallback') and item.get('platform'):
-                item['_demo'] = True
-            if item.get('platform') and item.get('account'):
-                seen.add((item['platform'], item['account']))
-        if social_items:
-            processed = social_items_from_raw(social_items)
-            for si in processed:
-                key = (si.get('platform', ''), si.get('account', ''))
-                if key not in seen:
-                    items.append(si)
-                    seen.add(key)
-        return jsonify({
-            "title": n8n_result.get('title', 'DEIN DROP'),
-            "date": n8n_result.get('date', today_str()),
-            "intro": n8n_result.get('intro', ''),
-            "items": items,
-            "meta": n8n_result.get('meta', {}),
-            "source": "n8n",
-            "social_source": social_source
-        })
-
-    try:
-        return jsonify(fallback_from_file())
-    except Exception:
-        return jsonify(mock_response())
-
-@app.route('/mock/newsletter', methods=['POST'])
-def mock_newsletter():
-    return jsonify(mock_response())
-
-@app.route('/data/sample_newsletter.json')
-def sample_newsletter():
-    data_dir = os.path.join(app.root_path, 'data')
-    return send_from_directory(data_dir, 'sample_newsletter.json')
-
-@app.route('/data/demo_social.json')
-def demo_social():
-    data_dir = os.path.join(app.root_path, 'data')
-    return send_from_directory(data_dir, 'demo_social.json')
-
-@app.route('/api/social/accounts')
-def api_social_accounts():
-    try:
-        resp = requests.get(f'{SOCIALFETCH_URL}/accounts', timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            return jsonify({'accounts': data.get('accounts', {}), 'demo': data.get('demo', False)})
-    except Exception:
-        pass
-
-    items = demo_social_items()
-    accounts = {}
-    for item in items:
-        plat = item.get('platform', '')
-        if plat not in accounts:
-            accounts[plat] = []
-        acc = item.get('source', '').replace(f'{plat}: @', '')
-        if acc and acc not in accounts[plat]:
-            accounts[plat].append(acc)
-    return jsonify({'accounts': accounts, 'demo': True})
-
-@app.route('/api/social/connect', methods=['POST'])
-def api_social_connect():
-    body = request.get_json(silent=True) or {}
-    platform = body.get('platform', '')
-    username = body.get('username', '')
-    password = body.get('password', '')
-
-    if not platform or not username:
-        return jsonify({'ok': False, 'error': 'platform and username required'}), 400
-
-    local_result = None
-    try:
-        resp = requests.post(f'{SOCIALFETCH_URL}/connect', json=body, timeout=10)
-        if resp.status_code == 200:
-            local_result = resp.json()
-    except Exception:
-        pass
-
-    conns = load_connections()
-    key = f"{platform}:{username}"
-    conns[key] = {
-        'platform': platform,
-        'username': username,
-        'connected_at': datetime.now(timezone.utc).isoformat(),
-        'display_name': username
-    }
-    save_connections(conns)
-
-    if local_result:
-        return jsonify(local_result)
-    return jsonify({'ok': True, 'display_name': username, 'platform': platform, 'demo': True})
+    return render_template('index.html', model_name=PRIMARY or 'offenes Modell', vapid=push.public_key())
 
 
-@app.route('/api/connections', methods=['GET'])
-def api_connections():
-    conns = load_connections()
-    by_platform = {}
-    for key, info in conns.items():
-        plat = info.get('platform', '')
-        name = info.get('display_name') or info.get('username', '')
-        by_platform.setdefault(plat, []).append(name)
-    return jsonify({'connections': by_platform})
+@app.route('/sw.js')
+def sw():
+    r = make_response(send_from_directory(app.static_folder, 'sw.js'))
+    r.headers['Service-Worker-Allowed'] = '/'
+    r.headers['Cache-Control'] = 'no-cache'
+    return r
 
 
-@app.route('/api/connections', methods=['DELETE'])
-def api_connections_delete():
-    body = request.get_json(silent=True) or {}
-    platform = body.get('platform', '')
-    username = body.get('username', '')
-    conns = load_connections()
-    key = f"{platform}:{username}"
-    if key in conns:
-        del conns[key]
-        save_connections(conns)
-        return jsonify({'ok': True})
-    return jsonify({'ok': False, 'error': 'not found'}), 404
+@app.route('/datenschutz')
+def privacy():
+    return render_template('legal.html', page='privacy', imprint=os.environ.get('IMPRINT_TEXT', ''))
 
+
+@app.route('/impressum')
+def imprint():
+    return render_template('legal.html', page='imprint', imprint=os.environ.get('IMPRINT_TEXT', ''))
+
+
+@app.route('/healthz')
+def healthz():
+    return jsonify(ok=True)
+
+
+# ---------- session ----------
+@app.route('/api/start', methods=['POST'])
+def start():
+    if not rate_limit('start', 10, 3600):
+        return jsonify(error='rate_limited'), 429
+    if db.user_by_token(request.cookies.get(COOKIE)):
+        return jsonify(error='exists'), 409
+    uid, token, recovery = db.create_user()
+    return set_cookie(make_response(jsonify(ok=True, recovery=recovery)), token)
+
+
+@app.route('/api/restore', methods=['POST'])
+def restore():
+    if not rate_limit('restore', 8, 3600):
+        return jsonify(error='rate_limited'), 429
+    code = ((request.get_json(silent=True) or {}).get('code') or '').strip().lower()
+    token = db.restore(code) if re.fullmatch(r'[0-9a-f]{4}(-[0-9a-f]{4}){3}', code) else None
+    if not token:
+        return jsonify(error='bad_code'), 404
+    return set_cookie(make_response(jsonify(ok=True)), token)
+
+
+@app.route('/api/me')
+def me():
+    u = db.user_by_token(request.cookies.get(COOKIE))
+    if not u:
+        return jsonify(session=False, model=PRIMARY, vapid=push.public_key())
+    return jsonify(session=True, model=PRIMARY, vapid=push.public_key(), **profile(u))
+
+
+@app.route('/api/me', methods=['DELETE'])
+@api
+def delete_me(u):
+    db.delete_user(u['id'])
+    r = make_response(jsonify(ok=True))
+    r.delete_cookie(COOKIE)
+    return r
+
+
+@app.route('/api/export')
+@api
+def export(u):
+    with db.conn() as c:
+        d = [json.loads(r['data']) for r in c.execute('SELECT data FROM drops WHERE user_id=?', (u['id'],))]
+        s = [json.loads(r['item']) for r in c.execute('SELECT item FROM saved WHERE user_id=?', (u['id'],))]
+    r = make_response(jsonify(profile=profile(u), drops=d, saved=s))
+    r.headers['Content-Disposition'] = 'attachment; filename=cypher-news-export.json'
+    return r
+
+
+# ---------- profile ----------
+@app.route('/api/profile', methods=['PUT'])
+@api
+def put_profile(u):
+    b = request.get_json(silent=True) or {}
+    f = {}
+    if 'notes' in b: f['notes'] = str(b['notes'])[:4000]
+    if 'drop_hour' in b: f['drop_hour'] = max(0, min(23, int(b['drop_hour'])))
+    if 'tz_offset' in b: f['tz_offset'] = max(-840, min(840, int(b['tz_offset'])))
+    if b.get('quality') in ('fast', 'high'): f['quality'] = b['quality']
+    if 'sources' in b and isinstance(b['sources'], list):
+        clean = []
+        for s in b['sources'][:40]:
+            p, v = str(s.get('platform', '')), str(s.get('value', '')).strip()[:300]
+            if p in sources.FETCHERS and p != 'news' and v and not any(c['platform'] == p and c['value'] == v for c in clean):
+                clean.append({'platform': p, 'value': v})
+        f['sources'] = json.dumps(clean)
+    db.update_user(u['id'], **f)
+    return jsonify(ok=True)
+
+
+@app.route('/api/sources/detect', methods=['POST'])
+@api
+def detect(u):
+    p, v = sources.detect((request.get_json(silent=True) or {}).get('value', ''))
+    return jsonify(platform=p, value=v)
+
+
+@app.route('/api/sources/import', methods=['POST'])
+@api
+def import_sources(u):
+    """Bulk import handles/URLs (one per line) e.g. from an Instagram data export of the user's own follow list."""
+    text = str((request.get_json(silent=True) or {}).get('text', ''))[:20000]
+    platform = (request.get_json(silent=True) or {}).get('platform', '')
+    found = []
+    for tok in re.findall(r'https?://\S+|@?[\w.\-]+@[\w.\-]+\.\w+|@[\w.]{2,40}|^[\w.]{2,40}$', text, flags=re.M):
+        p, v = sources.detect(tok) if tok.startswith(('http', 'r/')) or tok.count('@') == 2 else (platform, tok.lstrip('@'))
+        if p in sources.FETCHERS and p != 'news' and v:
+            found.append({'platform': p, 'value': v})
+    return jsonify(found=found[:200])
+
+
+@app.route('/api/key', methods=['POST'])
+@api
+def set_key(u):
+    k = str((request.get_json(silent=True) or {}).get('key', '')).strip()
+    if not re.fullmatch(r'sk-or-[\w\-]{20,200}', k):
+        return jsonify(error='bad_format'), 400
+    if not ai.check_key(k):
+        return jsonify(error='key_rejected'), 400
+    db.update_user(u['id'], key_enc=db.encrypt(k))
+    return jsonify(ok=True)
+
+
+@app.route('/api/key', methods=['DELETE'])
+@api
+def del_key(u):
+    db.update_user(u['id'], key_enc='')
+    return jsonify(ok=True)
+
+
+# ---------- drops ----------
+@app.route('/api/drop', methods=['POST'])
+@api
+def make_drop(u):
+    if not rate_limit('drop:' + u['id'], 3, 3600):
+        return jsonify(error='rate_limited'), 429
+    ok, err, drop = scheduler.run_for_user(u['id'], manual=True)
+    if not ok:
+        return jsonify(error=err), (402 if err in ('no_key', 'no_credit') else 400 if err == 'no_profile' else 502)
+    return jsonify(drop)
+
+
+@app.route('/api/drops')
+@api
+def drops(u):
+    with db.conn() as c:
+        rows = c.execute('SELECT id,day,created,data FROM drops WHERE user_id=? ORDER BY created DESC LIMIT 30', (u['id'],)).fetchall()
+    out = []
+    for r in rows:
+        d = json.loads(r['data'])
+        out.append({'id': r['id'], 'day': r['day'], 'created': r['created'], 'title': d.get('title'), 'count': len(d.get('items', []))})
+    return jsonify(drops=out)
+
+
+@app.route('/api/drops/<int:i>')
+@api
+def one_drop(u, i):
+    with db.conn() as c:
+        r = c.execute('SELECT id,data FROM drops WHERE id=? AND user_id=?', (i, u['id'])).fetchone()
+    if not r:
+        return jsonify(error='not_found'), 404
+    d = json.loads(r['data']); d['id'] = r['id']
+    return jsonify(d)
+
+
+@app.route('/api/saved', methods=['GET', 'POST', 'DELETE'])
+@api
+def saved(u):
+    with db.conn() as c:
+        if request.method == 'POST':
+            it = request.get_json(silent=True) or {}
+            it = {k: str(it.get(k, ''))[:600] for k in ('category', 'title', 'summary', 'source', 'url', 'when', 'image', 'platform', 'account', 'kind')}
+            if it['image'] and not it['image'].startswith(('https://', 'http://')):
+                it['image'] = ''
+            if it['title'] and not c.execute('SELECT 1 FROM saved WHERE user_id=? AND json_extract(item,"$.title")=?', (u['id'], it['title'])).fetchone():
+                c.execute('INSERT INTO saved(user_id,created,item) VALUES(?,?,?)', (u['id'], time.time(), json.dumps(it)))
+            return jsonify(ok=True)
+        if request.method == 'DELETE':
+            c.execute('DELETE FROM saved WHERE user_id=? AND json_extract(item,"$.title")=?', (u['id'], (request.get_json(silent=True) or {}).get('title', '')))
+            return jsonify(ok=True)
+        rows = c.execute('SELECT item FROM saved WHERE user_id=? ORDER BY created DESC LIMIT 200', (u['id'],)).fetchall()
+    return jsonify(saved=[json.loads(r['item']) for r in rows])
+
+
+@app.route('/api/feedback', methods=['POST'])
+@api
+def feedback(u):
+    b = request.get_json(silent=True) or {}
+    vote = 1 if b.get('vote') == 1 else -1 if b.get('vote') == -1 else 0
+    fb = json.loads(u['feedback'] or '{}')
+    for k in (str(b.get('account', '')).lower(), str(b.get('category', ''))):
+        if k and k != 'geteilt':
+            fb[k] = max(-5, min(5, fb.get(k, 0) + vote))
+    db.update_user(u['id'], feedback=json.dumps(dict(list(fb.items())[-80:])))
+    return jsonify(ok=True)
+
+
+# ---------- share into the app (Web Share Target) ----------
+def _store_share(uid, text, url, file):
+    img = ''
+    if file and file.filename:
+        try:
+            from PIL import Image
+            im = Image.open(file.stream).convert('RGB')
+            im.thumbnail((768, 768))
+            o = io.BytesIO(); im.save(o, 'JPEG', quality=72)
+            img = base64.b64encode(o.getvalue()).decode()
+        except Exception:
+            img = ''
+    url = url if re.match(r'https?://', url or '') else ''
+    m = re.search(r'https?://\S+', text or '')
+    if not url and m:
+        url = m.group(0)
+    if not (text or url or img):
+        return False
+    with db.conn() as c:
+        c.execute('INSERT INTO shared(user_id,created,text,url,image_b64) VALUES(?,?,?,?,?)', (uid, time.time(), (text or '')[:800], url[:500], img))
+    return True
+
+
+@app.route('/share', methods=['POST'])
+def share_target():
+    u = db.user_by_token(request.cookies.get(COOKIE))
+    if not u:
+        return redirect('/?share=login')
+    ok = _store_share(u['id'], ' '.join(x for x in (request.form.get('title', ''), request.form.get('text', '')) if x), request.form.get('url', ''),
+                      request.files.get('media'))
+    return redirect('/?share=ok' if ok else '/?share=empty', code=303)
+
+
+@app.route('/api/shared', methods=['POST'])
+@api
+def shared(u):
+    ok = _store_share(u['id'], request.form.get('text', ''), request.form.get('url', ''), request.files.get('media'))
+    return jsonify(ok=ok), (200 if ok else 400)
+
+
+# ---------- push + cron ----------
+@app.route('/api/push', methods=['POST', 'DELETE'])
+@api
+def push_sub(u):
+    if request.method == 'DELETE':
+        db.update_user(u['id'], push_sub='')
+        return jsonify(ok=True)
+    s = request.get_json(silent=True) or {}
+    if not str(s.get('endpoint', '')).startswith('https://'):
+        return jsonify(error='bad_subscription'), 400
+    db.update_user(u['id'], push_sub=json.dumps(s))
+    return jsonify(ok=True)
+
+
+@app.route('/api/cron', methods=['POST'])
+def cron():
+    secret = os.environ.get('CRON_SECRET')
+    if not secret or request.headers.get('X-Cron-Secret') != secret:
+        return jsonify(error='forbidden'), 403
+    threading.Thread(target=scheduler.run_due, daemon=True).start()
+    return jsonify(ok=True, due=len(scheduler.due_users()))
+
+
+if backup.enabled():
+    backup.restore()
+    backup.start_thread()
+if os.environ.get('SCHEDULER', '0') == '1':
+    scheduler.start_thread()
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=False)
+    app.run(host=os.environ.get('HOST', '127.0.0.1'), port=int(os.environ.get('PORT', '5000')), debug=False)

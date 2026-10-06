@@ -8,3 +8,7 @@ data/sessions/
 data/connections.json
 *.env
 venv/
+
+data/*.db
+data/*.db-*
+.pytest_cache/

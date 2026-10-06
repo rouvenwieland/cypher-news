@@ -1,0 +1,11 @@
+# Wakes the hosted app every 30 minutes so it builds due drops (free hosts sleep when idle).
+# Needs repository secrets APP_URL (e.g. https://yourname-cypher-news.hf.space) and CRON_SECRET.
+name: daily-drop-cron
+on:
+  schedule: [{ cron: '*/30 * * * *' }]
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS -m 60 --retry 3 --retry-delay 20 -X POST -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" "${{ secrets.APP_URL }}/api/cron"
