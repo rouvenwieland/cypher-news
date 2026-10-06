@@ -161,3 +161,9 @@ def test_source_test_endpoint(client):
     r = client.post('/api/sources/test', json={'platform': 'reddit', 'value': 'r/berlin'}).get_json()
     assert r['count'] == 1 and 'Mauerpark' in r['sample']
     assert client.post('/api/sources/test', json={'platform': 'evil', 'value': 'x'}).status_code == 400
+
+
+def test_model_lists_from_env(monkeypatch):
+    from cypher import ai
+    monkeypatch.setenv('MODEL_VISION', 'a/x:free, b/y:free'); monkeypatch.setenv('MODEL_PRIMARY', 'c/z:free'); monkeypatch.delenv('MODEL_FALLBACK', raising=False)
+    assert ai.vision_models() == ['a/x:free', 'b/y:free'] and ai.text_models() == ['c/z:free']

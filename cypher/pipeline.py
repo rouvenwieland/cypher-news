@@ -81,7 +81,12 @@ def build_drop(user, key, quality='fast', include_vision=True):
             continue
         seen.add(k); uniq.append(i)
     uniq.sort(key=lambda i: score(i, topics, fb), reverse=True)
-    top = uniq[:32]
+    firsts, seen_acc = [], set()
+    for i in uniq:  # best item of every followed account is always a candidate
+        k = (i['platform'], i['account'])
+        if i['platform'] not in ('news', 'shared') and k not in seen_acc:
+            seen_acc.add(k); firsts.append(i)
+    top = firsts + [i for i in uniq if i not in firsts][:max(0, 32 - len(firsts))]
 
     vision_n, vmodels = 0, set()
     if include_vision and ai.vision_models():
@@ -99,7 +104,7 @@ def build_drop(user, key, quality='fast', include_vision=True):
     system = ('Du bist die Redaktion von CYPHER NEWS (DAILY DROP), einem Tages-Newsletter, der Social-Media-Posts, Videos und News fuer den Nutzer '
               'zusammenfasst, damit er nicht scrollen muss. Antworte AUSSCHLIESSLICH mit gueltigem JSON.')
     prompt = (f"Notizen des Nutzers: \"{(user['notes'] or '')[:1500]}\"\nMag: {liked}. Mag nicht: {disliked}.\nDatum: {datetime.now().date()}\n\n"
-              "Rohdaten:\n" + '\n'.join(lines) + "\n\nWaehle bis zu 10 passende, abwechslungsreiche Eintraege (Posts/Videos bevorzugen, wenn relevant). "
+              "Rohdaten:\n" + '\n'.join(lines) + "\n\nWaehle bis zu 12 passende, abwechslungsreiche Eintraege. Posts, Videos und Reels der verfolgten Accounts haben Vorrang vor allgemeinen News; waehle aus jedem verfolgten Account mindestens einen Eintrag, sofern er nicht komplett irrelevant ist. "
               "Deutsch, locker, praezise; nenne Datum/Ort/Deadline, wenn in den Daten. Format:\n"
               '{"title":"Schlagzeile","intro":"2 Saetze","items":[{"idx":0,"category":"Konzerte|Giveaways|Drops|Tech|Trends|News","title":"..","summary":"1-2 Saetze + was tun","when":"z.B. Heute"}]}\n'
               'Erfinde nichts, keine Links, nutze nur die Daten.')
@@ -139,6 +144,13 @@ def build_drop(user, key, quality='fast', include_vision=True):
             except Exception:
                 continue
             out_items.append(build(src, x))
+    # followed accounts are the heart of the product: make sure each one shows up at least once
+    if out_items:
+        have = {(i['platform'], i['account']) for i in out_items}
+        for src in top:
+            key = (src['platform'], src['account'])
+            if src['platform'] not in ('news', 'shared') and key not in have and len(out_items) < 14:
+                out_items.append(build(src, None)); have.add(key)
     if not out_items:
         used = 'fallback-ohne-ki'
         out_items = [build(s, None) for s in top[:10]]

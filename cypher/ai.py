@@ -9,12 +9,20 @@ class AIError(Exception):
     pass
 
 
+def _names(*vars_):
+    """Model names from env vars; each var may hold several comma-separated names (tried in order)."""
+    out = []
+    for v in vars_:
+        out += [m.strip() for m in os.environ.get(v, '').split(',') if m.strip()]
+    return out
+
+
 def text_models():
-    return [m for m in (os.environ.get('MODEL_PRIMARY'), os.environ.get('MODEL_FALLBACK')) if m]
+    return _names('MODEL_PRIMARY', 'MODEL_FALLBACK')
 
 
 def vision_models():
-    return [m for m in (os.environ.get('MODEL_VISION'),) if m]
+    return _names('MODEL_VISION')
 
 
 def chat(key, model, messages, max_tokens=2500, timeout=75):
