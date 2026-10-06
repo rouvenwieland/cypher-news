@@ -190,7 +190,7 @@ def tiktok(handle):
         return []
     import json, subprocess, sys
     try:
-        res = subprocess.run([sys.executable, '-m', 'yt_dlp', '--flat-playlist', '--dump-json', '--playlist-end', '5', f'https://www.tiktok.com/@{handle}'],
+        res = subprocess.run([sys.executable, '-m', 'yt_dlp', '--impersonate', 'chrome', '--flat-playlist', '--dump-json', '--playlist-end', '5', f'https://www.tiktok.com/@{handle}'],
                              capture_output=True, text=True, timeout=25)
         out = []
         for line in res.stdout.splitlines():
@@ -199,6 +199,12 @@ def tiktok(handle):
             except Exception:
                 continue
             ts = v.get('timestamp')
+            if not v.get('thumbnail') and len(out) < 3 and v.get('url'):
+                try:  # oEmbed gives a thumbnail without login
+                    r, buf = get('https://www.tiktok.com/oembed?url=' + quote(v['url'], safe=''))
+                    v['thumbnail'] = json.loads(buf).get('thumbnail_url', '')
+                except Exception:
+                    pass
             out.append({'platform': 'tiktok', 'account': '@' + handle, 'kind': 'video', 'text': (v.get('title') or v.get('description') or '')[:400],
                         'url': v.get('webpage_url') or v.get('url') or '', 'image_url': v.get('thumbnail') or '',
                         'taken_at': datetime.fromtimestamp(ts, tz=timezone.utc).isoformat() if ts else ''})
@@ -208,23 +214,26 @@ def tiktok(handle):
 
 
 def instagram(handle):
-    """Public profile JSON without login. Instagram often blocks this; then [] (no login fallback by design)."""
+    """Latest public posts via Instagram's public embed page (no login, no password). Unofficial: may break or be rate limited."""
     handle = handle.strip().lstrip('@')
     if not re.fullmatch(r'[\w.]{2,30}', handle):
         return []
     try:
         import json
-        r, buf = get(f'https://i.instagram.com/api/v1/users/web_profile_info/?username={handle}',
-                     headers={'x-ig-app-id': '936619743392459', 'User-Agent': UA})
-        if r.status_code != 200:
+        r, buf = get(f'https://www.instagram.com/{handle}/embed/',
+                     headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'})
+        m = re.search(rb'"contextJSON":"((?:[^"\\]|\\.)*)"', buf)
+        if r.status_code != 200 or not m:
             return []
-        edges = json.loads(buf)['data']['user']['edge_owner_to_timeline_media']['edges']
+        ctx = json.loads(json.loads('"' + m.group(1).decode('utf8') + '"'))['context']
         out = []
-        for e in edges[:5]:
-            n = e['node']
+        for g in ctx.get('graphql_media', [])[:6]:
+            n = g.get('shortcode_media') or {}
             cap = ((n.get('edge_media_to_caption', {}).get('edges') or [{}])[0].get('node') or {}).get('text', '')
-            out.append({'platform': 'instagram', 'account': '@' + handle, 'kind': 'reel' if n.get('is_video') else 'post', 'text': cap[:400],
-                        'url': f"https://www.instagram.com/p/{n.get('shortcode')}/", 'image_url': n.get('thumbnail_src') or n.get('display_url') or '',
+            res = n.get('display_resources') or []
+            out.append({'platform': 'instagram', 'account': '@' + handle, 'kind': 'reel' if n.get('is_video') else 'post',
+                        'text': cap[:400] or 'Bild-Post', 'url': f"https://www.instagram.com/p/{n.get('shortcode')}/",
+                        'image_url': (res[0]['src'] if res else n.get('display_url', '')),
                         'taken_at': datetime.fromtimestamp(n['taken_at_timestamp'], tz=timezone.utc).isoformat()})
         return out
     except Exception:
@@ -262,7 +271,7 @@ def fetch_all(topics, sources, workers=8):
     return items, status
 
 
-def thumb_b64(image_url, size=512):
+def thumb_b64(image_url, size=512, quality=70):
     """Download + shrink an image to a small JPEG for the vision model. Returns base64 or ''."""
     try:
         from PIL import Image
@@ -272,7 +281,7 @@ def thumb_b64(image_url, size=512):
         im = Image.open(io.BytesIO(buf)).convert('RGB')
         im.thumbnail((size, size))
         out = io.BytesIO()
-        im.save(out, 'JPEG', quality=70)
+        im.save(out, 'JPEG', quality=quality)
         return base64.b64encode(out.getvalue()).decode()
     except Exception:
         return ''

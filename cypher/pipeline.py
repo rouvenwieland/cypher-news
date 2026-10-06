@@ -121,13 +121,17 @@ def build_drop(user, key, quality='fast', include_vision=True):
 
     out_items = []
     def build(src, x):
+        img = src.get('image_url') or ''
+        if img and src['platform'] in ('instagram', 'tiktok'):  # CDN links expire after a few days: keep a small copy
+            small = sources.thumb_b64(img, size=480, quality=62)
+            img = ('data:image/jpeg;base64,' + small) if small else img
         return {'category': x['category'] if x and x.get('category') in CATS else guess_cat(src['text']),
                 'title': str((x or {}).get('title') or src['text'].split(':')[0])[:140],
                 'summary': str((x or {}).get('summary') or src.get('vision') or src['text'])[:340],
                 'source': f"{src['platform']} {src['account']}".strip() if src['platform'] not in ('news',) else src['account'],
                 'url': src['url'], 'when': str((x or {}).get('when') or src['taken_at'][:10] or 'aktuell')[:30],
                 'kind': src['kind'], 'platform': src['platform'], 'account': src['account'],
-                'image': src.get('image_url') or ('data:image/jpeg;base64,' + src['image_b64'] if src.get('image_b64') else '')}
+                'image': img or ('data:image/jpeg;base64,' + src['image_b64'] if src.get('image_b64') else '')}
     if data:
         for x in data['items'][:12]:
             try:

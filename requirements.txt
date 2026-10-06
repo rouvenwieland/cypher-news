@@ -5,6 +5,6 @@ pillow>=11
 cryptography>=43
 feedparser==6.0.11
 pywebpush>=2.0
-yt-dlp>=2025.1.1
+yt-dlp[default,curl-cffi]>=2025.1.1
 huggingface_hub>=0.25
 curl_cffi>=0.7
