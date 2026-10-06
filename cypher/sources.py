@@ -1,6 +1,6 @@
 """Public, login-free sources. No passwords, no scraping behind logins.
 Every function returns a list of items: {platform, account, kind, text, url, taken_at, image_url} and never raises."""
-import base64, io, ipaddress, re, socket
+import base64, io, ipaddress, re, socket, time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlparse
@@ -32,10 +32,14 @@ def get(url, **kw):
     """GET with SSRF guard on every redirect hop. Returns (response, body bytes, max 3 MB)."""
     headers = dict(kw.pop('headers', {}) or {})
     headers.setdefault('User-Agent', UA)
-    for _ in range(4):
+    retried = False
+    for _ in range(5):
         if not is_public_url(url):
             raise ValueError('blocked url')
         r = requests.get(url, timeout=TIMEOUT, stream=True, headers=headers, allow_redirects=False, **kw)
+        if r.status_code == 429 and not retried:  # rate limited (Reddit): wait once and retry
+            r.close(); retried = True; time.sleep(2.5)
+            continue
         if r.status_code in (301, 302, 303, 307, 308) and r.headers.get('Location'):
             url = requests.compat.urljoin(url, r.headers['Location'])
             r.close()
