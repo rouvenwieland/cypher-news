@@ -96,7 +96,7 @@ def imprint():
 
 @app.route('/healthz')
 def healthz():
-    return jsonify(ok=True)
+    return jsonify(ok=True, backup=backup.STATE)
 
 
 # ---------- session ----------

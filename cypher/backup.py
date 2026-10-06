@@ -5,6 +5,7 @@ import hashlib, os, shutil, sqlite3, tempfile, threading, time
 from . import db
 
 FILE = 'cypher.db'
+STATE = {'enabled': False, 'last_upload': None, 'last_error': ''}  # shown on /healthz (never contains secrets)
 
 
 def enabled():
@@ -28,7 +29,8 @@ def restore(download=None):
         os.makedirs(os.path.dirname(os.path.abspath(db.DB_PATH)), exist_ok=True)
         shutil.copy(src, db.DB_PATH)
         return True
-    except Exception:
+    except Exception as e:
+        STATE['last_error'] = f'restore: {type(e).__name__}'
         return False
 
 
@@ -53,14 +55,19 @@ def upload_if_changed(last_hash, upload=None):
             api.create_repo(os.environ['BACKUP_REPO'], repo_type='dataset', private=True, exist_ok=True)
             upload = lambda p: api.upload_file(path_or_fileobj=p, path_in_repo=FILE, repo_id=os.environ['BACKUP_REPO'], repo_type='dataset')
         upload(snap)
+        STATE.update(last_upload=time.time(), last_error='')
         return h
-    except Exception:
+    except Exception as e:
+        STATE['last_error'] = f'{type(e).__name__}: {str(e)[:160]}'
+        print('backup failed:', STATE['last_error'], flush=True)
         return last_hash
 
 
 def start_thread(interval=300):
+    STATE['enabled'] = True
+
     def loop():
-        h = None
+        h = upload_if_changed(None)  # first snapshot right after boot, then every few minutes
         while True:
             time.sleep(interval)
             h = upload_if_changed(h)
