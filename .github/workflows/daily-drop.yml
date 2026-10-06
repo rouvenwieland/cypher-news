@@ -1,11 +1,13 @@
-# Wakes the hosted app every 30 minutes so it builds due drops (free hosts sleep when idle).
-# Needs repository secrets APP_URL (e.g. https://yourname-cypher-news.hf.space) and CRON_SECRET.
-name: daily-drop-cron
+# Keeps the free Hugging Face Space awake so its built-in scheduler can build the daily drops.
+# No secrets needed. Change APP_URL if your Space has another name.
+name: keep-awake
 on:
-  schedule: [{ cron: '*/30 * * * *' }]
+  schedule: [{ cron: '*/20 * * * *' }]
   workflow_dispatch:
+env:
+  APP_URL: https://rouvenwieland-cypher-news.hf.space
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - run: curl -fsS -m 60 --retry 3 --retry-delay 20 -X POST -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}" "${{ secrets.APP_URL }}/api/cron"
+      - run: curl -fsS -m 60 --retry 3 --retry-delay 20 "$APP_URL/healthz"

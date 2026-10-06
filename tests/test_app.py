@@ -144,3 +144,13 @@ def test_get_follows_redirects_only_to_public_hosts(fake_or, monkeypatch):
     import pytest
     with pytest.raises(ValueError):
         sources.get('http://169.254.169.254/')
+
+
+def test_zero_config_secrets(client, monkeypatch):
+    """No SECRET_KEY / VAPID env: the app generates stable ones, so a user never has to copy secrets."""
+    monkeypatch.delenv('SECRET_KEY'); monkeypatch.delenv('VAPID_PRIVATE_KEY', raising=False)
+    from cypher import db, push
+    token = db.encrypt('hello')
+    assert db.decrypt(token) == 'hello'
+    k1 = push.public_key(); assert len(k1) > 60 and push.public_key() == k1
+    assert client.get('/api/me').get_json()['vapid'] == k1

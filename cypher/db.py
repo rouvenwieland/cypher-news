@@ -20,10 +20,19 @@ CREATE TABLE IF NOT EXISTS cache(k TEXT PRIMARY KEY, ts REAL, v TEXT);
 """
 
 
+def setting(name, make):
+    """Persistent app setting (generated once, stored in the DB). Used as a fallback when no env secret is set."""
+    with conn() as c:
+        r = c.execute('SELECT v FROM cache WHERE k=?', ('setting:' + name,)).fetchone()
+        if r:
+            return json.loads(r['v'])
+        v = make()
+        c.execute('INSERT INTO cache(k,ts,v) VALUES(?,?,?)', ('setting:' + name, time.time(), json.dumps(v)))
+        return v
+
+
 def _fernet():
-    sk = os.environ.get('SECRET_KEY', '')
-    if not sk:
-        raise RuntimeError('SECRET_KEY is not set')
+    sk = os.environ.get('SECRET_KEY') or setting('secret_key', lambda: secrets.token_urlsafe(48))
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(sk.encode()).digest()))
 
 
