@@ -29,13 +29,19 @@ def is_public_url(url):
 
 
 def get(url, **kw):
-    if not is_public_url(url):
-        raise ValueError('blocked url')
-    kw.setdefault('headers', {})['User-Agent'] = kw['headers'].get('User-Agent', UA)
-    r = requests.get(url, timeout=TIMEOUT, stream=True, **kw)
-    buf = r.raw.read(MAX_BYTES, decode_content=True)
-    r.status_code_ok = r.status_code == 200
-    return r, buf
+    """GET with SSRF guard on every redirect hop. Returns (response, body bytes, max 3 MB)."""
+    headers = dict(kw.pop('headers', {}) or {})
+    headers.setdefault('User-Agent', UA)
+    for _ in range(4):
+        if not is_public_url(url):
+            raise ValueError('blocked url')
+        r = requests.get(url, timeout=TIMEOUT, stream=True, headers=headers, allow_redirects=False, **kw)
+        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get('Location'):
+            url = requests.compat.urljoin(url, r.headers['Location'])
+            r.close()
+            continue
+        return r, r.raw.read(MAX_BYTES, decode_content=True)
+    raise ValueError('too many redirects')
 
 
 def _iso(t):
@@ -113,7 +119,7 @@ def youtube(handle):
         cid = handle if re.fullmatch(r'UC[\w-]{22}', handle) else None
         if not cid:
             r, buf = get(f'https://www.youtube.com/@{handle}')
-            m = re.search(rb'"(?:channelId|externalId)":"(UC[\w-]{22})"', buf)
+            m = re.search(rb'channel_id=(UC[\w-]{22})', buf)
             cid = m.group(1).decode() if m else None
         if not cid:
             return []
@@ -156,8 +162,12 @@ def mastodon(handle):
         r, buf = get(f'https://{host}/api/v1/accounts/{aid}/statuses?limit=6&exclude_replies=true')
         out = []
         for s in json.loads(buf):
+            s = s.get('reblog') or s
             media = s.get('media_attachments') or []
-            out.append({'platform': 'mastodon', 'account': f'@{user}@{host}', 'kind': 'post', 'text': _strip(s.get('content', ''))[:400],
+            text = _strip(s.get('content', ''))[:400]
+            if not text and not media:
+                continue
+            out.append({'platform': 'mastodon', 'account': f'@{user}@{host}', 'kind': 'post', 'text': text or 'Bild-Post',
                         'url': s.get('url', ''), 'taken_at': s.get('created_at', ''), 'image_url': (media[0].get('preview_url') if media else '') or ''})
         return out[:5]
     except Exception:
@@ -178,9 +188,9 @@ def tiktok(handle):
     handle = handle.strip().lstrip('@')
     if not re.fullmatch(r'[\w.]{2,40}', handle):
         return []
-    import json, subprocess
+    import json, subprocess, sys
     try:
-        res = subprocess.run(['yt-dlp', '--flat-playlist', '--dump-json', '--playlist-end', '5', f'https://www.tiktok.com/@{handle}'],
+        res = subprocess.run([sys.executable, '-m', 'yt_dlp', '--flat-playlist', '--dump-json', '--playlist-end', '5', f'https://www.tiktok.com/@{handle}'],
                              capture_output=True, text=True, timeout=25)
         out = []
         for line in res.stdout.splitlines():

@@ -17,7 +17,7 @@ Nur Dinge, die du selbst einmal anlegen musst. Keine Kreditkarte nötig.
    | `SECRET_KEY` | aus `python -m cypher.vapid` |
    | `VAPID_PRIVATE_KEY`, `VAPID_PUBLIC_KEY` | aus `python -m cypher.vapid` (für Push) |
    | `VAPID_SUBJECT` | `mailto:deine@mail` |
-   | `MODEL_PRIMARY`, `MODEL_VISION` (opt. `MODEL_FALLBACK`) | Modell-IDs von openrouter.ai/models (prüfen, ob sie existieren) |
+   | `MODEL_PRIMARY`, `MODEL_VISION`, `MODEL_FALLBACK` | geprüft am 6.10.2026 (existieren bei OpenRouter): `nvidia/nemotron-3-super-120b-a12b:free`, `google/gemma-4-31b-it:free` (Bilder), `nvidia/nemotron-3-ultra-550b-a55b:free`. Immer vorher auf openrouter.ai/models gegenprüfen |
    | `CRON_SECRET` | langer Zufallstext |
    | `OPENROUTER_API_KEY` | optional: Server-Schlüssel für das Gratis-Kontingent (`FREE_DROPS_PER_DAY`, Standard 1) |
    | `IMPRINT_TEXT` | dein Impressum (Pflicht in Deutschland für öffentliche Angebote) |

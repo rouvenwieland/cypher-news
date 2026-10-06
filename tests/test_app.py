@@ -133,3 +133,14 @@ def test_backup_roundtrip(client, tmp_path, monkeypatch):
     new = tmp_path / 'restored.db'; monkeypatch.setattr(db, 'DB_PATH', str(new))
     src = tmp_path / 'snap.db'; src.write_bytes(uploaded[0])
     assert backup.restore(download=lambda: str(src)) and len(db.all_users()) == 1
+
+
+def test_get_follows_redirects_only_to_public_hosts(fake_or, monkeypatch):
+    """Regression: get() crashed on every call; and redirects must be re-checked against the SSRF guard."""
+    from cypher import sources
+    monkeypatch.setattr(sources, 'is_public_url', lambda u: u.startswith(fake_or))
+    r, body = sources.get(fake_or + '/auth/key', headers={'Authorization': 'Bearer sk-or-good-key-0000000000000000'})
+    assert r.status_code == 200
+    import pytest
+    with pytest.raises(ValueError):
+        sources.get('http://169.254.169.254/')
