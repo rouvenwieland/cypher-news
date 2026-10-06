@@ -4,7 +4,7 @@ services:
     name: cypher-news
     runtime: docker
     plan: free
-    branch: claude/wonderful-hopper-5jecz3   # switch to main once merged
+    branch: main
     healthCheckPath: /healthz
     envVars:
       - key: SECRET_KEY
