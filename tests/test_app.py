@@ -1,3 +1,4 @@
+import re
 import json
 from tests.calls import CALLS
 
@@ -253,7 +254,7 @@ def test_static_code_is_never_cached_stale(client):
     for path in ('/static/js/app.js', '/static/css/app.css', '/sw.js'):
         assert 'no-cache' in client.get(path).headers['Cache-Control']
     sw = client.get('/sw.js').get_data(as_text=True)
-    assert 'cypher-news-v5' in sw and 'network first' in sw
+    assert re.search(r"cypher-news-v\d+", sw) and 'network first' in sw
 
 
 

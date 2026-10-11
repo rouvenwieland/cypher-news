@@ -1,6 +1,10 @@
-const CACHE = 'cypher-news-v5';  // bump on every release that changes cached files
+const CACHE = 'cypher-news-v6';  // bump on every release that changes cached files
 const SHELL = ['/static/css/style.css', '/static/css/app.css', '/static/js/rain.js', '/static/js/app.js', '/static/icon-192.png', '/static/icon-512.png',
-  '/static/fonts/PressStart2P.ttf', '/static/fonts/VT323.ttf', '/static/fonts/SpaceGrotesk.ttf'];
+  '/static/fonts/Newsreader.woff2', '/static/fonts/Newsreader-Italic.woff2', '/static/fonts/VT323.ttf', '/static/fonts/SpaceGrotesk.ttf'];
+const OFFLINE = '<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Cypher News</title>' +
+  '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#12100d;color:#f4eee3;font:19px/1.5 Georgia,serif;text-align:center;padding:24px}' +
+  'h1{font-size:34px;margin:0 0 8px}p{margin:0 0 18px;color:#d2c8b9}button{font:600 16px system-ui,sans-serif;background:#ff6a2b;color:#1a0d05;border:0;border-radius:12px;padding:14px 22px;min-height:48px}</style>' +
+  '<main><h1>Gerade offline.</h1><p>Cypher News braucht eine Verbindung, um deinen Drop zu laden.</p><button onclick="location.reload()">Erneut versuchen</button></main></html>';
 
 self.addEventListener('install', (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())));
 self.addEventListener('activate', (e) => e.waitUntil((async () => {
@@ -22,7 +26,8 @@ self.addEventListener('fetch', (e) => {
   } else if (u.pathname.startsWith('/static/')) {
     e.respondWith(caches.match(e.request).then((c) => c || fetch(e.request)));  // fonts and icons never change
   } else {
-    e.respondWith(fetch(e.request).catch(() => caches.match('/static/icon-192.png')));
+    e.respondWith(fetch(e.request).catch(() => e.request.mode === 'navigate'
+      ? new Response(OFFLINE, {status: 503, headers: {'Content-Type': 'text/html; charset=utf-8'}}) : Response.error()));
   }
 });
 
