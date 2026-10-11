@@ -96,6 +96,8 @@ def imprint():
 
 @app.route('/healthz')
 def healthz():
+    if os.environ.get('SCHEDULER', '0') == '1':
+        scheduler.kick()  # the keep-awake ping also makes sure due drops get built
     return jsonify(ok=True, backup=backup.STATE)
 
 
@@ -226,15 +228,48 @@ def del_key(u):
 
 
 # ---------- drops ----------
+_jobs, _jobs_lock = {}, threading.Lock()
+JOB_MAX_AGE = 330  # seconds a job may run before it is considered dead
+
+
+def _run_job(uid):
+    try:
+        ok, err, drop = scheduler.run_for_user(uid, manual=True)
+    except Exception:
+        ok, err, drop = False, 'internal', None
+    with _jobs_lock:
+        _jobs[uid] = {'state': 'done' if ok else 'error', 'error': err, 'drop': drop, 'at': time.time()}
+
+
 @app.route('/api/drop', methods=['POST'])
 @api
 def make_drop(u):
-    if not rate_limit('drop:' + u['id'], 3, 3600):
+    """Starts a drop in the background (a drop takes 30-90 s: too long for one HTTP request on a free host). Poll /api/drop/status."""
+    with _jobs_lock:
+        j = _jobs.get(u['id'])
+        if j and j['state'] == 'running' and time.time() - j['at'] < JOB_MAX_AGE:
+            return jsonify(state='running'), 202
+    if not rate_limit('drop:' + u['id'], 6, 3600):
         return jsonify(error='rate_limited'), 429
-    ok, err, drop = scheduler.run_for_user(u['id'], manual=True)
-    if not ok:
-        return jsonify(error=err), (402 if err in ('no_key', 'no_credit') else 400 if err == 'no_profile' else 502)
-    return jsonify(drop)
+    with _jobs_lock:
+        _jobs[u['id']] = {'state': 'running', 'at': time.time()}
+    threading.Thread(target=_run_job, args=(u['id'],), daemon=True).start()
+    return jsonify(state='running'), 202
+
+
+@app.route('/api/drop/status')
+@api
+def drop_status(u):
+    with _jobs_lock:
+        j = _jobs.get(u['id'])
+        if not j or (j['state'] == 'running' and time.time() - j['at'] > JOB_MAX_AGE):
+            return jsonify(state='idle')
+        if j['state'] == 'running':
+            return jsonify(state='running', seconds=int(time.time() - j['at']))
+        _jobs.pop(u['id'], None)
+    if j['state'] == 'done':
+        return jsonify(state='done', drop=j['drop'])
+    return jsonify(state='error', error=j['error'])
 
 
 @app.route('/api/drops')
@@ -356,7 +391,7 @@ def cron():
 
 
 if backup.enabled():
-    backup.restore()
+    backup.restore_or_die()
     backup.start_thread()
 if os.environ.get('SCHEDULER', '0') == '1':
     scheduler.start_thread()
