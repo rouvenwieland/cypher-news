@@ -378,6 +378,12 @@ def _store_share(uid, text, url, file):
     m = re.search(r'https?://\S+', text or '')
     if not url and m:
         url = m.group(0)
+    tw = sources.x_tweet(url)  # a shared X link is read right away (text + picture), no login needed
+    if tw:
+        text = f"{tw['account']} auf X: {tw['text']}"
+        url = tw['url']
+        if not img and tw['image_url']:
+            img = sources.thumb_b64(tw['image_url'])
     if not (text or url or img):
         return False
     with db.conn() as c:

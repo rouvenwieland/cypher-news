@@ -106,7 +106,9 @@ async function addSource() {
     toast('Prüfe ' + d.value + ' …');
     try {
       const t = await api('/api/sources/test', 'POST', {platform: d.platform, value: d.value});
-      toast(t.count ? `✔ ${t.count} aktuelle Beiträge gefunden` : 'Hinzugefügt, aber gerade nicht erreichbar. Tipp: Teile Posts direkt in die App.', !t.count);
+      toast(t.count ? `✔ ${t.count} aktuelle Beiträge gefunden`
+        : (d.platform === 'x' ? 'Hinzugefügt. X blockiert den kostenlosen Abruf gerade. Zuverlässig geht es mit deinem X-Token (Profil) oder wenn du X-Posts in die App teilst.'
+          : 'Hinzugefügt, aber gerade nicht erreichbar. Tipp: Teile Posts direkt in die App.'), !t.count);
     } catch (e) { /* adding already worked */ }
   } catch (e) { toast('Konnte Quelle nicht hinzufügen.', true); }
 }
