@@ -54,11 +54,11 @@ def conn():
     with _lock:
         os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
         c = sqlite3.connect(DB_PATH, timeout=20)
-        c.row_factory = sqlite3.Row
-        c.executescript(SCHEMA)
-        if 'x_token_enc' not in {r[1] for r in c.execute('PRAGMA table_info(users)')}:  # migrate DBs created before X support
-            c.execute("ALTER TABLE users ADD COLUMN x_token_enc TEXT DEFAULT ''")
         try:
+            c.row_factory = sqlite3.Row
+            c.executescript(SCHEMA)
+            if 'x_token_enc' not in {r[1] for r in c.execute('PRAGMA table_info(users)')}:  # migrate DBs created before X support
+                c.execute("ALTER TABLE users ADD COLUMN x_token_enc TEXT DEFAULT ''")
             yield c
             c.commit()
         finally:
