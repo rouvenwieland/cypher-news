@@ -88,8 +88,9 @@
                     <div class="chips" id="topicChips"></div>
 
                     <div class="source-label">QUELLEN (ÖFFENTLICH, OHNE LOGIN)</div>
-                    <p class="hint">Instagram, TikTok, YouTube, Reddit, Bluesky, Mastodon oder RSS. Link oder @Handle einfügen.</p>
+                    <p class="hint">Instagram, TikTok, X, YouTube, Reddit, Bluesky, Mastodon oder RSS. Wähle die Plattform und füge @Handle oder Link ein.</p>
                     <div class="source-row">
+                        <select id="sourcePlatform" aria-label="Plattform"><option value="">Auto</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="x">X</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="bluesky">Bluesky</option></select>
                         <input type="text" id="sourceInput" placeholder="@account, r/berlin, Link ..." autocomplete="off" autocapitalize="off">
                         <button class="btn-small" id="sourceAdd">+</button>
                     </div>
@@ -97,7 +98,7 @@
                     <details class="more">
                         <summary>Viele Accounts auf einmal importieren</summary>
                         <p class="hint">Füge deine Follow-Liste ein (ein Handle oder Link pro Zeile). Bei Instagram kannst du sie unter Einstellungen &gt; Deine Aktivität &gt; Informationen herunterladen exportieren.</p>
-                        <select id="importPlatform"><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="bluesky">Bluesky</option></select>
+                        <select id="importPlatform"><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="x">X</option><option value="bluesky">Bluesky</option></select>
                         <textarea id="importText" rows="4" placeholder="@account1&#10;@account2"></textarea>
                         <button class="btn-small" id="importBtn">IMPORTIEREN</button>
                     </details>
@@ -116,6 +117,14 @@
                     <div id="keyStatus" class="hint"></div>
                     <input type="password" id="keyInput" placeholder="sk-or-..." autocomplete="off">
                     <div class="btn-row"><button class="btn-small" id="keySave">SPEICHERN</button><button class="btn-small ghost" id="keyDelete">ENTFERNEN</button></div>
+                </div>
+
+                <h3>X (TWITTER)</h3>
+                <div class="panel" id="xBox">
+                    <p class="hint">X-Accounts werden ohne Anmeldung über die öffentliche Einbettung gelesen. Das ist gratis, aber X bremst es oft aus. Zuverlässig geht es mit deinem eigenen <b>X-API-Token</b> (developer.x.com, Bearer Token). Das kostet bei X ca. 0,5 Cent pro gelesenem Post und läuft über dein X-Konto. Optional.</p>
+                    <div id="xStatus" class="hint"></div>
+                    <input type="password" id="xTokenInput" placeholder="Bearer Token (optional)" autocomplete="off">
+                    <div class="btn-row"><button class="btn-small" id="xTokenSave">SPEICHERN</button><button class="btn-small ghost" id="xTokenDelete">ENTFERNEN</button></div>
                 </div>
 
                 <h3>BENACHRICHTIGUNG</h3>

@@ -254,3 +254,67 @@ def test_static_code_is_never_cached_stale(client):
         assert 'no-cache' in client.get(path).headers['Cache-Control']
     sw = client.get('/sw.js').get_data(as_text=True)
     assert 'cypher-news-v5' in sw and 'network first' in sw
+
+
+SYNDICATION = b'''<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"timeline":{"entries":[
+ {"type":"tweet","content":{"tweet":{"id_str":"111","created_at":"Sun Oct 11 07:30:00 +0000 2026","full_text":"Neues Modell ist da https://t.co/abc123","user":{"screen_name":"OpenAI"},
+   "extended_entities":{"media":[{"media_url_https":"https://pbs.twimg.com/media/x.jpg"}]},
+   "quoted_status":{"id_str":"999","full_text":"fremder Post","user":{"screen_name":"someoneelse"}}}}},
+ {"type":"tweet","content":{"tweet":{"id_str":"110","created_at":"Sat Oct 10 12:00:00 +0000 2026","text":"Zweiter Post","user":{"screen_name":"openai"}}}}]}}}}</script></body></html>'''
+
+
+def test_x_syndication_parsing(monkeypatch):
+    from cypher import sources
+    class R: status_code = 200
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), SYNDICATION))
+    items = sources.x('@OpenAI')
+    assert [i['url'] for i in items] == ['https://x.com/OpenAI/status/111', 'https://x.com/openai/status/110']  # newest first, quoted foreign tweet skipped
+    assert items[0]['text'] == 'Neues Modell ist da' and items[0]['image_url'].endswith('x.jpg') and items[0]['platform'] == 'x'
+    assert sources.x('https://x.com/OpenAI/status/1')[0]['account'] == '@OpenAI'
+    assert sources.x('not a handle!!!') == []
+
+
+def test_x_blocked_returns_empty_not_crash(monkeypatch):
+    from cypher import sources
+    class R: status_code = 429
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), b'Rate limit exceeded'))
+    assert sources.x('openai') == []
+
+
+def test_x_detect_and_platform_picker(client):
+    from cypher import sources
+    assert sources.detect('https://x.com/OpenAI')[:2] == ('x', 'OpenAI') and sources.detect('twitter:@sama')[:2] == ('x', 'sama')
+    start(client)
+    assert client.post('/api/sources/detect', json={'value': '@OpenAI', 'platform': 'x'}).get_json() == {'platform': 'x', 'value': 'OpenAI'}
+    assert client.post('/api/sources/detect', json={'value': '@openai'}).get_json()['platform'] is None
+    assert client.put('/api/profile', json={'sources': [{'platform': 'x', 'value': 'OpenAI'}]}).status_code == 200
+    assert client.get('/api/me').get_json()['sources'] == [{'platform': 'x', 'value': 'OpenAI'}]
+
+
+def test_x_token_stored_encrypted_and_used(client, monkeypatch):
+    from cypher import db, sources
+    start(client)
+    assert client.post('/api/xtoken', json={'token': 'short'}).status_code == 400
+    tok = 'AAAA' + 'x' * 60
+    class R: status_code = 200
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), b'{}'))
+    assert client.post('/api/xtoken', json={'token': tok}).status_code == 200
+    me = client.get('/api/me').get_json(); assert me['has_x_token'] and tok not in str(me)
+    with db.conn() as c:
+        raw = c.execute('SELECT x_token_enc FROM users').fetchone()[0]
+    assert tok not in raw and db.decrypt(raw) == tok
+    seen = {}
+    monkeypatch.setitem(sources.FETCHERS, 'x', lambda v, token=None: seen.update(v=v, token=token) or [])
+    client.post('/api/sources/test', json={'platform': 'x', 'value': 'OpenAI'})
+    assert seen == {'v': 'OpenAI', 'token': tok}
+    client.delete('/api/xtoken'); assert not client.get('/api/me').get_json()['has_x_token']
+
+
+def test_old_database_gets_migrated(tmp_path, monkeypatch):
+    import sqlite3
+    from cypher import db
+    old = tmp_path / 'old.db'
+    c = sqlite3.connect(old); c.execute("CREATE TABLE users(id TEXT PRIMARY KEY, token_hash TEXT UNIQUE, recovery_hash TEXT UNIQUE, created REAL, notes TEXT DEFAULT '', sources TEXT DEFAULT '[]', drop_hour INTEGER DEFAULT 8, tz_offset INTEGER DEFAULT 60, quality TEXT DEFAULT 'fast', key_enc TEXT DEFAULT '', push_sub TEXT DEFAULT '', last_drop_day TEXT DEFAULT '', free_used_day TEXT DEFAULT '', free_used INTEGER DEFAULT 0, feedback TEXT DEFAULT '{}')")
+    c.execute("INSERT INTO users(id,token_hash,recovery_hash,created) VALUES('u1','a','b',0)"); c.commit(); c.close()
+    monkeypatch.setattr(db, 'DB_PATH', str(old)); monkeypatch.setenv('SECRET_KEY', 'x')
+    assert db.all_users()[0]['x_token_enc'] == ''   # existing user kept, new column present

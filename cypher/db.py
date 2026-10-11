@@ -10,7 +10,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS users(
   id TEXT PRIMARY KEY, token_hash TEXT UNIQUE, recovery_hash TEXT UNIQUE, created REAL,
   notes TEXT DEFAULT '', sources TEXT DEFAULT '[]', drop_hour INTEGER DEFAULT 8, tz_offset INTEGER DEFAULT 60,
-  quality TEXT DEFAULT 'fast', key_enc TEXT DEFAULT '', push_sub TEXT DEFAULT '', last_drop_day TEXT DEFAULT '',
+  quality TEXT DEFAULT 'fast', key_enc TEXT DEFAULT '', x_token_enc TEXT DEFAULT '', push_sub TEXT DEFAULT '', last_drop_day TEXT DEFAULT '',
   free_used_day TEXT DEFAULT '', free_used INTEGER DEFAULT 0, feedback TEXT DEFAULT '{}');
 CREATE TABLE IF NOT EXISTS drops(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, day TEXT, created REAL, data TEXT);
 CREATE INDEX IF NOT EXISTS drops_user ON drops(user_id, created);
@@ -56,6 +56,8 @@ def conn():
         c = sqlite3.connect(DB_PATH, timeout=20)
         c.row_factory = sqlite3.Row
         c.executescript(SCHEMA)
+        if 'x_token_enc' not in {r[1] for r in c.execute('PRAGMA table_info(users)')}:  # migrate DBs created before X support
+            c.execute("ALTER TABLE users ADD COLUMN x_token_enc TEXT DEFAULT ''")
         try:
             yield c
             c.commit()
