@@ -1,7 +1,7 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const CATS = {Konzerte: 'konzerte', Giveaways: 'giveaways', Drops: 'drops', Tech: 'tech', Trends: 'trends', News: 'sonstiges'};
-const PLAT = {instagram: '📷', tiktok: '🎵', youtube: '▶️', reddit: '🤖', bluesky: '🦋', mastodon: '🐘', rss: '📡', news: '📰', shared: '📲'};
+const PLAT = {instagram: '📷', tiktok: '🎵', youtube: '▶️', reddit: '🤖', bluesky: '🦋', x: '𝕏', mastodon: '🐘', rss: '📡', news: '📰', shared: '📲'};
 const CHIPS = ['Konzerte Berlin', 'Giveaways', 'Kleidungsdrops', 'Tech-News', 'Trends', 'Streetwear', 'Techno', 'Rap'];
 const ERR = {
   no_key: 'Du brauchst einen OpenRouter-Schlüssel (Profil > KI-Schlüssel) oder das Gratis-Kontingent ist für heute aufgebraucht.',
@@ -61,6 +61,7 @@ function applyProfile() {
   document.querySelectorAll('.q-btn').forEach((b) => b.classList.toggle('active', b.dataset.q === quality));
   renderChips(); renderSources();
   $('keyStatus').textContent = me.has_key ? '✔ Schlüssel gespeichert (verschlüsselt).' : (me.free_left > 0 ? `Kein Schlüssel. Heute noch ${me.free_left} Gratis-Drop über den Server.` : 'Noch kein Schlüssel eingetragen.');
+  $('xStatus').textContent = me.has_x_token ? '✔ X-Token gespeichert (verschlüsselt): offizielle X-API.' : 'Kein Token: öffentliche Einbettung (gratis, evtl. gedrosselt).';
   $('pushBtn').textContent = me.push ? 'PUSH AUSSCHALTEN' : 'PUSH AKTIVIEREN';
   const need = !me.has_key && me.free_left <= 0;
   const hint = $('setupHint'); hint.hidden = !need;
@@ -98,8 +99,8 @@ $('sourceChips').addEventListener('click', (e) => { const r = e.target.closest('
 async function addSource() {
   const v = $('sourceInput').value.trim(); if (!v) return;
   try {
-    const d = await api('/api/sources/detect', 'POST', {value: v});
-    if (!d.platform) { toast('Plattform nicht erkannt. Nutze einen Link, r/name oder name@instanz.', true); return; }
+    const d = await api('/api/sources/detect', 'POST', {value: v, platform: $('sourcePlatform').value});
+    if (!d.platform) { toast('Plattform nicht erkannt. Wähle sie links aus oder nutze einen Link.', true); return; }
     if (!sources.some((s) => s.platform === d.platform && s.value === d.value)) sources.push({platform: d.platform, value: d.value});
     $('sourceInput').value = ''; renderSources();
     toast('Prüfe ' + d.value + ' …');
@@ -130,6 +131,11 @@ $('keySave').addEventListener('click', async () => {
   try { await api('/api/key', 'POST', {key: $('keyInput').value}); $('keyInput').value = ''; me = await api('/api/me'); applyProfile(); toast('Schlüssel gespeichert'); }
   catch (e) { toast(e.code === 'key_rejected' ? 'OpenRouter lehnt diesen Schlüssel ab.' : 'Das sieht nicht wie ein OpenRouter-Schlüssel aus (sk-or-...).', true); }
 });
+$('xTokenSave').addEventListener('click', async () => {
+  try { await api('/api/xtoken', 'POST', {token: $('xTokenInput').value}); $('xTokenInput').value = ''; me = await api('/api/me'); applyProfile(); toast('X-Token gespeichert'); }
+  catch (e) { toast(e.code === 'token_rejected' ? 'X lehnt diesen Token ab.' : 'Das sieht nicht wie ein X-Bearer-Token aus.', true); }
+});
+$('xTokenDelete').addEventListener('click', async () => { await api('/api/xtoken', 'DELETE'); me = await api('/api/me'); applyProfile(); toast('X-Token entfernt'); });
 $('keyDelete').addEventListener('click', async () => { await api('/api/key', 'DELETE'); me = await api('/api/me'); applyProfile(); toast('Schlüssel entfernt'); });
 $('deleteAccount').addEventListener('click', async () => {
   if (!confirm('Konto und alle Daten wirklich unwiderruflich löschen?')) return;

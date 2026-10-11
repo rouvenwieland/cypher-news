@@ -244,8 +244,79 @@ def instagram(handle):
         return []
 
 
+def _walk_tweets(o, out):
+    """Finds tweet-like dicts anywhere in the syndication JSON (tolerates format drift)."""
+    if isinstance(o, dict):
+        if o.get('id_str') and (o.get('full_text') or o.get('text')) and o.get('user'):
+            out.append(o)
+        for v in o.values():
+            _walk_tweets(v, out)
+    elif isinstance(o, list):
+        for v in o:
+            _walk_tweets(v, out)
+
+
+def _tweet_item(t, handle):
+    try:
+        ts = datetime.strptime(t['created_at'], '%a %b %d %H:%M:%S %z %Y').isoformat() if t.get('created_at') else ''
+    except Exception:
+        ts = t.get('created_at', '')
+    media = (t.get('extended_entities') or t.get('entities') or {}).get('media') or []
+    text = re.sub(r'\s+', ' ', t.get('full_text') or t.get('text') or '')
+    text = re.sub(r'\s*https://t\.co/\w+', '', text).strip()  # t.co short links carry no information
+    user = (t.get('user') or {}).get('screen_name') or handle
+    return {'platform': 'x', 'account': '@' + handle, 'kind': 'post', 'text': text[:400] or 'Post mit Bild', 'url': f"https://x.com/{user}/status/{t['id_str']}",
+            'taken_at': ts, 'image_url': (media[0].get('media_url_https') if media else '') or ''}
+
+
+def x_official(handle, token):
+    """Official X API v2 (pay-per-use, the user's own bearer token). Reliable but costs about $0.005 per post read."""
+    import json
+    h = {'Authorization': 'Bearer ' + token}
+    r, buf = get(f'https://api.x.com/2/users/by/username/{quote(handle)}', headers=h)
+    uid = json.loads(buf)['data']['id']
+    r, buf = get(f'https://api.x.com/2/users/{uid}/tweets?max_results=5&exclude=replies,retweets&tweet.fields=created_at&expansions=attachments.media_keys&media.fields=url,preview_image_url', headers=h)
+    d = json.loads(buf)
+    media = {m['media_key']: (m.get('url') or m.get('preview_image_url') or '') for m in (d.get('includes') or {}).get('media', [])}
+    out = []
+    for t in d.get('data', []):
+        keys = (t.get('attachments') or {}).get('media_keys') or []
+        out.append({'platform': 'x', 'account': '@' + handle, 'kind': 'post', 'text': re.sub(r'\s*https://t\.co/\w+', '', t['text']).strip()[:400],
+                    'url': f"https://x.com/{handle}/status/{t['id']}", 'taken_at': t.get('created_at', ''), 'image_url': media.get(keys[0], '') if keys else ''})
+    return out
+
+
+def x(handle, token=None):
+    """X (Twitter). With the user's own API token: official API. Without: the public embed timeline (free, unofficial, X rate-limits it)."""
+    handle = re.sub(r'^(https?://)?(www\.)?(x|twitter)\.com/', '', handle.strip()).lstrip('@').split('/')[0].split('?')[0]
+    if not re.fullmatch(r'\w{1,15}', handle):
+        return []
+    try:
+        if token:
+            items = x_official(handle, token)
+            if items:
+                return items
+        import json
+        r, buf = get(f'https://syndication.twitter.com/srv/timeline-profile/screen-name/{handle}?showReplies=false',
+                     headers={'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://publish.twitter.com/'})
+        m = re.search(rb'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', buf, re.S)
+        if r.status_code != 200 or not m:
+            return []
+        found = []
+        _walk_tweets(json.loads(m.group(1)), found)
+        seen, out = set(), []
+        for t in found:
+            if t['id_str'] in seen or (t.get('user') or {}).get('screen_name', '').lower() != handle.lower():
+                continue  # skip quoted tweets of other accounts and duplicates
+            seen.add(t['id_str']); out.append(_tweet_item(t, handle))
+        out.sort(key=lambda i: i['taken_at'], reverse=True)
+        return out[:5]
+    except Exception:
+        return []
+
+
 FETCHERS = {'news': news, 'reddit': reddit, 'youtube': youtube, 'bluesky': bluesky, 'mastodon': mastodon,
-            'rss': rss, 'tiktok': tiktok, 'instagram': instagram}
+            'rss': rss, 'tiktok': tiktok, 'instagram': instagram, 'x': x}
 
 
 def detect(value):
@@ -255,18 +326,20 @@ def detect(value):
     if re.search(r'tiktok\.com', v, re.I): return 'tiktok', re.sub(r'.*tiktok\.com/@?([\w.]+).*', r'\1', v, flags=re.I)
     if re.search(r'youtube\.com|youtu\.be', v, re.I): return 'youtube', v
     if re.search(r'reddit\.com|^r/', v, re.I): return 'reddit', v
+    if re.search(r'(^|//)(www\.)?(x|twitter)\.com/', v, re.I): return 'x', re.sub(r'.*(?:x|twitter)\.com/@?(\w+).*', r'\1', v, flags=re.I)
+    if re.fullmatch(r'(x|twitter):@?\w+', v, re.I): return 'x', v.split(':', 1)[1].lstrip('@')
     if re.search(r'bsky\.app', v, re.I): return 'bluesky', re.sub(r'.*profile/([\w.\-]+).*', r'\1', v)
     if re.fullmatch(r'@?[\w.\-]+@[\w.\-]+\.\w+', v): return 'mastodon', v
     if v.startswith('http'): return 'rss', v
     return None, v
 
 
-def fetch_all(topics, sources, workers=8):
+def fetch_all(topics, sources, workers=8, x_token=None):
     """sources: [{platform, value}]. Returns (items, status) where status[platform:value] = count."""
     jobs = [('news', t) for t in topics[:5]] + [(s['platform'], s['value']) for s in sources[:25] if s.get('platform') in FETCHERS]
 
     def run(j):
-        return j, FETCHERS[j[0]](j[1])
+        return j, (FETCHERS['x'](j[1], x_token) if j[0] == 'x' else FETCHERS[j[0]](j[1]))
     items, status = [], {}
     with ThreadPoolExecutor(max_workers=workers) as ex:
         for j, res in ex.map(run, jobs):
