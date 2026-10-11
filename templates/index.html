@@ -10,10 +10,10 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="theme-color" content="#130e0b">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/app.css">
-    <script src="/static/js/rain.js" defer></script>
-    <script src="/static/js/app.js" defer></script>
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v }}">
+    <link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}">
+    <script src="/static/js/rain.js?v={{ asset_v }}" defer></script>
+    <script src="/static/js/app.js?v={{ asset_v }}" defer></script>
 </head>
 <body data-vapid="{{ vapid }}" data-model="{{ model_name }}">
     <svg id="grainOverlay" aria-hidden="true">

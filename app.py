@@ -1,5 +1,5 @@
 """Cypher News - Daily Drop. Multi-user Flask app (SQLite). Run: gunicorn app:app  |  python app.py"""
-import base64, io, json, os, re, threading, time
+import base64, hashlib, io, json, os, re, threading, time
 from collections import defaultdict
 from functools import wraps
 from urllib.parse import urlparse
@@ -14,6 +14,20 @@ COOKIE = 'cn_token'
 PRIMARY = os.environ.get('MODEL_PRIMARY', '')
 SECURE = os.environ.get('COOKIE_SECURE', '1') == '1'
 
+def _asset_version():
+    """Hash of the client files. It is appended to their URLs (?v=...), so every release has NEW urls and no old service worker
+    or browser cache can ever serve stale code."""
+    h = hashlib.md5()
+    for rel in ('js/app.js', 'js/rain.js', 'css/style.css', 'css/app.css'):
+        try:
+            with open(os.path.join(app.static_folder, rel), 'rb') as f:
+                h.update(f.read())
+        except OSError:
+            pass
+    return h.hexdigest()[:10]
+
+
+ASSET_V = _asset_version()
 _hits = defaultdict(list)
 _hits_lock = threading.Lock()
 
@@ -32,6 +46,8 @@ def rate_limit(name, limit, per):
 
 @app.after_request
 def headers(r):
+    if r.mimetype == 'text/html':
+        r.headers['Cache-Control'] = 'no-store'  # the page itself (it names the current script URLs) is never cached
     if request.path.startswith('/static/') and request.path.rsplit('.', 1)[-1] in ('js', 'css', 'json'):
         r.headers['Cache-Control'] = 'no-cache'  # revalidate every time (ETag keeps it cheap)
     r.headers['X-Content-Type-Options'] = 'nosniff'
@@ -75,7 +91,7 @@ def profile(u):
 # ---------- pages ----------
 @app.route('/')
 def index():
-    return render_template('index.html', model_name=PRIMARY or 'offenes Modell', vapid=push.public_key())
+    return render_template('index.html', model_name=PRIMARY or 'offenes Modell', vapid=push.public_key(), asset_v=ASSET_V)
 
 
 @app.route('/sw.js')
