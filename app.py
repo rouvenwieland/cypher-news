@@ -271,7 +271,16 @@ def _run_job(uid):
 @app.route('/api/drop', methods=['POST'])
 @api
 def make_drop(u):
-    """Starts a drop in the background (a drop takes 30-90 s: too long for one HTTP request on a free host). Poll /api/drop/status."""
+    """New clients (header X-Client: 2): start a background job and poll /api/drop/status (a drop takes 30-90 s).
+    Old clients (cached copies of the first app version, e.g. a phone whose service worker never updated) expect the finished drop
+    in the response of this very request: serve them synchronously so they keep working."""
+    if request.headers.get('X-Client') != '2':
+        if not rate_limit('drop-legacy:' + u['id'], 6, 3600):
+            return jsonify(error='rate_limited'), 429
+        ok, err, drop = scheduler.run_for_user(u['id'], manual=True)
+        if not ok:
+            return jsonify(error=err), (402 if err in ('no_key', 'no_credit') else 400 if err == 'no_profile' else 502)
+        return jsonify(drop)
     with _jobs_lock:
         j = _jobs.get(u['id'])
         if j and j['state'] == 'running' and time.time() - j['at'] < JOB_MAX_AGE:

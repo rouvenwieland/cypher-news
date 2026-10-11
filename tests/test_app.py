@@ -7,7 +7,7 @@ GOOD = 'sk-or-good-key-0000000000000000'
 def run_drop(c, timeout=20):
     """POST /api/drop starts a background job; poll the status like the browser does. Returns (http_status_of_result, json)."""
     import time
-    r = c.post('/api/drop')
+    r = c.post('/api/drop', headers={'X-Client': '2'})
     if r.status_code != 202:
         return r.status_code, r.get_json()
     t0 = time.time()
@@ -244,8 +244,8 @@ def test_no_key_is_not_retried(client):
 def test_drop_job_survives_concurrent_clicks(client):
     start(client); client.put('/api/profile', json={'notes': 'Konzerte'}); client.post('/api/key', json={'key': GOOD})
     assert client.get('/api/drop/status').get_json()['state'] == 'idle'
-    assert client.post('/api/drop').status_code == 202
-    assert client.post('/api/drop').status_code == 202   # second click does not start a second job
+    assert client.post('/api/drop', headers={'X-Client': '2'}).status_code == 202
+    assert client.post('/api/drop', headers={'X-Client': '2'}).status_code == 202   # second click does not start a second job
 
 
 def test_static_code_is_never_cached_stale(client):
@@ -343,3 +343,13 @@ def test_nitter_host_list_comes_from_status_page_with_fallback(client, monkeypat
     monkeypatch.setattr(sources, 'get', lambda url, **kw: (_ for _ in ()).throw(ValueError('down')))
     db.cache_set('nitter_hosts', None)
     assert sources.nitter_hosts() == sources.STATIC_NITTER or 'nitter.kareem.one' in sources.nitter_hosts()
+
+
+def test_legacy_client_still_gets_the_finished_drop(client):
+    """Regression (phone showed '0 Treffer aus 0 von 0 Quellen'): an old cached client expects the drop itself in the POST response."""
+    start(client); client.put('/api/profile', json={'notes': 'Konzerte Berlin'}); client.post('/api/key', json={'key': GOOD})
+    r = client.post('/api/drop')                       # no X-Client header = old client
+    assert r.status_code == 200 and r.get_json()['items'][0]['title'] == 'Erster Treffer' and r.get_json()['meta']['model']
+    client.delete('/api/key')
+    assert client.post('/api/drop').status_code == 402  # old clients get the old error codes too
+    assert "'X-Client': '2'" in open('static/js/app.js').read()
