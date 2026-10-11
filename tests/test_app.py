@@ -318,3 +318,17 @@ def test_old_database_gets_migrated(tmp_path, monkeypatch):
     c.execute("INSERT INTO users(id,token_hash,recovery_hash,created) VALUES('u1','a','b',0)"); c.commit(); c.close()
     monkeypatch.setattr(db, 'DB_PATH', str(old)); monkeypatch.setenv('SECRET_KEY', 'x')
     assert db.all_users()[0]['x_token_enc'] == ''   # existing user kept, new column present
+
+
+def test_shared_x_link_is_read(client, monkeypatch):
+    from cypher import db, sources
+    class R: status_code = 200
+    payload = b'{"text":"Neues Modell! https://t.co/zzz","created_at":"2026-10-11T07:00:00.000Z","user":{"screen_name":"OpenAI"},"photos":[{"url":"https://pbs.twimg.com/media/p.jpg"}]}'
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), payload))
+    monkeypatch.setattr(sources, 'thumb_b64', lambda u, **kw: 'QUJD')
+    start(client)
+    assert client.post('/api/shared', data={'text': 'schau https://x.com/OpenAI/status/12345'}).status_code == 200
+    with db.conn() as c:
+        row = c.execute('SELECT text,url,image_b64 FROM shared').fetchone()
+    assert 'Neues Modell!' in row['text'] and 't.co' not in row['text'] and row['url'] == 'https://x.com/OpenAI/status/12345' and row['image_b64'] == 'QUJD'
+    assert sources.x_tweet('https://example.com/nothing') is None

@@ -286,6 +286,28 @@ def x_official(handle, token):
     return out
 
 
+def x_tweet(url):
+    """One public post by link (x.com/<user>/status/<id>): works without login and is not rate-limited like timelines.
+    Returns an item dict or None."""
+    m = re.search(r'(?:x|twitter)\.com/(?:#!/)?(\w+)/status(?:es)?/(\d{1,20})', url or '', re.I)
+    if not m:
+        return None
+    try:
+        import json
+        r, buf = get(f'https://cdn.syndication.twimg.com/tweet-result?id={m.group(2)}&token=a')
+        t = json.loads(buf)
+        if r.status_code != 200 or not t.get('text'):
+            return None
+        photos = t.get('photos') or t.get('mediaDetails') or []
+        img = (photos[0].get('url') or photos[0].get('media_url_https') or '') if photos else ''
+        user = (t.get('user') or {}).get('screen_name') or m.group(1)
+        text = re.sub(r'\s*https://t\.co/\w+', '', t['text']).strip()
+        return {'platform': 'x', 'account': '@' + user, 'kind': 'post', 'text': text[:400] or 'Post mit Bild', 'url': f'https://x.com/{user}/status/{m.group(2)}',
+                'taken_at': t.get('created_at', ''), 'image_url': img}
+    except Exception:
+        return None
+
+
 def x_diagnose(handle):
     """Why does the public X embed return nothing? Returns a short, secret-free description (shown by the source test)."""
     try:
