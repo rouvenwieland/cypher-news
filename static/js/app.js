@@ -10,7 +10,8 @@ const ERR = {
   rate_limited: 'Zu viele Anfragen. Warte kurz und versuche es erneut.',
   no_profile: 'Schreib zuerst unter Profil, was dich interessiert, und speichere.',
   no_model_configured: 'Der Betreiber hat noch kein KI-Modell eingestellt.',
-  internal: 'Da ist etwas schiefgelaufen. Versuche es gleich noch einmal.'
+  internal: 'Da ist etwas schiefgelaufen. Versuche es gleich noch einmal.',
+  all_models_failed: 'Alle KI-Modelle sind gerade überlastet. Versuche es in ein paar Minuten noch einmal.'
 };
 let me = null, sources = [], topics = new Set(), quality = 'fast', current = null, view = 'stories';
 
@@ -151,17 +152,33 @@ $('pushBtn').addEventListener('click', async () => {
 
 // ---------- generate ----------
 const STEPS = ['> lese deine Quellen …', '> filtere Rauschen …', '> schaue Bilder an …', '> offenes Modell schreibt deinen Drop …', '> gleich fertig …'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function generateDrop() {
+  await api('/api/drop', 'POST');                       // starts the job (returns at once)
+  const t0 = Date.now(); let seen = false;
+  while (Date.now() - t0 < 6 * 60 * 1000) {             // a drop takes 30-90 s
+    await sleep(3000);
+    let st; try { st = await api('/api/drop/status'); } catch (e) { if (e.status === 401) throw e; continue; }  // short network hiccup: keep waiting
+    if (st.state === 'running') seen = true;
+    else if (st.state === 'done') return st.drop;
+    else if (st.state === 'error') { const e = new Error(st.error); e.code = st.error; throw e; }
+    else if (seen) { const e = new Error('lost'); e.code = 'internal'; throw e; }   // server restarted mid-job
+  }
+  const e = new Error('timeout'); e.code = 'internal'; throw e;
+}
 $('dropBtn').addEventListener('click', async () => {
   const btn = $('dropBtn'); btn.disabled = true; $('resultsArea').hidden = true;
   const term = $('terminal'); $('terminalWrapper').classList.add('visible'); term.innerHTML = '';
-  let i = 0; const tick = setInterval(() => { if (i < STEPS.length) term.insertAdjacentHTML('beforeend', `<div class="line">${esc(STEPS[i++])}</div>`); }, 4000);
+  let i = 0; const tick = setInterval(() => { if (i < STEPS.length) term.insertAdjacentHTML('beforeend', `<div class="line">${esc(STEPS[i++])}</div>`); }, 6000);
   term.insertAdjacentHTML('beforeend', `<div class="line">${esc('> starte …')}</div>`);
   try {
     await saveProfile(true);
-    renderDrop(await api('/api/drop', 'POST'));
+    renderDrop(await generateDrop());
     me = await api('/api/me'); applyProfile();
-  } catch (e) { toast(ERR[e.code] || 'Das hat nicht geklappt.', true); if (e.code === 'no_key' || e.code === 'key_invalid') showTab('profile'); }
-  finally { clearInterval(tick); btn.disabled = false; $('terminalWrapper').classList.remove('visible'); }
+  } catch (e) {
+    toast(ERR[e.code] || (e.status === 401 ? 'Du bist nicht mehr angemeldet. Seite neu laden.' : 'Das hat nicht geklappt. Versuche es gleich noch einmal.'), true);
+    if (e.code === 'no_key' || e.code === 'key_invalid') showTab('profile');
+  } finally { clearInterval(tick); btn.disabled = false; $('terminalWrapper').classList.remove('visible'); }
 });
 
 // ---------- render ----------
