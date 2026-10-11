@@ -21,7 +21,7 @@ def is_public_url(url):
             return False
         for info in socket.getaddrinfo(p.hostname, None):
             ip = ipaddress.ip_address(info[4][0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            if not ip.is_global or ip.is_multicast:  # is_global also rejects CGNAT 100.64/10
                 return False
         return True
     except Exception:
@@ -395,6 +395,7 @@ def thumb_b64(image_url, size=512, quality=70):
     """Download + shrink an image to a small JPEG for the vision model. Returns base64 or ''."""
     try:
         from PIL import Image
+        Image.MAX_IMAGE_PIXELS = 25_000_000  # decompression-bomb guard
         r, buf = get(image_url)
         if r.status_code != 200:
             return ''

@@ -1,5 +1,5 @@
 """Cypher News - Daily Drop. Multi-user Flask app (SQLite). Run: gunicorn app:app  |  python app.py"""
-import base64, hashlib, io, json, os, re, threading, time
+import base64, hashlib, hmac, io, ipaddress, json, os, re, threading, time
 from collections import defaultdict
 from functools import wraps
 from urllib.parse import urlparse
@@ -33,14 +33,20 @@ _hits_lock = threading.Lock()
 
 
 def rate_limit(name, limit, per):
-    ip = (request.headers.get('X-Forwarded-For', request.remote_addr) or '?').split(',')[0].strip()
+    # Behind one proxy (Render) the LAST X-Forwarded-For entry is the one the proxy added; the first ones are client-controlled.
+    ip = (request.headers.get('X-Forwarded-For', request.remote_addr) or '?').split(',')[-1].strip()
     k = (name, ip)
     now = time.time()
     with _hits_lock:
-        _hits[k] = [t for t in _hits[k] if now - t < per]
-        if len(_hits[k]) >= limit:
+        recent = [t for t in _hits[k] if now - t < per]
+        if len(recent) >= limit:
+            _hits[k] = recent
             return False
-        _hits[k].append(now)
+        recent.append(now)
+        _hits[k] = recent
+        if len(_hits) > 5000:  # drop stale keys so the dict cannot grow forever
+            for key in [x for x, v in _hits.items() if not v or now - v[-1] > 3600]:
+                del _hits[key]
     return True
 
 
@@ -229,6 +235,7 @@ def import_sources(u):
     text = str((request.get_json(silent=True) or {}).get('text', ''))[:20000]
     platform = (request.get_json(silent=True) or {}).get('platform', '')
     found = []
+    text = '\n'.join(line[:300] for line in text.splitlines())  # bounded lines: the pattern below is quadratic on long input
     for tok in re.findall(r'https?://\S+|@?[\w.\-]+@[\w.\-]+\.\w+|@[\w.]{2,40}|^[\w.]{2,40}$', text, flags=re.M):
         p, v = sources.detect(tok) if tok.startswith(('http', 'r/')) or tok.count('@') == 2 else (platform, tok.lstrip('@'))
         if p in sources.FETCHERS and p != 'news' and v:
@@ -357,7 +364,7 @@ def feedback(u):
     b = request.get_json(silent=True) or {}
     vote = 1 if b.get('vote') == 1 else -1 if b.get('vote') == -1 else 0
     fb = json.loads(u['feedback'] or '{}')
-    for k in (str(b.get('account', '')).lower(), str(b.get('category', ''))):
+    for k in (str(b.get('account', '')).lower()[:60], str(b.get('category', ''))[:60]):
         if k and k != 'geteilt':
             fb[k] = max(-5, min(5, fb.get(k, 0) + vote))
     db.update_user(u['id'], feedback=json.dumps(dict(list(fb.items())[-80:])))
@@ -370,6 +377,7 @@ def _store_share(uid, text, url, file):
     if file and file.filename:
         try:
             from PIL import Image
+            Image.MAX_IMAGE_PIXELS = 25_000_000  # decompression-bomb guard (raises instead of eating RAM)
             im = Image.open(file.stream).convert('RGB')
             im.thumbnail((768, 768))
             o = io.BytesIO(); im.save(o, 'JPEG', quality=72)
@@ -411,6 +419,21 @@ def shared(u):
 
 
 # ---------- push + cron ----------
+def _push_endpoint_ok(url):
+    """The server POSTs to this URL later: https only, no IP literals from private ranges, no internal host names (SSRF)."""
+    try:
+        p = urlparse(url)
+        host = (p.hostname or '').lower()
+        if p.scheme != 'https' or not host or '.' not in host or host.endswith(('.local', '.internal', '.localhost')):
+            return False
+        try:
+            return ipaddress.ip_address(host).is_global
+        except ValueError:
+            return True
+    except ValueError:
+        return False
+
+
 @app.route('/api/push', methods=['POST', 'DELETE'])
 @api
 def push_sub(u):
@@ -418,7 +441,7 @@ def push_sub(u):
         db.update_user(u['id'], push_sub='')
         return jsonify(ok=True)
     s = request.get_json(silent=True) or {}
-    if not str(s.get('endpoint', '')).startswith('https://'):
+    if not isinstance(s, dict) or len(json.dumps(s)) > 4000 or not _push_endpoint_ok(str(s.get('endpoint', ''))):
         return jsonify(error='bad_subscription'), 400
     db.update_user(u['id'], push_sub=json.dumps(s))
     return jsonify(ok=True)
@@ -427,7 +450,7 @@ def push_sub(u):
 @app.route('/api/cron', methods=['POST'])
 def cron():
     secret = os.environ.get('CRON_SECRET')
-    if not secret or request.headers.get('X-Cron-Secret') != secret:
+    if not secret or not hmac.compare_digest(request.headers.get('X-Cron-Secret', ''), secret):
         return jsonify(error='forbidden'), 403
     threading.Thread(target=scheduler.run_due, daemon=True).start()
     return jsonify(ok=True, due=len(scheduler.due_users()))

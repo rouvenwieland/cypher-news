@@ -354,3 +354,24 @@ def test_legacy_client_still_gets_the_finished_drop(client):
     client.delete('/api/key')
     assert client.post('/api/drop').status_code == 402  # old clients get the old error codes too
     assert "'X-Client': '2'" in open('static/js/app.js').read()
+
+
+def test_rate_limit_ignores_spoofed_leading_forwarded_for(client):
+    """The first X-Forwarded-For value is client-controlled; only the proxy-added last one counts."""
+    codes = [client.post('/api/start', headers={'X-Forwarded-For': f'9.9.9.{i}, 5.5.5.5'}).status_code for i in range(12)]
+    assert 429 in codes
+
+
+def test_push_subscription_rejects_internal_endpoints(client):
+    start(client)
+    for bad in ('https://127.0.0.1/x', 'https://169.254.169.254/latest', 'https://localhost/x', 'https://intranet/x', 'http://fcm.googleapis.com/x'):
+        assert client.post('/api/push', json={'endpoint': bad, 'keys': {}}).status_code == 400, bad
+    assert client.post('/api/push', json={'endpoint': 'https://fcm.googleapis.com/fcm/send/abc', 'keys': {}}).status_code == 200
+
+
+def test_import_with_huge_single_line_is_fast(client):
+    import time
+    start(client)
+    t = time.time()
+    assert client.post('/api/sources/import', json={'text': 'a' * 20000, 'platform': 'instagram'}).status_code == 200
+    assert time.time() - t < 1.0
