@@ -61,7 +61,6 @@ function applyProfile() {
   document.querySelectorAll('.q-btn').forEach((b) => b.classList.toggle('active', b.dataset.q === quality));
   renderChips(); renderSources();
   $('keyStatus').textContent = me.has_key ? '✔ Schlüssel gespeichert (verschlüsselt).' : (me.free_left > 0 ? `Kein Schlüssel. Heute noch ${me.free_left} Gratis-Drop über den Server.` : 'Noch kein Schlüssel eingetragen.');
-  $('xStatus').textContent = me.has_x_token ? '✔ X-Token gespeichert (verschlüsselt): offizielle X-API.' : 'Kein Token: öffentliche Einbettung (gratis, evtl. gedrosselt).';
   $('pushBtn').textContent = me.push ? 'PUSH AUSSCHALTEN' : 'PUSH AKTIVIEREN';
   const need = !me.has_key && me.free_left <= 0;
   const hint = $('setupHint'); hint.hidden = !need;
@@ -107,7 +106,7 @@ async function addSource() {
     try {
       const t = await api('/api/sources/test', 'POST', {platform: d.platform, value: d.value});
       toast(t.count ? `✔ ${t.count} aktuelle Beiträge gefunden`
-        : (d.platform === 'x' ? 'Hinzugefügt. X blockiert den kostenlosen Abruf gerade. Zuverlässig geht es mit deinem X-Token (Profil) oder wenn du X-Posts in die App teilst.'
+        : (d.platform === 'x' ? 'Hinzugefügt. Die öffentlichen X-Spiegel sind gerade nicht erreichbar. Tipp: X-Links in die App teilen.'
           : 'Hinzugefügt, aber gerade nicht erreichbar. Tipp: Teile Posts direkt in die App.'), !t.count);
     } catch (e) { /* adding already worked */ }
   } catch (e) { toast('Konnte Quelle nicht hinzufügen.', true); }
@@ -133,11 +132,6 @@ $('keySave').addEventListener('click', async () => {
   try { await api('/api/key', 'POST', {key: $('keyInput').value}); $('keyInput').value = ''; me = await api('/api/me'); applyProfile(); toast('Schlüssel gespeichert'); }
   catch (e) { toast(e.code === 'key_rejected' ? 'OpenRouter lehnt diesen Schlüssel ab.' : 'Das sieht nicht wie ein OpenRouter-Schlüssel aus (sk-or-...).', true); }
 });
-$('xTokenSave').addEventListener('click', async () => {
-  try { await api('/api/xtoken', 'POST', {token: $('xTokenInput').value}); $('xTokenInput').value = ''; me = await api('/api/me'); applyProfile(); toast('X-Token gespeichert'); }
-  catch (e) { toast(e.code === 'token_rejected' ? 'X lehnt diesen Token ab.' : 'Das sieht nicht wie ein X-Bearer-Token aus.', true); }
-});
-$('xTokenDelete').addEventListener('click', async () => { await api('/api/xtoken', 'DELETE'); me = await api('/api/me'); applyProfile(); toast('X-Token entfernt'); });
 $('keyDelete').addEventListener('click', async () => { await api('/api/key', 'DELETE'); me = await api('/api/me'); applyProfile(); toast('Schlüssel entfernt'); });
 $('deleteAccount').addEventListener('click', async () => {
   if (!confirm('Konto und alle Daten wirklich unwiderruflich löschen?')) return;

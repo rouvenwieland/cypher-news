@@ -43,7 +43,7 @@ def collect(user, topics, srcs):
             db.cache_set(pool_key, got)
         items.extend(got); status['news:' + t] = len(got)
     own = [s for s in srcs if s.get('platform') in sources.FETCHERS]
-    got, st = sources.fetch_all([], own, x_token=db.decrypt(user['x_token_enc']))
+    got, st = sources.fetch_all([], own)
     items.extend(got); status.update(st)
     with db.conn() as c:
         rows = c.execute('SELECT * FROM shared WHERE user_id=? AND used=0 ORDER BY created DESC LIMIT 10', (user['id'],)).fetchall()
