@@ -32,6 +32,8 @@ def rate_limit(name, limit, per):
 
 @app.after_request
 def headers(r):
+    if request.path.startswith('/static/') and request.path.rsplit('.', 1)[-1] in ('js', 'css', 'json'):
+        r.headers['Cache-Control'] = 'no-cache'  # revalidate every time (ETag keeps it cheap)
     r.headers['X-Content-Type-Options'] = 'nosniff'
     r.headers['Referrer-Policy'] = 'same-origin'
     r.headers['X-Frame-Options'] = 'DENY'

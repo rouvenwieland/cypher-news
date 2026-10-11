@@ -246,3 +246,11 @@ def test_drop_job_survives_concurrent_clicks(client):
     assert client.get('/api/drop/status').get_json()['state'] == 'idle'
     assert client.post('/api/drop').status_code == 202
     assert client.post('/api/drop').status_code == 202   # second click does not start a second job
+
+
+def test_static_code_is_never_cached_stale(client):
+    """Regression: the service worker served an old app.js forever, so the old client rendered {state:'running'} as an empty drop."""
+    for path in ('/static/js/app.js', '/static/css/app.css', '/sw.js'):
+        assert 'no-cache' in client.get(path).headers['Cache-Control']
+    sw = client.get('/sw.js').get_data(as_text=True)
+    assert 'cypher-news-v5' in sw and 'network first' in sw
