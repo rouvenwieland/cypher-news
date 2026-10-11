@@ -286,6 +286,17 @@ def x_official(handle, token):
     return out
 
 
+def x_diagnose(handle):
+    """Why does the public X embed return nothing? Returns a short, secret-free description (shown by the source test)."""
+    try:
+        r, buf = get(f'https://syndication.twitter.com/srv/timeline-profile/screen-name/{re.sub(r"[^A-Za-z0-9_]", "", handle)}?showReplies=false',
+                     headers={'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://publish.twitter.com/'})
+        has = bool(re.search(rb'<script id="__NEXT_DATA__"', buf))
+        return {'http': r.status_code, 'bytes': len(buf), 'has_data': has, 'start': re.sub(r'\s+', ' ', buf[:90].decode('utf8', 'replace'))}
+    except Exception as e:
+        return {'error': f'{type(e).__name__}: {str(e)[:100]}'}
+
+
 def x(handle, token=None):
     """X (Twitter). With the user's own API token: official API. Without: the public embed timeline (free, unofficial, X rate-limits it)."""
     handle = re.sub(r'^(https?://)?(www\.)?(x|twitter)\.com/', '', handle.strip()).lstrip('@').split('/')[0].split('?')[0]

@@ -199,7 +199,10 @@ def test_source(u):
         return jsonify(error='bad_platform'), 400
     t = time.time()
     items = sources.FETCHERS['x'](v, db.decrypt(u['x_token_enc'])) if p == 'x' else sources.FETCHERS[p](v)
-    return jsonify(count=len(items), seconds=round(time.time() - t, 1), sample=(items[0]['text'][:90] if items else ''))
+    out = dict(count=len(items), seconds=round(time.time() - t, 1), sample=(items[0]['text'][:90] if items else ''))
+    if p == 'x' and not items:
+        out['detail'] = sources.x_diagnose(v)
+    return jsonify(out)
 
 
 @app.route('/api/sources/import', methods=['POST'])
