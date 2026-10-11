@@ -21,7 +21,7 @@ try { const v = localStorage.getItem('cn-view'); if (v === 'stories' || v === 'f
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
 function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : ''; }
 function ico(n) { return `<svg class="ico" aria-hidden="true"><use href="#i-${n}"/></svg>`; }
-function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' error' : ''); clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 3800); }
+function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' error' : ''); clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = 'toast'; setTimeout(() => { if (!t.classList.contains('show')) t.textContent = ''; }, 400); }, 3800); }
 async function api(path, method = 'GET', body) {
   const o = {method, credentials: 'same-origin', headers: {'X-Client': '2'}};
   if (body instanceof FormData) o.body = body; else if (body !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
@@ -53,11 +53,13 @@ function decrypt(el, ms) {
 $('logo').addEventListener('click', (e) => { e.preventDefault(); decrypt($('logoWord'), 700); });
 
 // ---------- tabs ----------
-function showTab(name) {
+function showTab(name, focus = true) {
   document.querySelectorAll('.tab-btn').forEach((b) => { const on = b.dataset.tab === name; b.classList.toggle('active', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   document.querySelectorAll('.tab-page').forEach((p) => p.hidden = true);
   $('page' + name[0].toUpperCase() + name.slice(1)).hidden = false;
   window.scrollTo(0, 0);
+  if (focus) $('main').focus({preventScroll: true});
+  document.title = {drop: 'Heute', saved: 'Gemerkt', history: 'Verlauf', profile: 'Profil'}[name] + ' - Cypher News';
   if (name === 'saved') loadSaved();
   if (name === 'history') loadHistory();
 }
@@ -77,7 +79,7 @@ async function boot() {
   try { (await api('/api/saved')).saved.forEach((s) => savedTitles.add(s.title)); } catch (e) {}
   try { const ds = (await api('/api/drops')).drops; if (ds.length) renderDrop(await api('/api/drops/' + ds[0].id)); } catch (e) {}
   syncEmpty();
-  if (!me.notes && !sources.length) showTab('profile');
+  if (!me.notes && !sources.length) showTab('profile', false);
 }
 function syncEmpty() { $('todayEmpty').hidden = !!current; $('dropBar').classList.toggle('compact', !!current); }
 
@@ -105,7 +107,7 @@ $('btnStart').addEventListener('click', async () => {
   catch (e) { toast(e.status === 409 ? 'Du hast schon ein Konto.' : 'Das hat nicht geklappt. Später noch einmal versuchen.', true); if (e.status === 409) boot(); }
 });
 function openRecovery() { $('recoveryModal').hidden = false; document.querySelector('.shell').inert = true; $('closeCode').focus(); }
-$('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; document.querySelector('.shell').inert = false; boot(); });
+$('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; document.querySelector('.shell').inert = false; boot().then(() => $('main').focus({preventScroll: true})); });
 $('copyCode').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('recoveryCode').textContent); toast('Kopiert'); } catch (e) { toast('Kopieren nicht möglich. Markiere den Code und kopiere ihn von Hand.', true); } });
 $('btnShowRestore').addEventListener('click', () => { const r = $('restoreBox'); r.hidden = !r.hidden; $('btnShowRestore').setAttribute('aria-expanded', String(!r.hidden)); if (!r.hidden) $('restoreCode').focus(); });
 $('btnRestore').addEventListener('click', async () => {
@@ -220,6 +222,7 @@ $('dropBtn').addEventListener('click', async () => {
     await saveProfile(true);
     renderDrop(await generateDrop());
     me = await api('/api/me'); applyProfile(true);
+    toast(`Dein Drop ist fertig: ${current.items.length} Treffer`);
   } catch (e) {
     failed = true;
     const msg = ERR[e.code] || (e.status === 401 ? 'Du bist nicht mehr angemeldet. Seite neu laden.' : 'Das hat nicht geklappt. Versuche es gleich noch einmal.');
@@ -229,27 +232,28 @@ $('dropBtn').addEventListener('click', async () => {
     clearInterval(tick); clearInterval(clock); setBusy(btn, false); $('terminalWrapper').classList.remove('visible'); rain(false);
     if (failed && current) $('resultsArea').hidden = false;  // keep showing the previous drop
     syncEmpty();
-    if (!failed) $('resultsArea').scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'});
+    if (!failed) { $('resultsArea').scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'}); $('introTitle').focus({preventScroll: true}); }
+    else btn.focus();
   }
 });
 
 // ---------- render ----------
 function imgOf(item) { return safeUrl(item.image) || (/^data:image\/jpeg;base64,/.test(item.image || '') ? item.image : ''); }
-function platTag(item) { const p = PLAT[item.platform]; return p ? `<span class="plat" title="${esc(p[1])}">${esc(p[0])}</span>` : ''; }
+function platTag(item) { const p = PLAT[item.platform]; return p ? `<span class="plat" aria-hidden="true">${esc(p[0])}</span><span class="sr-only">${esc(p[1])}: </span>` : ''; }
 function actions(item, i, o = {}) {
   const url = safeUrl(item.url), t = esc(item.title);
   const saved = o.unsave || savedTitles.has(item.title);
-  return `<div class="acts">${url ? `<a class="act open" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Öffnen: ${t}">Öffnen ${ico('open')}</a>` : ''}
-    <button type="button" class="act ${saved ? 'saved' : ''}" ${o.unsave ? `data-act="unsave" data-title="${t}"` : `data-act="save" data-i="${i}"`} aria-pressed="${saved}" aria-label="${o.unsave ? 'Nicht mehr merken' : 'Merken'}: ${t}">${ico('saved')}</button>
-    ${o.votes ? `<button type="button" class="act ${votes[i] === 1 ? 'on' : ''}" data-act="up" data-i="${i}" aria-pressed="${votes[i] === 1}" aria-label="Mehr davon">${ico('up')}</button><button type="button" class="act ${votes[i] === -1 ? 'on' : ''}" data-act="down" data-i="${i}" aria-pressed="${votes[i] === -1}" aria-label="Weniger davon">${ico('down')}</button>` : ''}</div>`;
+  return `<div class="acts">${url ? `<a class="act open" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Öffnen: ${t} (neues Fenster)">Öffnen ${ico('open')}</a>` : ''}
+    <button type="button" class="act ${saved ? 'saved' : ''}" ${o.unsave ? `data-act="unsave" data-title="${t}"` : `data-act="save" data-i="${i}"`} aria-pressed="${saved}" aria-label="${o.unsave ? 'Gemerkt, zum Entfernen tippen' : 'Merken'}: ${t}">${ico('saved')}</button>
+    ${o.votes ? `<button type="button" class="act ${votes[i] === 1 ? 'on' : ''}" data-act="up" data-i="${i}" aria-pressed="${votes[i] === 1}" aria-label="Mehr davon: ${t}">${ico('up')}</button><button type="button" class="act ${votes[i] === -1 ? 'on' : ''}" data-act="down" data-i="${i}" aria-pressed="${votes[i] === -1}" aria-label="Weniger davon: ${t}">${ico('down')}</button>` : ''}</div>`;
 }
 function card(item, i, n) {
   const cat = CATS[item.category] || 'sonstiges', img = imgOf(item), no = String(i + 1).padStart(2, '0');
-  return `<article class="story-card cat-${cat}" data-cat="${esc(item.category)}">
+  return `<article class="story-card cat-${cat}" data-cat="${esc(item.category)}" role="group" aria-roledescription="Karte" aria-label="Karte ${i + 1} von ${n}">
     <div class="story-visual ${img ? 'has-img' : ''}">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}<span class="story-no" aria-hidden="true">${no}</span><span class="story-of" aria-hidden="true">${no} / ${String(n).padStart(2, '0')}</span></div>
     <div class="story-body">
       <div class="head"><span class="cat-pill">${esc(item.category)}</span><span class="art-when">${esc(item.when)}</span></div>
-      <h3>${esc(item.title)}</h3><p class="summary">${esc(item.summary)}</p>
+      <h2>${esc(item.title)}</h2><p class="summary">${esc(item.summary)}</p>
       <div class="art-foot"><span class="src">${platTag(item)}<span>${esc(item.account || item.source)}</span></span>${actions(item, i, {votes: true})}</div>
     </div></article>`;
 }
@@ -257,7 +261,7 @@ function article(item, i, o = {}) {
   const cat = CATS[item.category] || 'sonstiges', img = imgOf(item);
   return `<article class="feed-card cat-${cat}" data-cat="${esc(item.category)}">
     <div class="art-head">${o.no ? `<span class="art-no" aria-hidden="true">${String(i + 1).padStart(2, '0')}</span>` : ''}<span class="cat-pill">${esc(item.category)}</span><span class="art-when">${esc(item.when)}</span></div>
-    <h3 class="art-title">${esc(item.title)}</h3>
+    <h2 class="art-title">${esc(item.title)}</h2>
     ${img && !o.compact ? `<div class="art-img"><img src="${esc(img)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"></div>` : ''}
     <p class="fsum">${esc(item.summary)}</p>
     <div class="art-foot"><span class="src">${platTag(item)}<span>${esc(item.source)}</span></span>${actions(item, i, o)}</div></article>`;
@@ -304,7 +308,8 @@ $('storyPrev').addEventListener('click', () => stepStory(-1)); $('storyNext').ad
 $('catFilters').addEventListener('click', (e) => {
   const c = e.target.closest('.chip'); if (!c) return; const on = c.classList.toggle('active'); c.setAttribute('aria-pressed', String(on));
   const act = new Set([...document.querySelectorAll('#catFilters .chip.active')].map((x) => x.dataset.cat));
-  document.querySelectorAll('#feedContainer .feed-card').forEach((f) => f.hidden = !act.has(f.dataset.cat));
+  let shown = 0; document.querySelectorAll('#feedContainer .feed-card').forEach((f) => { f.hidden = !act.has(f.dataset.cat); if (!f.hidden) shown++; });
+  $('filterStatus').textContent = `${shown} von ${current.items.length} Meldungen angezeigt`;
 });
 function pop(b) { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); }
 $('resultsArea').addEventListener('click', async (e) => {
@@ -341,13 +346,13 @@ $('savedContainer').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act="unsave"]'); if (!b) return;
   try { await api('/api/saved', 'DELETE', {title: b.dataset.title}); loadSaved(); } catch (err) { toast('Das hat nicht geklappt.', true); }
 });
-function dayParts(day) { const d = new Date(String(day) + 'T12:00:00'); return isNaN(d) ? {d: '', m: esc(day)} : {d: d.getDate(), m: esc(d.toLocaleDateString('de-DE', {month: 'short'}).replace('.', ''))}; }
+function dayParts(day) { const d = new Date(String(day) + 'T12:00:00'); return isNaN(d) ? {d: '', m: esc(day), long: esc(day)} : {d: d.getDate(), m: esc(d.toLocaleDateString('de-DE', {month: 'short'}).replace('.', '')), long: esc(d.toLocaleDateString('de-DE', {weekday: 'long', day: 'numeric', month: 'long'}))}; }
 async function loadHistory() {
   const c = $('historyContainer');
   try {
     const ds = (await api('/api/drops')).drops;
     c.innerHTML = ds.length ? ds.map((d) => { const p = dayParts(d.day);
-      return `<button type="button" class="feed-card hist" data-id="${+d.id}"><span class="day">${p.d}<small>${p.m}</small></span><span><h4>${esc(d.title)}</h4><span class="src">${+d.count} Treffer</span></span>${ico('next')}</button>`; }).join('')
+      return `<button type="button" class="feed-card hist" data-id="${+d.id}"><span class="day">${p.d}<small>${p.m}</small></span><span><span class="t">${p.long}</span><span class="src">${+d.count} Treffer</span></span>${ico('next')}</button>`; }).join('')
       : '<div class="empty"><p>Noch kein Drop.<small>Sag uns unter Profil, was dich interessiert, und erzeuge deinen ersten Drop.</small></p><button class="btn-small" data-go="profile" type="button">Zum Profil</button></div>';
     stagger(c);
   } catch (e) { c.innerHTML = '<div class="empty"><p>Verlauf konnte nicht geladen werden.<small>Prüfe deine Verbindung und öffne den Bereich noch einmal.</small></p></div>'; }
@@ -363,6 +368,17 @@ if ('serviceWorker' in navigator) {
   let hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) location.reload(); hadController = true; });
 }
+function setTheme(t, save) {
+  const meta = {light: '#f5efe3', dark: '#12100d'};
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('#themeSeg [data-theme-pick]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themePick === t)));
+  $('themeSeg').style.setProperty('--idx', ['auto', 'light', 'dark'].indexOf(t));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m, i) => { m.content = t === 'auto' ? (i === 0 ? meta.dark : meta.light) : meta[t]; if (t !== 'auto') m.removeAttribute('media'); else m.setAttribute('media', i === 0 ? '(prefers-color-scheme: dark)' : '(prefers-color-scheme: light)'); });
+  if (save) { try { t === 'auto' ? localStorage.removeItem('cn-theme') : localStorage.setItem('cn-theme', t); } catch (e) {} }
+}
+$('themeSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-theme-pick]'); if (b) setTheme(b.dataset.themePick, true); });
+let savedTheme = 'auto'; try { savedTheme = localStorage.getItem('cn-theme') || 'auto'; } catch (e) {}
+setTheme(savedTheme, false);
 setEdition();
 (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => decrypt($('logoWord'), 900));
 boot();

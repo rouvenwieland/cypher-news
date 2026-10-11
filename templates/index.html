@@ -18,10 +18,12 @@
     <link rel="preload" href="/static/fonts/Newsreader.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v }}">
     <link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}">
+    <script src="/static/js/theme.js?v={{ asset_v }}"></script>
     <script src="/static/js/rain.js?v={{ asset_v }}" defer></script>
     <script src="/static/js/app.js?v={{ asset_v }}" defer></script>
 </head>
 <body data-vapid="{{ vapid }}" data-model="{{ model_name }}">
+    <a class="skip" href="#main">Zum Inhalt</a>
     <canvas id="rainCanvas" aria-hidden="true"></canvas>
 
     <svg width="0" height="0" class="sprite" aria-hidden="true" focusable="false">
@@ -42,7 +44,7 @@
     <div class="shell">
         <aside class="rail">
             <header class="masthead">
-                <a class="logo" id="logo" href="/" aria-label="Cypher News, Startseite"><span id="logoWord" aria-hidden="true">Cypher News</span><span class="cursor" aria-hidden="true"></span></a>
+                <div class="logo" id="logo"><span class="sr-only">Cypher News</span><span id="logoWord" aria-hidden="true">Cypher News</span><span class="cursor" aria-hidden="true"></span></div>
                 <p class="edition"><span class="edition-name">Daily Drop</span><span class="edition-date" id="editionDate"></span></p>
             </header>
 
@@ -59,7 +61,7 @@
             </footer>
         </aside>
 
-        <main class="stage" id="main">
+        <main class="stage" id="main" tabindex="-1">
             <!-- Willkommen (ohne Sitzung) -->
             <section id="welcome" class="welcome" hidden>
                 <p class="kicker">Dein persönlicher Newsletter</p>
@@ -94,14 +96,14 @@
                     </div>
                     <div class="today-empty" id="todayEmpty" hidden>
                         <span class="big-no" aria-hidden="true">00</span>
-                        <h2>Noch kein Drop.</h2>
+                        <h1>Noch kein Drop.</h1>
                         <p>Speichere unter Profil, was dich interessiert und welchen Quellen du folgst. Dann schreibt Cypher News dir deine erste Ausgabe.</p>
                         <button class="btn-small" id="goProfile">Zum Profil</button>
                     </div>
                     <div id="resultsArea" hidden>
                         <header class="lede">
                             <p class="lede-date" id="introDate"></p>
-                            <h2 id="introTitle"></h2>
+                            <h1 id="introTitle" tabindex="-1"></h1>
                             <p class="count" id="introCount"></p>
                             <p class="lede-text" id="introText"></p>
                             <p class="intro-model" id="introModel"></p>
@@ -119,6 +121,7 @@
                         </div>
                         <div class="story-progress" id="storyProgress" aria-hidden="true"></div>
                         <div class="cat-filters" id="catFilters" role="group" aria-label="Kategorien filtern"></div>
+                        <p class="sr-only" id="filterStatus" role="status"></p>
                         <div class="stories-container" id="storiesContainer" role="region" aria-label="Karten, mit Pfeiltasten wischen" tabindex="0"><div class="stories-inner" id="storiesInner"></div></div>
                         <div class="feed" id="feedContainer"></div>
                     </div>
@@ -126,17 +129,17 @@
 
                 <!-- PROFIL -->
                 <section class="tab-page" id="pageProfile" hidden>
-                    <h2 class="page-title">Profil</h2>
+                    <h1 class="page-title">Profil</h1>
                     <div class="onboarding">
                         <section class="sec">
-                            <h3 class="sec-title"><span class="no">01</span> Interessen</h3>
+                            <h2 class="sec-title"><span class="no">01</span> Interessen</h2>
                             <label class="sr-only" for="notes">Deine Interessen</label>
                             <textarea id="notes" rows="7" maxlength="4000" placeholder="Schreib alles rein, was dich juckt, wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, Lieblingskünstler, No-Gos ..."></textarea>
                             <div class="chips" id="topicChips"></div>
                         </section>
 
                         <section class="sec">
-                            <h3 class="sec-title"><span class="no">02</span> Quellen <small>öffentlich, ohne Login</small></h3>
+                            <h2 class="sec-title"><span class="no">02</span> Quellen <small>öffentlich, ohne Login</small></h2>
                             <p class="hint">Instagram, TikTok, X, YouTube, Reddit, Bluesky, Mastodon oder RSS. Wähle die Plattform und füge @Handle oder Link ein. X-Accounts werden über öffentliche Spiegel gelesen (kostenlos, ohne Anmeldung).</p>
                             <div class="source-row">
                                 <select id="sourcePlatform" aria-label="Plattform"><option value="">Auto</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="x">X</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="bluesky">Bluesky</option></select>
@@ -155,7 +158,7 @@
                         </section>
 
                         <section class="sec">
-                            <h3 class="sec-title"><span class="no">03</span> Rhythmus</h3>
+                            <h2 class="sec-title"><span class="no">03</span> Rhythmus</h2>
                             <div class="quality-row"><label class="quality-label" for="dropHour">Uhrzeit</label>
                                 <select id="dropHour"></select></div>
                             <div class="quality-row"><span class="quality-label" id="modusLabel">Modus</span>
@@ -164,7 +167,7 @@
                         </section>
 
                         <section class="sec" id="keyBox">
-                            <h3 class="sec-title"><span class="no">04</span> KI-Schlüssel</h3>
+                            <h2 class="sec-title"><span class="no">04</span> KI-Schlüssel</h2>
                             <p class="hint">Die KI läuft über <b>OpenRouter</b> mit offenen Modellen. Ein eigener, kostenloser Schlüssel macht dich unabhängig und ohne Limits der App. So geht’s: auf <b>openrouter.ai</b> kostenlos registrieren, unter „Keys“ einen Schlüssel erstellen und hier einfügen. Er wird verschlüsselt gespeichert.</p>
                             <p id="keyStatus" class="hint status" role="status"></p>
                             <label class="sr-only" for="keyInput">OpenRouter-Schlüssel</label>
@@ -173,13 +176,18 @@
                         </section>
 
                         <section class="sec">
-                            <h3 class="sec-title"><span class="no">05</span> Benachrichtigung</h3>
+                            <h2 class="sec-title"><span class="no">05</span> Benachrichtigung</h2>
                             <p class="hint" id="pushInfo">Bekomme eine Nachricht, wenn dein Drop fertig ist. Auf dem iPhone muss die App zuerst zum Home-Bildschirm hinzugefügt werden.</p>
                             <div class="btn-row"><button class="btn-small" id="pushBtn">Push aktivieren</button></div>
                         </section>
 
                         <section class="sec">
-                            <h3 class="sec-title"><span class="no">06</span> Konto &amp; Daten</h3>
+                            <h2 class="sec-title"><span class="no">06</span> Darstellung</h2>
+                            <div class="seg three" id="themeSeg" role="group" aria-label="Farbschema"><button data-theme-pick="auto" aria-pressed="true">Auto</button><button data-theme-pick="light" aria-pressed="false">Hell</button><button data-theme-pick="dark" aria-pressed="false">Dunkel</button></div>
+                        </section>
+
+                        <section class="sec">
+                            <h2 class="sec-title"><span class="no">07</span> Konto &amp; Daten</h2>
                             <p class="hint">Du hast kein Passwort. Dein Konto hängt an diesem Gerät. Mit dem Wiederherstellungscode kommst du auf einem anderen Gerät hinein. Du bekommst ihn nur einmal angezeigt.</p>
                             <div class="btn-row"><a class="btn-small" href="/api/export">Daten exportieren</a><button class="btn-small ghost danger" id="deleteAccount">Konto löschen</button></div>
                             <p class="hint"><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="https://github.com/rouvenwieland/cypher-news" target="_blank" rel="noopener">Open Source</a></p>
@@ -187,8 +195,8 @@
                     </div>
                 </section>
 
-                <section class="tab-page" id="pageSaved" hidden><h2 class="page-title">Gemerkt</h2><div id="savedContainer" class="feed"></div></section>
-                <section class="tab-page" id="pageHistory" hidden><h2 class="page-title">Verlauf</h2><div id="historyContainer" class="feed"></div></section>
+                <section class="tab-page" id="pageSaved" hidden><h1 class="page-title">Gemerkt</h1><div id="savedContainer" class="feed"></div></section>
+                <section class="tab-page" id="pageHistory" hidden><h1 class="page-title">Verlauf</h1><div id="historyContainer" class="feed"></div></section>
             </div>
         </main>
     </div>
