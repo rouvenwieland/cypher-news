@@ -160,7 +160,7 @@ async function generateDrop() {
     await sleep(3000);
     let st; try { st = await api('/api/drop/status'); } catch (e) { if (e.status === 401) throw e; continue; }  // short network hiccup: keep waiting
     if (st.state === 'running') seen = true;
-    else if (st.state === 'done') return st.drop;
+    else if (st.state === 'done') { if (!st.drop || !Array.isArray(st.drop.items)) { const e = new Error('bad'); e.code = 'internal'; throw e; } return st.drop; }
     else if (st.state === 'error') { const e = new Error(st.error); e.code = st.error; throw e; }
     else if (seen) { const e = new Error('lost'); e.code = 'internal'; throw e; }   // server restarted mid-job
   }
@@ -202,7 +202,8 @@ function feedCard(item, i) {
     <div class="feed-card-actions">${url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="feed-link">↗</a>` : ''}<button class="btn-save-inline" data-act="save" data-i="${i}">★</button></div></div>`;
 }
 function renderDrop(d) {
-  current = d; const items = d.items || [];
+  if (!d || !Array.isArray(d.items)) { toast('Unerwartete Antwort vom Server. Seite neu laden.', true); return; }
+  current = d; const items = d.items;
   $('resultsArea').hidden = false;
   $('introTitle').textContent = d.title || 'DEIN DROP'; $('introDate').textContent = d.date || ''; $('introText').textContent = d.intro || '';
   const m = d.meta || {};
@@ -261,5 +262,9 @@ async function loadHistory() {
 }
 $('historyContainer').addEventListener('click', async (e) => { const h = e.target.closest('.hist'); if (!h) return; renderDrop(await api('/api/drops/' + h.dataset.id)); showTab('drop'); });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) location.reload(); hadController = true; });
+}
 boot();
