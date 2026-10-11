@@ -7,147 +7,200 @@
     <meta name="description" content="Dein täglicher KI-Newsletter: Cypher News scrollt für dich durch Feeds, Videos und News und fasst zusammen, was dich interessiert.">
     <link rel="manifest" href="/static/manifest.json">
     <link rel="icon" href="/static/icon-192.png" sizes="192x192">
-    <link rel="apple-touch-icon" href="/static/icon-192.png">
-    <meta name="theme-color" content="#130e0b">
+    <link rel="apple-touch-icon" href="/static/icon-180.png">
+    <meta name="theme-color" content="#12100d" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f5efe3" media="(prefers-color-scheme: light)">
+    <meta name="color-scheme" content="dark light">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cypher News">
+    <link rel="preload" href="/static/fonts/Newsreader.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v }}">
     <link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}">
     <script src="/static/js/rain.js?v={{ asset_v }}" defer></script>
     <script src="/static/js/app.js?v={{ asset_v }}" defer></script>
 </head>
 <body data-vapid="{{ vapid }}" data-model="{{ model_name }}">
-    <svg id="grainOverlay" aria-hidden="true">
-        <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/></filter>
-        <rect width="100%" height="100%" filter="url(#grain)"/>
-    </svg>
     <canvas id="rainCanvas" aria-hidden="true"></canvas>
-    <div id="vignette" aria-hidden="true"></div>
-    <div id="bgGradient" aria-hidden="true"></div>
 
-    <div class="app">
-        <header class="header">
-            <div class="logo" id="logo">CYPHER NEWS</div>
-            <div class="subtitle">DAILY DROP<span class="cursor">█</span></div>
-        </header>
+    <svg width="0" height="0" class="sprite" aria-hidden="true" focusable="false">
+        <defs>
+            <symbol id="i-today" viewBox="0 0 24 24"><path d="M5 4.5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1Z"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5"/></symbol>
+            <symbol id="i-saved" viewBox="0 0 24 24"><path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-4-6 4V5.5a1 1 0 0 1 1-1Z"/></symbol>
+            <symbol id="i-history" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4.5v4h4"/><path d="M12 8v4.2l2.8 1.8"/></symbol>
+            <symbol id="i-profile" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+            <symbol id="i-open" viewBox="0 0 24 24"><path d="M8 16 16 8M9 8h7v7"/></symbol>
+            <symbol id="i-up" viewBox="0 0 24 24"><path d="M7 11v8H4.5v-8H7Zm0 0 3.2-6.2a1.7 1.7 0 0 1 3.2 1.1L12.8 10H18a2 2 0 0 1 2 2.3l-1 5.6a2 2 0 0 1-2 1.6H7"/></symbol>
+            <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 13V5H4.5v8H7Zm0 0 3.2 6.2a1.7 1.7 0 0 0 3.2-1.1L12.8 14H18a2 2 0 0 0 2-2.3l-1-5.6a2 2 0 0 0-2-1.6H7"/></symbol>
+            <symbol id="i-prev" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
+            <symbol id="i-next" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+            <symbol id="i-x" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></symbol>
+        </defs>
+    </svg>
 
-        <!-- Willkommen (ohne Sitzung) -->
-        <section id="welcome" class="panel" hidden>
-            <h2 class="hero">Nichts mehr verpassen.<br>Kein Scrollen mehr.</h2>
-            <p>Sag einmal, was dich interessiert und wem du folgst. Jeden Tag scannt Cypher News Feeds, Videos und News für dich und schreibt dir einen kurzen Drop: Konzerte, Giveaways, Drops, Trends. Mit offenen KI-Modellen, ohne Anmeldung mit E-Mail oder Passwort.</p>
-            <ul class="bullets">
-                <li>Kostenlos und Open Source (MIT)</li>
-                <li>Keine Passwörter fremder Konten, nur öffentliche Quellen</li>
-                <li>Teilen in die App: Instagram-Posts und Story-Screenshots einfach an Cypher News teilen</li>
-            </ul>
-            <button class="btn-drop" id="btnStart"><span class="spark">◆</span> LOSLEGEN <span class="spark">◆</span></button>
-            <button class="btn-link" id="btnShowRestore">Ich habe schon ein Konto (Wiederherstellungscode)</button>
-            <div id="restoreBox" hidden>
-                <input type="text" id="restoreCode" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off">
-                <button class="btn-small" id="btnRestore">WIEDERHERSTELLEN</button>
-            </div>
-        </section>
+    <div class="shell">
+        <aside class="rail">
+            <header class="masthead">
+                <a class="logo" id="logo" href="/" aria-label="Cypher News, Startseite"><span id="logoWord" aria-hidden="true">Cypher News</span><span class="cursor" aria-hidden="true"></span></a>
+                <p class="edition"><span class="edition-name">Daily Drop</span><span class="edition-date" id="editionDate"></span></p>
+            </header>
 
-        <div id="mainApp" hidden>
-            <nav class="tab-nav" id="tabNav">
-                <button class="tab-btn active" data-tab="drop">HEUTE</button>
-                <button class="tab-btn" data-tab="profile">PROFIL</button>
-                <button class="tab-btn" data-tab="saved">★</button>
-                <button class="tab-btn" data-tab="history">VERLAUF</button>
+            <nav class="tabs" id="tabNav" aria-label="Bereiche" hidden>
+                <button class="tab-btn active" data-tab="drop" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-today"/></svg><span>Heute</span></button>
+                <button class="tab-btn" data-tab="saved"><svg class="ico" aria-hidden="true"><use href="#i-saved"/></svg><span>Gemerkt</span></button>
+                <button class="tab-btn" data-tab="history"><svg class="ico" aria-hidden="true"><use href="#i-history"/></svg><span>Verlauf</span></button>
+                <button class="tab-btn" data-tab="profile"><svg class="ico" aria-hidden="true"><use href="#i-profile"/></svg><span>Profil</span></button>
             </nav>
 
-            <!-- HEUTE -->
-            <section class="tab-page" id="pageDrop" style="display:block">
-                <div class="panel" id="setupHint" hidden></div>
-                <button class="btn-drop" id="dropBtn"><span class="spark">◆</span> DROP JETZT ERZEUGEN <span class="spark">◆</span></button>
-                <p class="hint" id="dropInfo"></p>
-                <div class="terminal-wrapper" id="terminalWrapper"><div class="terminal" id="terminal"></div></div>
-                <div id="resultsArea" hidden>
-                    <div class="intro-card">
-                        <h2 id="introTitle"></h2>
-                        <div class="intro-date" id="introDate"></div>
-                        <div class="count" id="introCount"></div>
-                        <p id="introText"></p>
-                        <div class="intro-model" id="introModel"></div>
-                    </div>
-                    <div class="view-toggle">
-                        <button id="btnStories" class="active">STORIES</button>
-                        <button id="btnFeed">FEED</button>
-                    </div>
-                    <div class="story-progress" id="storyProgress"></div>
-                    <div class="cat-filters" id="catFilters"></div>
-                    <div class="stories-container" id="storiesContainer"><div class="stories-inner" id="storiesInner"></div></div>
-                    <div class="feed" id="feedContainer"></div>
+            <footer class="footer">
+                <p>Modell: {{ model_name }} (offenes Modell via OpenRouter)</p>
+                <p>Cypher News 2026 · <a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a></p>
+            </footer>
+        </aside>
+
+        <main class="stage" id="main">
+            <!-- Willkommen (ohne Sitzung) -->
+            <section id="welcome" class="welcome" hidden>
+                <p class="kicker">Dein persönlicher Newsletter</p>
+                <h1 class="hero">Nichts mehr verpassen.<br><em>Kein Scrollen mehr.</em></h1>
+                <p class="lead">Sag einmal, was dich interessiert und wem du folgst. Jeden Tag scannt Cypher News Feeds, Videos und News für dich und schreibt dir einen kurzen Drop: Konzerte, Giveaways, Drops, Trends. Mit offenen KI-Modellen, ohne Anmeldung mit E-Mail oder Passwort.</p>
+                <ul class="bullets">
+                    <li>Kostenlos und Open Source (MIT)</li>
+                    <li>Keine Passwörter fremder Konten, nur öffentliche Quellen</li>
+                    <li>Teilen in die App: Instagram-Posts und Story-Screenshots einfach an Cypher News teilen</li>
+                </ul>
+                <button class="btn-drop" id="btnStart">Loslegen</button>
+                <button class="btn-link" id="btnShowRestore" aria-expanded="false" aria-controls="restoreBox">Ich habe schon ein Konto (Wiederherstellungscode)</button>
+                <div id="restoreBox" class="restore" hidden>
+                    <label class="sr-only" for="restoreCode">Wiederherstellungscode</label>
+                    <input type="text" id="restoreCode" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <button class="btn-small" id="btnRestore">Wiederherstellen</button>
                 </div>
             </section>
 
-            <!-- PROFIL -->
-            <section class="tab-page" id="pageProfile">
-                <h3>DEIN DROP</h3>
-                <div class="onboarding">
-                    <textarea id="notes" rows="7" maxlength="4000" placeholder="Schreib alles rein, was dich juckt – wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, Lieblingskünstler, No-Gos ..."></textarea>
-                    <div class="chips" id="topicChips"></div>
-
-                    <div class="source-label">QUELLEN (ÖFFENTLICH, OHNE LOGIN)</div>
-                    <p class="hint">Instagram, TikTok, X, YouTube, Reddit, Bluesky, Mastodon oder RSS. Wähle die Plattform und füge @Handle oder Link ein. X-Accounts werden über öffentliche Spiegel gelesen (kostenlos, ohne Anmeldung).</p>
-                    <div class="source-row">
-                        <select id="sourcePlatform" aria-label="Plattform"><option value="">Auto</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="x">X</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="bluesky">Bluesky</option></select>
-                        <input type="text" id="sourceInput" placeholder="@account, r/berlin, Link ..." autocomplete="off" autocapitalize="off">
-                        <button class="btn-small" id="sourceAdd">+</button>
+            <div id="mainApp" hidden>
+                <!-- HEUTE -->
+                <section class="tab-page" id="pageDrop">
+                    <div class="notice" id="setupHint" hidden></div>
+                    <div class="dropbar" id="dropBar">
+                        <button class="btn-drop" id="dropBtn">Drop jetzt erzeugen</button>
+                        <p class="hint" id="dropInfo"></p>
                     </div>
-                    <div class="source-chips" id="sourceChips"></div>
-                    <details class="more">
-                        <summary>Viele Accounts auf einmal importieren</summary>
-                        <p class="hint">Füge deine Follow-Liste ein (ein Handle oder Link pro Zeile). Bei Instagram kannst du sie unter Einstellungen &gt; Deine Aktivität &gt; Informationen herunterladen exportieren.</p>
-                        <select id="importPlatform"><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="x">X</option><option value="bluesky">Bluesky</option></select>
-                        <textarea id="importText" rows="4" placeholder="@account1&#10;@account2"></textarea>
-                        <button class="btn-small" id="importBtn">IMPORTIEREN</button>
-                    </details>
-                    <p class="hint warn">Hinweis: Instagram und TikTok blockieren automatisches Lesen oft. Was nicht erreichbar ist, siehst du im Drop. Sicher klappt es mit <b>Teilen in die App</b>: Post oder Story-Screenshot teilen und „Cypher News“ wählen.</p>
+                    <div class="notice error" id="dropError" role="alert" hidden></div>
+                    <div class="terminal-wrapper" id="terminalWrapper">
+                        <div class="terminal" id="terminal" role="status" aria-live="polite" aria-label="Fortschritt"></div>
+                        <p class="terminal-foot"><span id="elapsed">0:00</span><span>Ein Drop braucht meist 30 bis 90 Sekunden.</span></p>
+                    </div>
+                    <div class="today-empty" id="todayEmpty" hidden>
+                        <span class="big-no" aria-hidden="true">00</span>
+                        <h2>Noch kein Drop.</h2>
+                        <p>Speichere unter Profil, was dich interessiert und welchen Quellen du folgst. Dann schreibt Cypher News dir deine erste Ausgabe.</p>
+                        <button class="btn-small" id="goProfile">Zum Profil</button>
+                    </div>
+                    <div id="resultsArea" hidden>
+                        <header class="lede">
+                            <p class="lede-date" id="introDate"></p>
+                            <h2 id="introTitle"></h2>
+                            <p class="count" id="introCount"></p>
+                            <p class="lede-text" id="introText"></p>
+                            <p class="intro-model" id="introModel"></p>
+                            <p class="partial" id="introFailed" hidden></p>
+                        </header>
+                        <div class="toolbar">
+                            <div class="seg view-toggle" id="viewSeg" role="group" aria-label="Ansicht">
+                                <button id="btnFeed" aria-pressed="true">Lesen</button>
+                                <button id="btnStories" aria-pressed="false">Karten</button>
+                            </div>
+                            <div class="stepper" id="storyNav" hidden>
+                                <button id="storyPrev" aria-label="Vorherige Karte"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg></button>
+                                <button id="storyNext" aria-label="Nächste Karte"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
+                            </div>
+                        </div>
+                        <div class="story-progress" id="storyProgress" aria-hidden="true"></div>
+                        <div class="cat-filters" id="catFilters" role="group" aria-label="Kategorien filtern"></div>
+                        <div class="stories-container" id="storiesContainer" role="region" aria-label="Karten, mit Pfeiltasten wischen" tabindex="0"><div class="stories-inner" id="storiesInner"></div></div>
+                        <div class="feed" id="feedContainer"></div>
+                    </div>
+                </section>
 
-                    <div class="quality-row"><span class="quality-label">Uhrzeit</span>
-                        <select id="dropHour"></select></div>
-                    <div class="quality-row"><span class="quality-label">Modus</span>
-                        <div class="quality-toggle"><button class="q-btn active" data-q="fast">⚡ SCHNELL</button><button class="q-btn" data-q="high">🧠 GENAU</button></div></div>
-                    <button class="btn-drop" id="saveProfile">SPEICHERN</button>
-                </div>
+                <!-- PROFIL -->
+                <section class="tab-page" id="pageProfile" hidden>
+                    <h2 class="page-title">Profil</h2>
+                    <div class="onboarding">
+                        <section class="sec">
+                            <h3 class="sec-title"><span class="no">01</span> Interessen</h3>
+                            <label class="sr-only" for="notes">Deine Interessen</label>
+                            <textarea id="notes" rows="7" maxlength="4000" placeholder="Schreib alles rein, was dich juckt, wie in Notizen: Konzerte in Berlin, Giveaways, Klamotten-Drops, Tech-News, Lieblingskünstler, No-Gos ..."></textarea>
+                            <div class="chips" id="topicChips"></div>
+                        </section>
 
-                <h3>KI-SCHLÜSSEL</h3>
-                <div class="panel" id="keyBox">
-                    <p class="hint">Die KI läuft über <b>OpenRouter</b> mit offenen Modellen. Ein eigener, kostenloser Schlüssel macht dich unabhängig und ohne Limits der App. So geht’s: auf <b>openrouter.ai</b> kostenlos registrieren, unter „Keys“ einen Schlüssel erstellen und hier einfügen. Er wird verschlüsselt gespeichert.</p>
-                    <div id="keyStatus" class="hint"></div>
-                    <input type="password" id="keyInput" placeholder="sk-or-..." autocomplete="off">
-                    <div class="btn-row"><button class="btn-small" id="keySave">SPEICHERN</button><button class="btn-small ghost" id="keyDelete">ENTFERNEN</button></div>
-                </div>
+                        <section class="sec">
+                            <h3 class="sec-title"><span class="no">02</span> Quellen <small>öffentlich, ohne Login</small></h3>
+                            <p class="hint">Instagram, TikTok, X, YouTube, Reddit, Bluesky, Mastodon oder RSS. Wähle die Plattform und füge @Handle oder Link ein. X-Accounts werden über öffentliche Spiegel gelesen (kostenlos, ohne Anmeldung).</p>
+                            <div class="source-row">
+                                <select id="sourcePlatform" aria-label="Plattform"><option value="">Auto</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="x">X</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="bluesky">Bluesky</option></select>
+                                <input type="text" id="sourceInput" aria-label="Account oder Link" placeholder="@account, r/berlin, Link ..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                                <button class="btn-small icon" id="sourceAdd" aria-label="Quelle hinzufügen">+</button>
+                            </div>
+                            <div class="source-chips" id="sourceChips"></div>
+                            <details class="more">
+                                <summary>Viele Accounts auf einmal importieren</summary>
+                                <p class="hint">Füge deine Follow-Liste ein (ein Handle oder Link pro Zeile). Bei Instagram kannst du sie unter Einstellungen &gt; Deine Aktivität &gt; Informationen herunterladen exportieren.</p>
+                                <select id="importPlatform" aria-label="Plattform der Liste"><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="x">X</option><option value="bluesky">Bluesky</option></select>
+                                <textarea id="importText" rows="4" aria-label="Follow-Liste" placeholder="@account1&#10;@account2"></textarea>
+                                <button class="btn-small" id="importBtn">Importieren</button>
+                            </details>
+                            <p class="hint warn">Hinweis: Instagram und TikTok blockieren automatisches Lesen oft. Was nicht erreichbar ist, siehst du im Drop. Sicher klappt es mit <b>Teilen in die App</b>: Post oder Story-Screenshot teilen und „Cypher News“ wählen.</p>
+                        </section>
 
-                <h3>BENACHRICHTIGUNG</h3>
-                <div class="panel">
-                    <p class="hint" id="pushInfo">Bekomme eine Nachricht, wenn dein Drop fertig ist. Auf dem iPhone muss die App zuerst zum Home-Bildschirm hinzugefügt werden.</p>
-                    <button class="btn-small" id="pushBtn">PUSH AKTIVIEREN</button>
-                </div>
+                        <section class="sec">
+                            <h3 class="sec-title"><span class="no">03</span> Rhythmus</h3>
+                            <div class="quality-row"><label class="quality-label" for="dropHour">Uhrzeit</label>
+                                <select id="dropHour"></select></div>
+                            <div class="quality-row"><span class="quality-label" id="modusLabel">Modus</span>
+                                <div class="seg quality-toggle" id="qualitySeg" role="group" aria-labelledby="modusLabel"><button class="q-btn active" data-q="fast" aria-pressed="true">Schnell</button><button class="q-btn" data-q="high" aria-pressed="false">Genau</button></div></div>
+                            <button class="btn-drop" id="saveProfile">Speichern</button>
+                        </section>
 
-                <h3>KONTO &amp; DATEN</h3>
-                <div class="panel">
-                    <p class="hint">Du hast kein Passwort. Dein Konto hängt an diesem Gerät. Mit dem Wiederherstellungscode kommst du auf einem anderen Gerät hinein. Du bekommst ihn nur einmal angezeigt.</p>
-                    <div class="btn-row"><a class="btn-small" href="/api/export">DATEN EXPORTIEREN</a><button class="btn-small ghost" id="deleteAccount">KONTO LÖSCHEN</button></div>
-                    <p class="hint"><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="https://github.com/rouvenwieland/cypher-news" target="_blank" rel="noopener">Open Source</a></p>
-                </div>
-            </section>
+                        <section class="sec" id="keyBox">
+                            <h3 class="sec-title"><span class="no">04</span> KI-Schlüssel</h3>
+                            <p class="hint">Die KI läuft über <b>OpenRouter</b> mit offenen Modellen. Ein eigener, kostenloser Schlüssel macht dich unabhängig und ohne Limits der App. So geht’s: auf <b>openrouter.ai</b> kostenlos registrieren, unter „Keys“ einen Schlüssel erstellen und hier einfügen. Er wird verschlüsselt gespeichert.</p>
+                            <p id="keyStatus" class="hint status" role="status"></p>
+                            <label class="sr-only" for="keyInput">OpenRouter-Schlüssel</label>
+                            <input type="password" id="keyInput" placeholder="sk-or-..." autocomplete="off" autocapitalize="off" spellcheck="false">
+                            <div class="btn-row"><button class="btn-small" id="keySave">Speichern</button><button class="btn-small ghost" id="keyDelete">Entfernen</button></div>
+                        </section>
 
-            <section class="tab-page" id="pageSaved"><h3>★ GEMERKT</h3><div id="savedContainer"></div></section>
-            <section class="tab-page" id="pageHistory"><h3>▼ VERLAUF</h3><div id="historyContainer"></div></section>
-        </div>
+                        <section class="sec">
+                            <h3 class="sec-title"><span class="no">05</span> Benachrichtigung</h3>
+                            <p class="hint" id="pushInfo">Bekomme eine Nachricht, wenn dein Drop fertig ist. Auf dem iPhone muss die App zuerst zum Home-Bildschirm hinzugefügt werden.</p>
+                            <div class="btn-row"><button class="btn-small" id="pushBtn">Push aktivieren</button></div>
+                        </section>
 
-        <div class="footer">Modell: {{ model_name }} (offenes Modell via OpenRouter) • Cypher News 2026 • <a href="/datenschutz">Datenschutz</a> • <a href="/impressum">Impressum</a></div>
+                        <section class="sec">
+                            <h3 class="sec-title"><span class="no">06</span> Konto &amp; Daten</h3>
+                            <p class="hint">Du hast kein Passwort. Dein Konto hängt an diesem Gerät. Mit dem Wiederherstellungscode kommst du auf einem anderen Gerät hinein. Du bekommst ihn nur einmal angezeigt.</p>
+                            <div class="btn-row"><a class="btn-small" href="/api/export">Daten exportieren</a><button class="btn-small ghost danger" id="deleteAccount">Konto löschen</button></div>
+                            <p class="hint"><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="https://github.com/rouvenwieland/cypher-news" target="_blank" rel="noopener">Open Source</a></p>
+                        </section>
+                    </div>
+                </section>
+
+                <section class="tab-page" id="pageSaved" hidden><h2 class="page-title">Gemerkt</h2><div id="savedContainer" class="feed"></div></section>
+                <section class="tab-page" id="pageHistory" hidden><h2 class="page-title">Verlauf</h2><div id="historyContainer" class="feed"></div></section>
+            </div>
+        </main>
     </div>
 
-    <div class="modal-overlay" id="recoveryModal" style="display:none">
+    <div class="modal-overlay" id="recoveryModal" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle" hidden>
         <div class="modal-card">
-            <h4 class="modal-title">DEIN CODE</h4>
+            <h2 class="modal-title" id="recoveryTitle">Dein Code</h2>
             <p class="modal-hint">Speichere diesen Wiederherstellungscode (Screenshot oder Passwortmanager). Ohne ihn kannst du dein Konto auf einem neuen Gerät nicht öffnen. Er wird nicht noch einmal angezeigt.</p>
             <div class="code" id="recoveryCode"></div>
-            <div class="modal-actions"><button class="modal-btn cancel" id="copyCode">KOPIEREN</button><button class="modal-btn confirm" id="closeCode">GESPEICHERT</button></div>
+            <div class="modal-actions"><button class="modal-btn cancel" id="copyCode">Kopieren</button><button class="modal-btn confirm" id="closeCode">Gespeichert</button></div>
         </div>
     </div>
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

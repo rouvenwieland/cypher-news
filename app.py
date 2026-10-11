@@ -53,8 +53,9 @@ def headers(r):
     r.headers['X-Content-Type-Options'] = 'nosniff'
     r.headers['Referrer-Policy'] = 'same-origin'
     r.headers['X-Frame-Options'] = 'DENY'
-    r.headers['Content-Security-Policy'] = ("default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; "
-                                            "script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+    r.headers['Content-Security-Policy'] = ("default-src 'self'; img-src 'self' data: https:; style-src 'self'; font-src 'self'; "
+                                            "script-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; "
+                                            "frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
     return r
 
 
