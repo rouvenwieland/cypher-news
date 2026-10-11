@@ -256,29 +256,9 @@ def test_static_code_is_never_cached_stale(client):
     assert 'cypher-news-v5' in sw and 'network first' in sw
 
 
-SYNDICATION = b'''<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"timeline":{"entries":[
- {"type":"tweet","content":{"tweet":{"id_str":"111","created_at":"Sun Oct 11 07:30:00 +0000 2026","full_text":"Neues Modell ist da https://t.co/abc123","user":{"screen_name":"OpenAI"},
-   "extended_entities":{"media":[{"media_url_https":"https://pbs.twimg.com/media/x.jpg"}]},
-   "quoted_status":{"id_str":"999","full_text":"fremder Post","user":{"screen_name":"someoneelse"}}}}},
- {"type":"tweet","content":{"tweet":{"id_str":"110","created_at":"Sat Oct 10 12:00:00 +0000 2026","text":"Zweiter Post","user":{"screen_name":"openai"}}}}]}}}}</script></body></html>'''
 
 
-def test_x_syndication_parsing(monkeypatch):
-    from cypher import sources
-    class R: status_code = 200
-    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), SYNDICATION))
-    items = sources.x('@OpenAI')
-    assert [i['url'] for i in items] == ['https://x.com/OpenAI/status/111', 'https://x.com/openai/status/110']  # newest first, quoted foreign tweet skipped
-    assert items[0]['text'] == 'Neues Modell ist da' and items[0]['image_url'].endswith('x.jpg') and items[0]['platform'] == 'x'
-    assert sources.x('https://x.com/OpenAI/status/1')[0]['account'] == '@OpenAI'
-    assert sources.x('not a handle!!!') == []
 
-
-def test_x_blocked_returns_empty_not_crash(monkeypatch):
-    from cypher import sources
-    class R: status_code = 429
-    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), b'Rate limit exceeded'))
-    assert sources.x('openai') == []
 
 
 def test_x_detect_and_platform_picker(client):
@@ -291,23 +271,6 @@ def test_x_detect_and_platform_picker(client):
     assert client.get('/api/me').get_json()['sources'] == [{'platform': 'x', 'value': 'OpenAI'}]
 
 
-def test_x_token_stored_encrypted_and_used(client, monkeypatch):
-    from cypher import db, sources
-    start(client)
-    assert client.post('/api/xtoken', json={'token': 'short'}).status_code == 400
-    tok = 'AAAA' + 'x' * 60
-    class R: status_code = 200
-    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), b'{}'))
-    assert client.post('/api/xtoken', json={'token': tok}).status_code == 200
-    me = client.get('/api/me').get_json(); assert me['has_x_token'] and tok not in str(me)
-    with db.conn() as c:
-        raw = c.execute('SELECT x_token_enc FROM users').fetchone()[0]
-    assert tok not in raw and db.decrypt(raw) == tok
-    seen = {}
-    monkeypatch.setitem(sources.FETCHERS, 'x', lambda v, token=None: seen.update(v=v, token=token) or [])
-    client.post('/api/sources/test', json={'platform': 'x', 'value': 'OpenAI'})
-    assert seen == {'v': 'OpenAI', 'token': tok}
-    client.delete('/api/xtoken'); assert not client.get('/api/me').get_json()['has_x_token']
 
 
 def test_old_database_gets_migrated(tmp_path, monkeypatch):
@@ -332,3 +295,51 @@ def test_shared_x_link_is_read(client, monkeypatch):
         row = c.execute('SELECT text,url,image_b64 FROM shared').fetchone()
     assert 'Neues Modell!' in row['text'] and 't.co' not in row['text'] and row['url'] == 'https://x.com/OpenAI/status/12345' and row['image_b64'] == 'QUJD'
     assert sources.x_tweet('https://example.com/nothing') is None
+
+
+NITTER_RSS = b'''<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>OpenAI / @OpenAI</title>
+<item><title>RT by @OpenAI: Fresh updates for dots</title><description><![CDATA[<p>Fresh updates for dots.<br/>Create yours on iOS https://t.co/abc</p><img src="https://nitter.example.org/pic/media%2FGabc123.jpg%3Fname%3Dorig" />]]></description>
+<pubDate>Fri, 09 Oct 2026 19:12:31 GMT</pubDate><link>https://nitter.example.org/ChatGPT/status/2108636745915052037#m</link></item>
+<item><title>R to @someone: danke</title><description><![CDATA[<p>danke</p>]]></description><pubDate>Fri, 09 Oct 2026 18:00:00 GMT</pubDate><link>https://nitter.example.org/OpenAI/status/2108000000000000001#m</link></item>
+<item><title>GPT-6 ist da</title><description><![CDATA[<p>GPT-6 ist da</p><img src="https://pbs.twimg.com/media/Hdirect.jpg" />]]></description><pubDate>Thu, 08 Oct 2026 18:26:38 GMT</pubDate><link>https://nitter.example.org/OpenAI/status/2108262812489531498#m</link></item>
+</channel></rss>'''
+
+
+def test_x_via_nitter_mirrors(monkeypatch):
+    from cypher import sources
+    monkeypatch.setenv('NITTER_HOSTS', 'dead.example.org,bot.example.org,ok.example.org')
+    class R:
+        def __init__(self, code): self.status_code = code
+    def fake_get(url, **kw):
+        if 'dead.' in url: raise ValueError('down')
+        if 'bot.' in url: return R(200), b'<!DOCTYPE html><title>Checking you are not a bot</title>'
+        return R(200), NITTER_RSS
+    monkeypatch.setattr(sources, 'get', fake_get)
+    items = sources.x('@OpenAI')     # first mirror is down, second shows a bot check, third works
+    assert [i['url'] for i in items] == ['https://x.com/ChatGPT/status/2108636745915052037', 'https://x.com/OpenAI/status/2108262812489531498']  # reply skipped
+    assert items[0]['text'].startswith('RT Fresh updates') and 't.co' not in items[0]['text']
+    assert items[1]['image_url'] == 'https://pbs.twimg.com/media/Hdirect.jpg'  # mirror links twimg directly
+    assert items[0]['image_url'] == 'https://pbs.twimg.com/media/Gabc123.jpg' and items[0]['platform'] == 'x' and items[0]['account'] == '@OpenAI'
+    assert sources.x('https://x.com/OpenAI/status/1')[0]['account'] == '@OpenAI' and sources.x('not a handle!!!') == []
+
+
+def test_x_all_mirrors_down_returns_empty(monkeypatch):
+    from cypher import sources
+    monkeypatch.setenv('NITTER_HOSTS', 'a.example.org,b.example.org')
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (_ for _ in ()).throw(ValueError('down')))
+    assert sources.x('openai') == []
+
+
+def test_nitter_host_list_comes_from_status_page_with_fallback(client, monkeypatch):
+    from cypher import sources
+    monkeypatch.delenv('NITTER_HOSTS', raising=False)
+    class R: status_code = 200
+    page = b'{"hosts":[{"domain":"a.example.org","points":50,"rss":true},{"domain":"b.example.org","points":90,"rss":true},{"domain":"c.example.org","points":99,"rss":false},{"domain":"evil host","points":1,"rss":true}]}'
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (R(), page))
+    hosts = sources.nitter_hosts()
+    assert hosts[:2] == ['b.example.org', 'a.example.org'] and 'c.example.org' not in hosts and 'evil host' not in hosts and 'nitter.kareem.one' in hosts
+    from cypher import db
+    db.cache_set('nitter_hosts', None)  # cache poisoned/empty -> still usable
+    monkeypatch.setattr(sources, 'get', lambda url, **kw: (_ for _ in ()).throw(ValueError('down')))
+    db.cache_set('nitter_hosts', None)
+    assert sources.nitter_hosts() == sources.STATIC_NITTER or 'nitter.kareem.one' in sources.nitter_hosts()

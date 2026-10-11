@@ -1,6 +1,6 @@
 """Public, login-free sources. No passwords, no scraping behind logins.
 Every function returns a list of items: {platform, account, kind, text, url, taken_at, image_url} and never raises."""
-import base64, io, ipaddress, re, socket, time
+import base64, io, ipaddress, os, re, socket, time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote, urlparse
@@ -244,46 +244,84 @@ def instagram(handle):
         return []
 
 
-def _walk_tweets(o, out):
-    """Finds tweet-like dicts anywhere in the syndication JSON (tolerates format drift)."""
-    if isinstance(o, dict):
-        if o.get('id_str') and (o.get('full_text') or o.get('text')) and o.get('user'):
-            out.append(o)
-        for v in o.values():
-            _walk_tweets(v, out)
-    elif isinstance(o, list):
-        for v in o:
-            _walk_tweets(v, out)
+STATIC_NITTER = ['nitter.kareem.one', 'nitter.meowing.monster', 'nitter.pp.ua', 'shitter.thepixora.com']
+_HOST_RE = re.compile(r'[a-z0-9][a-z0-9.\-]{1,80}\.[a-z]{2,}')
 
 
-def _tweet_item(t, handle):
+def nitter_hosts():
+    """Public Nitter mirrors that offer RSS. The list is refreshed every 6 h from the community status page; a built-in list is the fallback.
+    NITTER_HOSTS (comma separated) overrides everything."""
+    env = [h.strip() for h in os.environ.get('NITTER_HOSTS', '').split(',') if h.strip()]
+    if env:
+        return env
     try:
-        ts = datetime.strptime(t['created_at'], '%a %b %d %H:%M:%S %z %Y').isoformat() if t.get('created_at') else ''
+        from . import db
+        hosts = db.cache_get('nitter_hosts', 6 * 3600)
+        if hosts is None:
+            import json
+            r, buf = get('https://status.d420.de/api/v1/instances')
+            data = json.loads(buf).get('hosts', [])
+            good = [h for h in sorted(data, key=lambda h: -(h.get('points') or 0)) if h.get('rss') and not h.get('is_bad_host')]
+            hosts = [h['domain'] for h in good if _HOST_RE.fullmatch(h.get('domain', ''))][:8]
+            db.cache_set('nitter_hosts', hosts)
+        return list(dict.fromkeys(hosts + STATIC_NITTER))
     except Exception:
-        ts = t.get('created_at', '')
-    media = (t.get('extended_entities') or t.get('entities') or {}).get('media') or []
-    text = re.sub(r'\s+', ' ', t.get('full_text') or t.get('text') or '')
-    text = re.sub(r'\s*https://t\.co/\w+', '', text).strip()  # t.co short links carry no information
-    user = (t.get('user') or {}).get('screen_name') or handle
-    return {'platform': 'x', 'account': '@' + handle, 'kind': 'post', 'text': text[:400] or 'Post mit Bild', 'url': f"https://x.com/{user}/status/{t['id_str']}",
-            'taken_at': ts, 'image_url': (media[0].get('media_url_https') if media else '') or ''}
+        return STATIC_NITTER
 
 
-def x_official(handle, token):
-    """Official X API v2 (pay-per-use, the user's own bearer token). Reliable but costs about $0.005 per post read."""
-    import json
-    h = {'Authorization': 'Bearer ' + token}
-    r, buf = get(f'https://api.x.com/2/users/by/username/{quote(handle)}', headers=h)
-    uid = json.loads(buf)['data']['id']
-    r, buf = get(f'https://api.x.com/2/users/{uid}/tweets?max_results=5&exclude=replies,retweets&tweet.fields=created_at&expansions=attachments.media_keys&media.fields=url,preview_image_url', headers=h)
-    d = json.loads(buf)
-    media = {m['media_key']: (m.get('url') or m.get('preview_image_url') or '') for m in (d.get('includes') or {}).get('media', [])}
-    out = []
-    for t in d.get('data', []):
-        keys = (t.get('attachments') or {}).get('media_keys') or []
-        out.append({'platform': 'x', 'account': '@' + handle, 'kind': 'post', 'text': re.sub(r'\s*https://t\.co/\w+', '', t['text']).strip()[:400],
-                    'url': f"https://x.com/{handle}/status/{t['id']}", 'taken_at': t.get('created_at', ''), 'image_url': media.get(keys[0], '') if keys else ''})
+def _nitter_image(html):
+    """Mirrors either proxy pictures (/pic/media%2F...) or link pbs.twimg.com directly; return a stable pbs.twimg.com URL."""
+    from urllib.parse import unquote
+    for src in re.findall(r'<img[^>]+src="([^"]+)"', html or ''):
+        if re.match(r'https://pbs\.twimg\.com/(media|ext_tw_video_thumb|amplify_video_thumb|tweet_video_thumb)/', src):
+            return src.split('?')[0]
+        m = re.match(r'https?://[^/]+/pic/(.+)', src)
+        if m:
+            path = unquote(m.group(1)).replace('orig/', '', 1).split('?')[0]
+            if re.match(r'(media|ext_tw_video_thumb|amplify_video_thumb|tweet_video_thumb)/', path):
+                return f'https://pbs.twimg.com/{path}'
+    return ''
+
+
+def _nitter_items(buf, handle, limit=5):
+    out, d = [], feedparser.parse(buf)
+    for e in d.entries:
+        title = e.get('title', '')
+        if title.startswith('R to @'):  # replies are noise
+            continue
+        m = re.search(r'/([^/]+)/status/(\d+)', e.get('link', ''))
+        if not m:
+            continue
+        html = e.get('summary', '') or e.get('description', '')
+        text = _strip(html) or title
+        text = re.sub(r'\s*https://t\.co/\w+', '', text).strip()
+        out.append({'platform': 'x', 'account': '@' + handle, 'kind': 'post', 'text': (('RT ' if title.startswith('RT by') else '') + text)[:400] or 'Post mit Bild',
+                    'url': f'https://x.com/{m.group(1)}/status/{m.group(2)}', 'taken_at': _iso(e.get('published_parsed')), 'image_url': _nitter_image(html)})
+        if len(out) >= limit:
+            break
     return out
+
+
+def x(handle):
+    """X (Twitter) without login and without paying: public Nitter mirrors (RSS). Tries several mirrors, because they come and go."""
+    handle = re.sub(r'^(https?://)?(www\.)?(x|twitter)\.com/', '', handle.strip()).lstrip('@').split('/')[0].split('?')[0]
+    if not re.fullmatch(r'\w{1,15}', handle):
+        return []
+    tried = 0
+    for host in nitter_hosts():
+        if tried >= 4:
+            break
+        tried += 1
+        try:
+            r, buf = get(f'https://{host}/{handle}/rss')
+            if r.status_code != 200 or b'<rss' not in buf[:600]:
+                continue  # bot check page, error or empty answer: next mirror
+            items = _nitter_items(buf, handle)
+            if items:
+                return items
+        except Exception:
+            continue
+    return []
 
 
 def x_tweet(url):
@@ -309,43 +347,15 @@ def x_tweet(url):
 
 
 def x_diagnose(handle):
-    """Why does the public X embed return nothing? Returns a short, secret-free description (shown by the source test)."""
-    try:
-        r, buf = get(f'https://syndication.twitter.com/srv/timeline-profile/screen-name/{re.sub(r"[^A-Za-z0-9_]", "", handle)}?showReplies=false',
-                     headers={'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://publish.twitter.com/'})
-        has = bool(re.search(rb'<script id="__NEXT_DATA__"', buf))
-        return {'http': r.status_code, 'bytes': len(buf), 'has_data': has, 'start': re.sub(r'\s+', ' ', buf[:90].decode('utf8', 'replace'))}
-    except Exception as e:
-        return {'error': f'{type(e).__name__}: {str(e)[:100]}'}
-
-
-def x(handle, token=None):
-    """X (Twitter). With the user's own API token: official API. Without: the public embed timeline (free, unofficial, X rate-limits it)."""
-    handle = re.sub(r'^(https?://)?(www\.)?(x|twitter)\.com/', '', handle.strip()).lstrip('@').split('/')[0].split('?')[0]
-    if not re.fullmatch(r'\w{1,15}', handle):
-        return []
-    try:
-        if token:
-            items = x_official(handle, token)
-            if items:
-                return items
-        import json
-        r, buf = get(f'https://syndication.twitter.com/srv/timeline-profile/screen-name/{handle}?showReplies=false',
-                     headers={'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://publish.twitter.com/'})
-        m = re.search(rb'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', buf, re.S)
-        if r.status_code != 200 or not m:
-            return []
-        found = []
-        _walk_tweets(json.loads(m.group(1)), found)
-        seen, out = set(), []
-        for t in found:
-            if t['id_str'] in seen or (t.get('user') or {}).get('screen_name', '').lower() != handle.lower():
-                continue  # skip quoted tweets of other accounts and duplicates
-            seen.add(t['id_str']); out.append(_tweet_item(t, handle))
-        out.sort(key=lambda i: i['taken_at'], reverse=True)
-        return out[:5]
-    except Exception:
-        return []
+    """Per-mirror status for the source test (no secrets)."""
+    out = {}
+    for host in nitter_hosts()[:6]:
+        try:
+            r, buf = get(f'https://{host}/{re.sub(r"[^A-Za-z0-9_]", "", handle)}/rss')
+            out[host] = f"HTTP {r.status_code}, {'RSS' if b'<rss' in buf[:600] else 'kein RSS'}"
+        except Exception as e:
+            out[host] = type(e).__name__
+    return out
 
 
 FETCHERS = {'news': news, 'reddit': reddit, 'youtube': youtube, 'bluesky': bluesky, 'mastodon': mastodon,
@@ -367,12 +377,12 @@ def detect(value):
     return None, v
 
 
-def fetch_all(topics, sources, workers=8, x_token=None):
+def fetch_all(topics, sources, workers=8):
     """sources: [{platform, value}]. Returns (items, status) where status[platform:value] = count."""
     jobs = [('news', t) for t in topics[:5]] + [(s['platform'], s['value']) for s in sources[:25] if s.get('platform') in FETCHERS]
 
     def run(j):
-        return j, (FETCHERS['x'](j[1], x_token) if j[0] == 'x' else FETCHERS[j[0]](j[1]))
+        return j, FETCHERS[j[0]](j[1])
     items, status = [], {}
     with ThreadPoolExecutor(max_workers=workers) as ex:
         for j, res in ex.map(run, jobs):

@@ -68,7 +68,7 @@ def profile(u):
         day = scheduler.local_now(u).strftime('%Y-%m-%d')
         free_left = max(0, scheduler.FREE_PER_DAY - (u['free_used'] if u['free_used_day'] == day else 0))
     return {'notes': u['notes'], 'sources': json.loads(u['sources'] or '[]'), 'drop_hour': u['drop_hour'], 'quality': u['quality'],
-            'has_key': bool(db.decrypt(u['key_enc'])), 'has_x_token': bool(db.decrypt(u['x_token_enc'])), 'free_left': free_left, 'push': bool(u['push_sub']),
+            'has_key': bool(db.decrypt(u['key_enc'])), 'free_left': free_left, 'push': bool(u['push_sub']),
             'last_drop_day': u['last_drop_day']}
 
 
@@ -198,7 +198,7 @@ def test_source(u):
     if p not in sources.FETCHERS or p == 'news':
         return jsonify(error='bad_platform'), 400
     t = time.time()
-    items = sources.FETCHERS['x'](v, db.decrypt(u['x_token_enc'])) if p == 'x' else sources.FETCHERS[p](v)
+    items = sources.FETCHERS[p](v)
     out = dict(count=len(items), seconds=round(time.time() - t, 1), sample=(items[0]['text'][:90] if items else ''))
     if p == 'x' and not items:
         out['detail'] = sources.x_diagnose(v)
@@ -228,30 +228,6 @@ def set_key(u):
     if not ai.check_key(k):
         return jsonify(error='key_rejected'), 400
     db.update_user(u['id'], key_enc=db.encrypt(k))
-    return jsonify(ok=True)
-
-
-@app.route('/api/xtoken', methods=['POST'])
-@api
-def set_x_token(u):
-    """Optional: the user's own X API bearer token (official API, pay-per-use on the user's X developer account)."""
-    k = str((request.get_json(silent=True) or {}).get('token', '')).strip()
-    if not re.fullmatch(r'[\w\-%=+/]{40,400}', k):
-        return jsonify(error='bad_format'), 400
-    try:
-        r, _ = sources.get('https://api.x.com/2/users/by/username/x', headers={'Authorization': 'Bearer ' + k})
-        if r.status_code in (401, 403):
-            return jsonify(error='token_rejected'), 400
-    except Exception:
-        pass  # network hiccup: accept, the first drop will show whether it works
-    db.update_user(u['id'], x_token_enc=db.encrypt(k))
-    return jsonify(ok=True)
-
-
-@app.route('/api/xtoken', methods=['DELETE'])
-@api
-def del_x_token(u):
-    db.update_user(u['id'], x_token_enc='')
     return jsonify(ok=True)
 
 
