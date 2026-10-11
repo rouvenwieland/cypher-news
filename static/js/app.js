@@ -19,7 +19,7 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
 function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : ''; }
 function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' error' : ''); clearTimeout(toast.t); toast.t = setTimeout(() => t.className = 'toast', 3500); }
 async function api(path, method = 'GET', body) {
-  const o = {method, credentials: 'same-origin', headers: {}};
+  const o = {method, credentials: 'same-origin', headers: {'X-Client': '2'}};
   if (body instanceof FormData) o.body = body; else if (body !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
   const r = await fetch(path, o);
   let data = {}; try { data = await r.json(); } catch (e) {}
@@ -53,13 +53,16 @@ async function boot() {
   if (!me.notes && !sources.length) showTab('profile');
 }
 
-function applyProfile() {
-  $('notes').value = me.notes || '';
-  sources = me.sources || []; quality = me.quality || 'fast';
-  topics = new Set(CHIPS.filter((c) => (me.notes || '').toLowerCase().includes(c.toLowerCase())));
-  $('dropHour').value = me.drop_hour == null ? 8 : me.drop_hour;
-  document.querySelectorAll('.q-btn').forEach((b) => b.classList.toggle('active', b.dataset.q === quality));
-  renderChips(); renderSources();
+function applyProfile(keepForm) {
+  // keepForm: only refresh status labels. Used after key/push changes, so unsaved text in the profile form is NOT overwritten.
+  if (!keepForm) {
+    $('notes').value = me.notes || '';
+    sources = me.sources || []; quality = me.quality || 'fast';
+    topics = new Set(CHIPS.filter((c) => (me.notes || '').toLowerCase().includes(c.toLowerCase())));
+    $('dropHour').value = me.drop_hour == null ? 8 : me.drop_hour;
+    document.querySelectorAll('.q-btn').forEach((b) => b.classList.toggle('active', b.dataset.q === quality));
+    renderChips(); renderSources();
+  }
   $('keyStatus').textContent = me.has_key ? '✔ Schlüssel gespeichert (verschlüsselt).' : (me.free_left > 0 ? `Kein Schlüssel. Heute noch ${me.free_left} Gratis-Drop über den Server.` : 'Noch kein Schlüssel eingetragen.');
   $('pushBtn').textContent = me.push ? 'PUSH AUSSCHALTEN' : 'PUSH AKTIVIEREN';
   const need = !me.has_key && me.free_left <= 0;
@@ -129,10 +132,10 @@ $('saveProfile').addEventListener('click', async () => { try { await saveProfile
 
 // ---------- key / account ----------
 $('keySave').addEventListener('click', async () => {
-  try { await api('/api/key', 'POST', {key: $('keyInput').value}); $('keyInput').value = ''; me = await api('/api/me'); applyProfile(); toast('Schlüssel gespeichert'); }
+  try { await api('/api/key', 'POST', {key: $('keyInput').value}); $('keyInput').value = ''; me = await api('/api/me'); applyProfile(true); toast('Schlüssel gespeichert'); }
   catch (e) { toast(e.code === 'key_rejected' ? 'OpenRouter lehnt diesen Schlüssel ab.' : 'Das sieht nicht wie ein OpenRouter-Schlüssel aus (sk-or-...).', true); }
 });
-$('keyDelete').addEventListener('click', async () => { await api('/api/key', 'DELETE'); me = await api('/api/me'); applyProfile(); toast('Schlüssel entfernt'); });
+$('keyDelete').addEventListener('click', async () => { await api('/api/key', 'DELETE'); me = await api('/api/me'); applyProfile(true); toast('Schlüssel entfernt'); });
 $('deleteAccount').addEventListener('click', async () => {
   if (!confirm('Konto und alle Daten wirklich unwiderruflich löschen?')) return;
   await api('/api/me', 'DELETE'); location.reload();
@@ -142,13 +145,13 @@ $('deleteAccount').addEventListener('click', async () => {
 function b64ToU8(s) { const p = '='.repeat((4 - s.length % 4) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map((c) => c.charCodeAt(0))); }
 $('pushBtn').addEventListener('click', async () => {
   try {
-    if (me.push) { await api('/api/push', 'DELETE'); me.push = false; applyProfile(); return; }
+    if (me.push) { await api('/api/push', 'DELETE'); me.push = false; applyProfile(true); return; }
     const key = document.body.dataset.vapid;
     if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) { toast('Push wird hier nicht unterstützt (iPhone: erst zum Home-Bildschirm hinzufügen).', true); return; }
     if (await Notification.requestPermission() !== 'granted') { toast('Benachrichtigungen nicht erlaubt.', true); return; }
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64ToU8(key)});
-    await api('/api/push', 'POST', sub.toJSON()); me.push = true; applyProfile(); toast('Push aktiv');
+    await api('/api/push', 'POST', sub.toJSON()); me.push = true; applyProfile(true); toast('Push aktiv');
   } catch (e) { toast('Push konnte nicht aktiviert werden.', true); }
 });
 
@@ -176,7 +179,7 @@ $('dropBtn').addEventListener('click', async () => {
   try {
     await saveProfile(true);
     renderDrop(await generateDrop());
-    me = await api('/api/me'); applyProfile();
+    me = await api('/api/me'); applyProfile(true);
   } catch (e) {
     toast(ERR[e.code] || (e.status === 401 ? 'Du bist nicht mehr angemeldet. Seite neu laden.' : 'Das hat nicht geklappt. Versuche es gleich noch einmal.'), true);
     if (e.code === 'no_key' || e.code === 'key_invalid') showTab('profile');
