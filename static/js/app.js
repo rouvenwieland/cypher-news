@@ -75,6 +75,9 @@ async function boot() {
   rain(false);
   $('welcome').hidden = true; $('mainApp').hidden = false; $('tabNav').hidden = false;
   applyProfile();
+  // the stored UTC offset is a fixed number: refresh it when the clock changed (summer/winter time, travel), so drops keep arriving at the chosen local hour
+  const tzNow = -new Date().getTimezoneOffset();
+  if (me.tz_offset !== tzNow) api('/api/profile', 'PUT', {tz_offset: tzNow}).catch(() => {});
   const sh = new URLSearchParams(location.search).get('share');
   if (sh) { toast(sh === 'ok' ? 'Geteilt! Kommt in deinen nächsten Drop.' : sh === 'login' ? 'Bitte erst die App öffnen und loslegen.' : 'Nichts zum Teilen gefunden.', sh !== 'ok'); history.replaceState(null, '', '/'); }
   try { (await api('/api/saved')).saved.forEach((s) => savedTitles.add(s.title)); } catch (e) {}

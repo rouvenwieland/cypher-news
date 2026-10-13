@@ -92,7 +92,7 @@ def profile(u):
         free_left = max(0, scheduler.FREE_PER_DAY - (u['free_used'] if u['free_used_day'] == day else 0))
     return {'notes': u['notes'], 'sources': json.loads(u['sources'] or '[]'), 'drop_hour': u['drop_hour'], 'quality': u['quality'],
             'has_key': bool(db.decrypt(u['key_enc'])), 'free_left': free_left, 'push': bool(u['push_sub']),
-            'last_drop_day': u['last_drop_day']}
+            'last_drop_day': u['last_drop_day'], 'tz_offset': u['tz_offset']}
 
 
 # ---------- pages ----------

@@ -172,3 +172,9 @@ def test_push_endpoint_resolving_to_internal_address_is_dropped(client, monkeypa
     monkeypatch.setattr(push, 'keys', lambda: {'private': 'x', 'public': 'y'})
     sub = json.dumps({'endpoint': 'https://metadata.evil.example/x', 'keys': {'p256dh': 'x', 'auth': 'y'}})
     assert push.send(sub, 't', 'b') is False and not called
+
+
+def test_me_exposes_tz_offset_so_client_can_refresh_it_after_dst(client):
+    start(client)
+    client.put('/api/profile', json={'tz_offset': 60})
+    assert client.get('/api/me').get_json()['tz_offset'] == 60
