@@ -1,0 +1,84 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 108 and seed 3431363291361665898 with 1 worker on 20 cores with 8112MB heap and 64MB offheap memory [pid: 6128] (Windows 11 10.0 amd64, Eclipse Adoptium 21.0.12.1 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file C:\Users\Nevuor\Code\cypher-news-verify\verify\DropBuild.tla
+Parsing file C:\Users\Nevuor\AppData\Local\Temp\Naturals.tla
+Parsing file C:\Users\Nevuor\AppData\Local\Temp\FiniteSets.tla
+Parsing file C:\Users\Nevuor\AppData\Local\Temp\Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module DropBuild
+Starting... (2026-10-14 01:43:09)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-14 01:43:09.
+Error: Invariant NoOrphan is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ inflight = {}
+/\ drops = (u1 :> 0 @@ u2 :> 0)
+/\ todo = (w1 :> {} @@ w2 :> {})
+/\ alive = (u1 :> TRUE @@ u2 :> TRUE)
+/\ pc = (w1 :> "idle" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> FALSE @@ u2 :> FALSE)
+
+State 2: <Scan line 24, col 12 to line 27, col 65 of module DropBuild>
+/\ inflight = {}
+/\ drops = (u1 :> 0 @@ u2 :> 0)
+/\ todo = (w1 :> {u1, u2} @@ w2 :> {})
+/\ alive = (u1 :> TRUE @@ u2 :> TRUE)
+/\ pc = (w1 :> "pick" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> FALSE @@ u2 :> FALSE)
+
+State 3: <Pick line 29, col 12 to line 37, col 60 of module DropBuild>
+/\ inflight = {}
+/\ drops = (u1 :> 0 @@ u2 :> 0)
+/\ todo = (w1 :> {u2} @@ w2 :> {})
+/\ alive = (u1 :> TRUE @@ u2 :> TRUE)
+/\ pc = (w1 :> "start" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> FALSE @@ u2 :> FALSE)
+
+State 4: <Start line 40, col 13 to line 49, col 62 of module DropBuild>
+/\ inflight = {}
+/\ drops = (u1 :> 0 @@ u2 :> 0)
+/\ todo = (w1 :> {u2} @@ w2 :> {})
+/\ alive = (u1 :> TRUE @@ u2 :> TRUE)
+/\ pc = (w1 :> "build" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> FALSE @@ u2 :> FALSE)
+
+State 5: <Build line 51, col 13 to line 53, col 72 of module DropBuild>
+/\ inflight = {}
+/\ drops = (u1 :> 0 @@ u2 :> 0)
+/\ todo = (w1 :> {u2} @@ w2 :> {})
+/\ alive = (u1 :> TRUE @@ u2 :> TRUE)
+/\ pc = (w1 :> "commit" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> FALSE @@ u2 :> FALSE)
+
+State 6: <Delete line 66, col 14 to line 69, col 63 of module DropBuild>
+/\ inflight = {}
+/\ drops = (u1 :> 0 @@ u2 :> 0)
+/\ todo = (w1 :> {u2} @@ w2 :> {})
+/\ alive = (u1 :> FALSE @@ u2 :> TRUE)
+/\ pc = (w1 :> "commit" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> FALSE @@ u2 :> FALSE)
+
+State 7: <Commit line 55, col 14 to line 63, col 46 of module DropBuild>
+/\ inflight = {}
+/\ drops = (u1 :> 1 @@ u2 :> 0)
+/\ todo = (w1 :> {u2} @@ w2 :> {})
+/\ alive = (u1 :> FALSE @@ u2 :> TRUE)
+/\ pc = (w1 :> "pick" @@ w2 :> "idle")
+/\ cur = (w1 :> u1 @@ w2 :> u1)
+/\ lastDone = (u1 :> TRUE @@ u2 :> FALSE)
+
+437 states generated, 261 distinct states found, 128 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 2 (minimum is 0, the maximum 5 and the 95th percentile is 4).
+Finished in 00s at (2026-10-14 01:43:10)

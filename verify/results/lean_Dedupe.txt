@@ -1,0 +1,5 @@
+'dedupe_idem' depends on axioms: [propext]
+'dedupe_nodup' depends on axioms: [propext, Quot.sound]
+'dedupeAux_complete' depends on axioms: [propext, Quot.sound]
+'score_mono' depends on axioms: [propext, Quot.sound]
+'clamp5_mono' depends on axioms: [propext, Quot.sound]
