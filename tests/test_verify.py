@@ -76,7 +76,6 @@ def test_failed_news_fetch_is_not_cached(client, monkeypatch):
 
 
 # V4: concurrent runs for one user must produce only one scheduled drop per day
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_concurrent_scheduled_runs_build_one_drop(client, monkeypatch):
     from cypher import db, scheduler
     _ready(client, drop_hour=0, tz_offset=0)
@@ -94,7 +93,6 @@ def test_concurrent_scheduled_runs_build_one_drop(client, monkeypatch):
 
 
 # V5: deleting the account during a running build must not leave a drop behind
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_delete_during_build_leaves_no_drop(client, monkeypatch):
     from cypher import db, scheduler
     _ready(client)

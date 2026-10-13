@@ -8,6 +8,7 @@ const ERR = {
   no_key: 'Du brauchst einen OpenRouter-Schlüssel (Profil > KI-Schlüssel) oder das Gratis-Kontingent ist für heute aufgebraucht.',
   no_credit: 'Dein OpenRouter-Konto hat kein Guthaben mehr oder das Tageslimit der Gratis-Modelle ist erreicht.',
   key_invalid: 'Dein OpenRouter-Schlüssel wurde abgelehnt. Bitte neu eintragen.',
+  busy: 'Dein Drop wird gerade gebaut. Schau gleich noch einmal in den Verlauf.',
   rate_limited: 'Zu viele Anfragen. Warte kurz und versuche es erneut.',
   no_profile: 'Schreib zuerst unter Profil, was dich interessiert, und speichere.',
   no_model_configured: 'Der Betreiber hat noch kein KI-Modell eingestellt.',

@@ -11,6 +11,9 @@ RETRY_AFTER, MAX_ATTEMPTS = 20 * 60, 4
 FREE_PER_DAY = int(os.environ.get('FREE_DROPS_PER_DAY', '1'))
 
 
+_inflight, _inflight_lock = set(), threading.Lock()  # users whose drop is being built right now (one build per user at a time)
+
+
 def local_now(u):
     return datetime.now(timezone.utc) + timedelta(minutes=u['tz_offset'] or 0)
 
@@ -29,11 +32,26 @@ def pick_key(u):
 
 
 def run_for_user(uid, manual=False):
-    """Returns (ok, error_code, drop). Never raises."""
+    """Returns (ok, error_code, drop). Never raises. At most one build per user at a time ('busy'); a scheduled run never repeats
+    a day that is already delivered ('already_done')."""
+    with _inflight_lock:
+        if uid in _inflight:
+            return False, 'busy', None
+        _inflight.add(uid)
+    try:
+        return _run_for_user(uid, manual)
+    finally:
+        with _inflight_lock:
+            _inflight.discard(uid)
+
+
+def _run_for_user(uid, manual):
     with db.conn() as c:
         u = c.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
     if not u:
         return False, 'no_user', None
+    if not manual and u['last_drop_day'] == local_now(u).strftime('%Y-%m-%d'):
+        return False, 'already_done', None
     if not (u['notes'] or '').strip() and not json.loads(u['sources'] or '[]'):
         return False, 'no_profile', None
     key, free = pick_key(u)
@@ -54,6 +72,8 @@ def run_for_user(uid, manual=False):
         fields.update(free_used_day=day, free_used=(u['free_used'] if u['free_used_day'] == day else 0) + 1)
     drop['id'] = None
     with db.conn() as c:
+        if not c.execute('SELECT 1 FROM users WHERE id=?', (uid,)).fetchone():  # account deleted while the drop was being built
+            return False, 'no_user', None
         cur = c.execute('INSERT INTO drops(user_id,day,created,data) VALUES(?,?,?,?)', (uid, day, time.time(), json.dumps(drop)))
         drop['id'] = cur.lastrowid
         c.execute('DELETE FROM drops WHERE user_id=? AND id NOT IN (SELECT id FROM drops WHERE user_id=? ORDER BY created DESC LIMIT 30)', (uid, uid))
@@ -85,6 +105,8 @@ def run_due():
         if ok:
             n += 1
             _fails.pop(uid, None)
+            continue
+        if err in ('busy', 'already_done'):  # another run owns / has finished this user: not a failure
             continue
         with db.conn() as c:
             u = c.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
