@@ -109,7 +109,6 @@ def test_delete_during_build_leaves_no_drop(client, monkeypatch):
 
 
 # V6: a transient push error (HTTP 5xx) must not delete the subscription; only 404/410 may
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_transient_push_error_keeps_subscription(client, monkeypatch):
     from cypher import db, push, scheduler
     _ready(client, drop_hour=0, tz_offset=0)
@@ -146,7 +145,6 @@ def test_gone_push_subscription_is_removed(client, monkeypatch):
 
 
 # V7: backup snapshots must not pile up in the temp dir
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_snapshot_temp_is_cleaned_after_upload(client, tmp_path, monkeypatch):
     import os
     from cypher import backup
@@ -157,9 +155,20 @@ def test_snapshot_temp_is_cleaned_after_upload(client, tmp_path, monkeypatch):
 
 
 # V8: invalid profile values are a client error, not a crash
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_profile_garbage_gives_400_not_500(client):
     start(client)
     assert client.put('/api/profile', json={'drop_hour': 'abc'}).status_code == 400
     assert client.put('/api/profile', json={'tz_offset': None}).status_code == 400
     assert client.put('/api/profile', json={'sources': ['x', 5]}).status_code in (200, 400)
+
+
+def test_push_endpoint_resolving_to_internal_address_is_dropped(client, monkeypatch):
+    import socket
+    from cypher import push
+    monkeypatch.setattr(socket, 'getaddrinfo', lambda *a, **k: [(2, 1, 6, '', ('169.254.169.254', 443))])
+    called = []
+    import pywebpush
+    monkeypatch.setattr(pywebpush, 'webpush', lambda *a, **k: called.append(1))
+    monkeypatch.setattr(push, 'keys', lambda: {'private': 'x', 'public': 'y'})
+    sub = json.dumps({'endpoint': 'https://metadata.evil.example/x', 'keys': {'p256dh': 'x', 'auth': 'y'}})
+    assert push.send(sub, 't', 'b') is False and not called

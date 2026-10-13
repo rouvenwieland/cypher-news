@@ -66,9 +66,11 @@ def snapshot():
 
 def upload_if_changed(last_hash, upload=None):
     """Returns the new hash. Raises nothing."""
+    snap = None
     try:
         snap = snapshot()
-        h = hashlib.sha256(open(snap, 'rb').read()).hexdigest()
+        with open(snap, 'rb') as f:
+            h = hashlib.sha256(f.read()).hexdigest()
         if h == last_hash:
             return h
         if upload is None:
@@ -82,6 +84,9 @@ def upload_if_changed(last_hash, upload=None):
         STATE['last_error'] = f'{type(e).__name__}: {str(e)[:160]}'
         print('backup failed:', STATE['last_error'], flush=True)
         return last_hash
+    finally:
+        if snap:  # every snapshot is a full DB copy: do not let them pile up in the temp dir
+            shutil.rmtree(os.path.dirname(snap), ignore_errors=True)
 
 
 def restore_or_die(retries=(2, 5, 10, 20)):

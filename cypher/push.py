@@ -27,17 +27,35 @@ def public_key():
         return ''
 
 
+def _endpoint_is_internal(sub):
+    """True only if the endpoint host definitely resolves to a non-public address (SSRF). Unresolvable = not proven internal."""
+    import ipaddress, socket
+    from urllib.parse import urlparse
+    try:
+        host = urlparse(sub.get('endpoint', '')).hostname or ''
+        return any(not ipaddress.ip_address(i[4][0]).is_global for i in socket.getaddrinfo(host, None))
+    except Exception:
+        return False
+
+
 def send(sub_json, title, body, url='/'):
-    """Returns True if sent, False if subscription is dead/unconfigured."""
+    """True = sent. False = subscription is dead (404/410), unconfigured or points at an internal address: delete it.
+    None = transient problem (push service 5xx/429, network): keep the subscription."""
     if not sub_json:
         return False
     priv = keys()['private']
     from pywebpush import webpush, WebPushException
     try:
-        webpush(subscription_info=json.loads(sub_json), data=json.dumps({'title': title, 'body': body, 'url': url}),
+        sub = json.loads(sub_json)
+        if _endpoint_is_internal(sub):
+            return False
+        webpush(subscription_info=sub, data=json.dumps({'title': title, 'body': body, 'url': url}),
                 vapid_private_key=priv, vapid_claims={'sub': os.environ.get('VAPID_SUBJECT', 'mailto:admin@example.com')}, ttl=3600)
         return True
-    except WebPushException:
-        return False
+    except WebPushException as e:
+        code = getattr(getattr(e, 'response', None), 'status_code', None)
+        return False if code in (404, 410) else None
+    except ValueError:
+        return False  # unparsable subscription
     except Exception:
-        return False
+        return None

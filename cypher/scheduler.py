@@ -79,7 +79,7 @@ def _run_for_user(uid, manual):
         c.execute('DELETE FROM drops WHERE user_id=? AND id NOT IN (SELECT id FROM drops WHERE user_id=? ORDER BY created DESC LIMIT 30)', (uid, uid))
     db.update_user(uid, **fields)
     if u['push_sub'] and not manual:
-        if not push.send(u['push_sub'], 'Dein Drop ist da', f"{len(drop['items'])} Treffer: {drop['title']}"[:120]):
+        if push.send(u['push_sub'], 'Dein Drop ist da', f"{len(drop['items'])} Treffer: {drop['title']}"[:120]) is False:
             db.update_user(uid, push_sub='')
     return True, '', drop
 

@@ -182,13 +182,18 @@ def export(u):
 def put_profile(u):
     b = request.get_json(silent=True) or {}
     f = {}
+    if not isinstance(b, dict):
+        return jsonify(error='bad_request'), 400
+    try:
+        if 'drop_hour' in b: f['drop_hour'] = max(0, min(23, int(b['drop_hour'])))
+        if 'tz_offset' in b: f['tz_offset'] = max(-840, min(840, int(b['tz_offset'])))
+    except (TypeError, ValueError):
+        return jsonify(error='bad_request'), 400
     if 'notes' in b: f['notes'] = str(b['notes'])[:4000]
-    if 'drop_hour' in b: f['drop_hour'] = max(0, min(23, int(b['drop_hour'])))
-    if 'tz_offset' in b: f['tz_offset'] = max(-840, min(840, int(b['tz_offset'])))
     if b.get('quality') in ('fast', 'high'): f['quality'] = b['quality']
     if 'sources' in b and isinstance(b['sources'], list):
         clean = []
-        for s in b['sources'][:40]:
+        for s in (x for x in b['sources'][:40] if isinstance(x, dict)):
             p, v = str(s.get('platform', '')), str(s.get('value', '')).strip()[:300]
             if p in sources.FETCHERS and p != 'news' and v and not any(c['platform'] == p and c['value'] == v for c in clean):
                 clean.append({'platform': p, 'value': v})
