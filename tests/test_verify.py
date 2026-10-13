@@ -19,7 +19,6 @@ def _item(n, text, url, acct='r/berlin', platform='reddit'):
 
 
 # V1: dedupe must not merge different posts that only share a placeholder text ("Bild-Post")
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_dedupe_keeps_captionless_posts_of_different_accounts(client, monkeypatch):
     from cypher import pipeline, sources
     posts = [_item(i, 'Bild-Post', f'https://example.com/p/{i}', acct=f'@acc{i}', platform='instagram') for i in range(3)]

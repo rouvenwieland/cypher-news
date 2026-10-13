@@ -31,6 +31,18 @@ def score(item, topics, fb):
     return s
 
 
+PLACEHOLDER_TEXTS = {'bild post', 'post mit bild', 'geteiltes bild'}  # texts the sources invent for caption-less posts
+
+
+def dedupe_key(i):
+    """Same story from different publishers shares a text prefix. Caption-less posts all carry the same invented placeholder text,
+    so they must be told apart by URL (else one 'Bild-Post' hides every other one)."""
+    k = re.sub(r'\W+', ' ', i['text'].lower()).strip()[:70]
+    if not k or k in PLACEHOLDER_TEXTS:
+        return 'u:' + (i['url'] or f"{i['platform']}|{i['account']}|{i['text']}")
+    return k
+
+
 def collect(user, topics, srcs):
     pool_key = None
     items, status = [], {}
@@ -76,7 +88,7 @@ def build_drop(user, key, quality='fast', include_vision=True):
 
     seen, old, uniq = set(), seen_urls(user['id']), []
     for i in items:
-        k = re.sub(r'\W+', ' ', i['text'].lower())[:70] or i['url']
+        k = dedupe_key(i)
         if k in seen or (i['url'] and i['url'] in old):
             continue
         seen.add(k); uniq.append(i)
