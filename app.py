@@ -80,6 +80,12 @@ def api(fn):
     return w
 
 
+def _json():
+    """Request body as a dict. Anything else (list, string, number, broken JSON) counts as an empty body instead of crashing with a 500."""
+    b = request.get_json(silent=True)
+    return b if isinstance(b, dict) else {}
+
+
 def set_cookie(resp, token):
     resp.set_cookie(COOKIE, token, max_age=60 * 60 * 24 * 365, httponly=True, samesite='Lax', secure=SECURE)
     return resp
@@ -141,7 +147,7 @@ def start():
 def restore():
     if not rate_limit('restore', 8, 3600):
         return jsonify(error='rate_limited'), 429
-    code = ((request.get_json(silent=True) or {}).get('code') or '').strip().lower()
+    code = str(_json().get('code') or '').strip().lower()
     token = db.restore(code) if re.fullmatch(r'[0-9a-f]{4}(-[0-9a-f]{4}){3}', code) else None
     if not token:
         return jsonify(error='bad_code'), 404
@@ -180,7 +186,7 @@ def export(u):
 @app.route('/api/profile', methods=['PUT'])
 @api
 def put_profile(u):
-    b = request.get_json(silent=True) or {}
+    b = _json()
     f = {}
     if not isinstance(b, dict):
         return jsonify(error='bad_request'), 400
@@ -205,8 +211,8 @@ def put_profile(u):
 @app.route('/api/sources/detect', methods=['POST'])
 @api
 def detect(u):
-    b = request.get_json(silent=True) or {}
-    p, v = sources.detect(b.get('value', ''))
+    b = _json()
+    p, v = sources.detect(str(b.get('value', '')))
     forced = str(b.get('platform', ''))
     if forced in sources.FETCHERS and forced not in ('news',) and (p is None or p == 'rss' or forced == p):
         p = forced
@@ -221,7 +227,7 @@ def test_source(u):
     """Tries one source right now so the user sees whether it is reachable."""
     if not rate_limit('srctest:' + u['id'], 30, 600):
         return jsonify(error='rate_limited'), 429
-    b = request.get_json(silent=True) or {}
+    b = _json()
     p, v = str(b.get('platform', '')), str(b.get('value', ''))[:300]
     if p not in sources.FETCHERS or p == 'news':
         return jsonify(error='bad_platform'), 400
@@ -237,8 +243,8 @@ def test_source(u):
 @api
 def import_sources(u):
     """Bulk import handles/URLs (one per line) e.g. from an Instagram data export of the user's own follow list."""
-    text = str((request.get_json(silent=True) or {}).get('text', ''))[:20000]
-    platform = (request.get_json(silent=True) or {}).get('platform', '')
+    text = str(_json().get('text', ''))[:20000]
+    platform = _json().get('platform', '')
     found = []
     text = '\n'.join(line[:300] for line in text.splitlines())  # bounded lines: the pattern below is quadratic on long input
     for tok in re.findall(r'https?://\S+|@?[\w.\-]+@[\w.\-]+\.\w+|@[\w.]{2,40}|^[\w.]{2,40}$', text, flags=re.M):
@@ -251,7 +257,7 @@ def import_sources(u):
 @app.route('/api/key', methods=['POST'])
 @api
 def set_key(u):
-    k = str((request.get_json(silent=True) or {}).get('key', '')).strip()
+    k = str(_json().get('key', '')).strip()
     if not re.fullmatch(r'sk-or-[\w\-]{20,200}', k):
         return jsonify(error='bad_format'), 400
     if not ai.check_key(k):
@@ -348,7 +354,7 @@ def one_drop(u, i):
 def saved(u):
     with db.conn() as c:
         if request.method == 'POST':
-            it = request.get_json(silent=True) or {}
+            it = _json()
             it = {k: str(it.get(k, ''))[:600] for k in ('category', 'title', 'summary', 'source', 'url', 'when', 'image', 'platform', 'account', 'kind')}
             if it['image'] and not it['image'].startswith(('https://', 'http://')):
                 it['image'] = ''
@@ -356,7 +362,7 @@ def saved(u):
                 c.execute('INSERT INTO saved(user_id,created,item) VALUES(?,?,?)', (u['id'], time.time(), json.dumps(it)))
             return jsonify(ok=True)
         if request.method == 'DELETE':
-            c.execute('DELETE FROM saved WHERE user_id=? AND json_extract(item,"$.title")=?', (u['id'], (request.get_json(silent=True) or {}).get('title', '')))
+            c.execute('DELETE FROM saved WHERE user_id=? AND json_extract(item,"$.title")=?', (u['id'], str(_json().get('title', ''))))
             return jsonify(ok=True)
         rows = c.execute('SELECT item FROM saved WHERE user_id=? ORDER BY created DESC LIMIT 200', (u['id'],)).fetchall()
     return jsonify(saved=[json.loads(r['item']) for r in rows])
@@ -365,7 +371,7 @@ def saved(u):
 @app.route('/api/feedback', methods=['POST'])
 @api
 def feedback(u):
-    b = request.get_json(silent=True) or {}
+    b = _json()
     vote = 1 if b.get('vote') == 1 else -1 if b.get('vote') == -1 else 0
     fb = json.loads(u['feedback'] or '{}')
     for k in (str(b.get('account', '')).lower()[:60], str(b.get('category', ''))[:60]):
@@ -444,8 +450,8 @@ def push_sub(u):
     if request.method == 'DELETE':
         db.update_user(u['id'], push_sub='')
         return jsonify(ok=True)
-    s = request.get_json(silent=True) or {}
-    if not isinstance(s, dict) or len(json.dumps(s)) > 4000 or not _push_endpoint_ok(str(s.get('endpoint', ''))):
+    s = _json()
+    if len(json.dumps(s)) > 4000 or not _push_endpoint_ok(str(s.get('endpoint', ''))):
         return jsonify(error='bad_subscription'), 400
     db.update_user(u['id'], push_sub=json.dumps(s))
     return jsonify(ok=True)

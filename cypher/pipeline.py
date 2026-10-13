@@ -43,6 +43,17 @@ def dedupe_key(i):
     return k
 
 
+def dedupe(items, old_urls):
+    """Keeps the first item of every dedupe_key and drops items whose URL was already shown in a recent drop."""
+    seen, uniq = set(), []
+    for i in items:
+        k = dedupe_key(i)
+        if k in seen or (i['url'] and i['url'] in old_urls):
+            continue
+        seen.add(k); uniq.append(i)
+    return uniq
+
+
 def collect(user, topics, srcs):
     pool_key = None
     items, status = [], {}
@@ -86,12 +97,7 @@ def build_drop(user, key, quality='fast', include_vision=True):
     fb = json.loads(user['feedback'] or '{}')
     items, status = collect(user, topics, srcs)
 
-    seen, old, uniq = set(), seen_urls(user['id']), []
-    for i in items:
-        k = dedupe_key(i)
-        if k in seen or (i['url'] and i['url'] in old):
-            continue
-        seen.add(k); uniq.append(i)
+    uniq = dedupe(items, seen_urls(user['id']))
     uniq.sort(key=lambda i: score(i, topics, fb), reverse=True)
     firsts, seen_acc = [], set()
     for i in uniq:  # best item of every followed account is always a candidate
