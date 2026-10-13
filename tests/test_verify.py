@@ -178,3 +178,29 @@ def test_me_exposes_tz_offset_so_client_can_refresh_it_after_dst(client):
     start(client)
     client.put('/api/profile', json={'tz_offset': 60})
     assert client.get('/api/me').get_json()['tz_offset'] == 60
+
+
+# V9 (found by TLA+ model verify/JobStart.tla): the "job already running?" check and the registration were two lock sections
+def test_two_simultaneous_drop_requests_start_one_job(client, monkeypatch):
+    import app as appmod
+    _ready(client)
+    started = []
+    monkeypatch.setattr(appmod, '_run_job', lambda uid: started.append(uid) or time.sleep(0.1))
+    gate = threading.Barrier(2, timeout=0.2)
+    real_rl = appmod.rate_limit
+    def rl(*a, **k):
+        try:
+            gate.wait()  # both requests are past the "running?" check before either one registers
+        except threading.BrokenBarrierError:
+            pass
+        return real_rl(*a, **k)
+    monkeypatch.setattr(appmod, 'rate_limit', rl)
+    cookie = client.get_cookie('cn_token').value
+    codes = []
+    def go():
+        c = appmod.app.test_client(); c.set_cookie('cn_token', cookie)
+        codes.append(c.post('/api/drop', headers={'X-Client': '2'}).status_code)
+    ts = [threading.Thread(target=go) for _ in range(2)]
+    [t.start() for t in ts]; [t.join() for t in ts]
+    time.sleep(0.5)
+    assert len(started) == 1, f'{len(started)} jobs started for one user'

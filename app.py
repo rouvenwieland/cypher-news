@@ -294,13 +294,12 @@ def make_drop(u):
         if not ok:
             return jsonify(error=err), (402 if err in ('no_key', 'no_credit') else 400 if err == 'no_profile' else 502)
         return jsonify(drop)
-    with _jobs_lock:
+    with _jobs_lock:  # check and registration in ONE lock section (two clicks at once must not start two jobs; see verify/JobStart.tla)
         j = _jobs.get(u['id'])
         if j and j['state'] == 'running' and time.time() - j['at'] < JOB_MAX_AGE:
             return jsonify(state='running'), 202
-    if not rate_limit('drop:' + u['id'], 6, 3600):
-        return jsonify(error='rate_limited'), 429
-    with _jobs_lock:
+        if not rate_limit('drop:' + u['id'], 6, 3600):
+            return jsonify(error='rate_limited'), 429
         _jobs[u['id']] = {'state': 'running', 'at': time.time()}
     threading.Thread(target=_run_job, args=(u['id'],), daemon=True).start()
     return jsonify(state='running'), 202
