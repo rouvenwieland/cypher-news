@@ -31,7 +31,6 @@ def test_dedupe_keeps_captionless_posts_of_different_accounts(client, monkeypatc
 
 
 # V2: shared items beyond the 10 fetched must not be marked as used (lost); and a failed drop must not consume them
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_shared_items_survive_overflow_and_failed_drop(client, monkeypatch):
     from cypher import db, sources, ai
     monkeypatch.setattr(sources, 'news', lambda t: [])
@@ -50,7 +49,6 @@ def test_shared_items_survive_overflow_and_failed_drop(client, monkeypatch):
     assert left == 12, f'{12 - left} shared items lost although no drop was delivered'
 
 
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_shared_overflow_beyond_ten_stays_for_next_drop(client, monkeypatch):
     from cypher import db, sources
     monkeypatch.setattr(sources, 'news', lambda t: [])
@@ -63,7 +61,6 @@ def test_shared_overflow_beyond_ten_stays_for_next_drop(client, monkeypatch):
 
 
 # V3: a failed (empty) news fetch must not be cached for 3 hours for every user
-@pytest.mark.xfail(strict=True, reason="V-open")
 def test_failed_news_fetch_is_not_cached(client, monkeypatch):
     from cypher import db, pipeline, sources
     calls = []

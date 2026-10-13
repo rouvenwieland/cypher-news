@@ -52,7 +52,8 @@ def collect(user, topics, srcs):
         got = db.cache_get(pool_key, 3 * 3600)
         if got is None:
             got = sources.news(t)
-            db.cache_set(pool_key, got)
+            if got:  # an empty answer is usually a hiccup: never pin it for 3 h for every user
+                db.cache_set(pool_key, got)
         items.extend(got); status['news:' + t] = len(got)
     own = [s for s in srcs if s.get('platform') in sources.FETCHERS]
     got, st = sources.fetch_all([], own)
@@ -62,9 +63,8 @@ def collect(user, topics, srcs):
         for r in rows:
             items.append({'platform': 'shared', 'account': 'geteilt', 'kind': 'post', 'text': r['text'] or r['url'] or 'Geteiltes Bild',
                           'url': r['url'] or '', 'taken_at': datetime.fromtimestamp(r['created'], tz=timezone.utc).isoformat(),
-                          'image_url': '', 'image_b64': r['image_b64'] or '', 'shared': True})
-        c.execute('UPDATE shared SET used=1 WHERE user_id=? AND used=0', (user['id'],))
-    return items, status
+                          'image_url': '', 'image_b64': r['image_b64'] or '', 'shared': True, 'shared_id': r['id']})
+    return items, status  # shared rows are marked used only once a drop was really built (see build_drop)
 
 
 def seen_urls(uid):
@@ -166,6 +166,10 @@ def build_drop(user, key, quality='fast', include_vision=True):
     if not out_items:
         used = 'fallback-ohne-ki'
         out_items = [build(s, None) for s in top[:10]]
+    shared_ids = [i['shared_id'] for i in items if i.get('shared_id')]
+    if shared_ids:
+        with db.conn() as c:
+            c.execute(f"UPDATE shared SET used=1 WHERE user_id=? AND id IN ({','.join('?' * len(shared_ids))})", (user['id'], *shared_ids))
     return {'title': (data or {}).get('title') or 'Dein Drop für heute', 'date': datetime.now().strftime('%Y-%m-%d'),
             'intro': (data or {}).get('intro') or 'Frisch gescannt: das Wichtigste zu deinen Themen.', 'items': out_items,
             'meta': {'model': used, 'sources_ok': sum(1 for v in status.values() if v), 'sources_total': len(status),
