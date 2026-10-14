@@ -1,8 +1,8 @@
-const CACHE = 'cypher-news-v6';  // bump on every release that changes cached files
-const SHELL = ['/static/css/style.css', '/static/css/app.css', '/static/js/rain.js', '/static/js/app.js', '/static/icon-192.png', '/static/icon-512.png',
+const CACHE = 'cypher-news-v7';  // bump on every release that changes cached files
+const SHELL = ['/static/css/style.css', '/static/css/app.css', '/static/css/landing.css', '/static/vendor/lenis.css', '/static/vendor/gsap.min.js', '/static/vendor/ScrollTrigger.min.js', '/static/vendor/lenis.min.js', '/static/js/rain.js', '/static/js/motion.js', '/static/js/app.js', '/static/icon-192.png', '/static/icon-512.png',
   '/static/fonts/Newsreader.woff2', '/static/fonts/Newsreader-Italic.woff2', '/static/fonts/VT323.ttf', '/static/fonts/SpaceGrotesk.ttf'];
 const OFFLINE = '<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Cypher News</title>' +
-  '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#12100d;color:#f4eee3;font:19px/1.5 Georgia,serif;text-align:center;padding:24px}' +
+  '<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c0a08;color:#f4eee3;font:19px/1.5 Georgia,serif;text-align:center;padding:24px}' +
   'h1{font-size:34px;margin:0 0 8px}p{margin:0 0 18px;color:#d2c8b9}button{font:600 16px system-ui,sans-serif;background:#ff6a2b;color:#1a0d05;border:0;border-radius:12px;padding:14px 22px;min-height:48px}</style>' +
   '<main><h1>Gerade offline.</h1><p>Cypher News braucht eine Verbindung, um deinen Drop zu laden.</p><button onclick="location.reload()">Erneut versuchen</button></main></html>';
 

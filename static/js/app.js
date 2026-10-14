@@ -15,6 +15,9 @@ const ERR = {
   internal: 'Da ist etwas schiefgelaufen. Versuche es gleich noch einmal.',
   all_models_failed: 'Alle KI-Modelle sind gerade überlastet. Versuche es in ein paar Minuten noch einmal.'
 };
+const M = window.CNMotion || {live: () => false, ready: Promise.resolve(), boot: () => { const p = document.getElementById('preloader'); if (p) p.classList.add('gone'); return Promise.resolve(); }, scramble: (el) => { if (el && el.dataset.final) el.textContent = el.dataset.final; },
+  landingStart: () => ({play() {}}), landingStop() {}, pageIn() {}, tabInd() {}, revealDrop() {}, burst() {}, refresh() {}};  // motion.js missing: app still works
+const fontsReady = (document.fonts && document.fonts.ready) || Promise.resolve();
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 let me = null, sources = [], topics = new Set(), quality = 'fast', current = null, view = 'feed', savedTitles = new Set(), votes = {};
 try { const v = localStorage.getItem('cn-view'); if (v === 'stories' || v === 'feed') view = v; } catch (e) { /* storage may be blocked */ }
@@ -37,28 +40,16 @@ function rain(on) { document.body.classList.toggle('rain-on', on); if (window.Cy
 
 // ---------- masthead: edition date and "decrypt" of the logo ----------
 function setEdition() { try { $('editionDate').textContent = new Date().toLocaleDateString('de-DE', {weekday: 'short', day: 'numeric', month: 'short'}).replace(/\./g, ''); } catch (e) {} }
-function decrypt(el, ms) {
-  const final = el.dataset.final || (el.dataset.final = el.textContent);
-  if (reduced()) { el.textContent = final; return; }
-  const glyphs = 'ABCDEFGHJKLMNPRSTUVXYZ0123456789#%&*+/<>';
-  if (!el.style.minWidth) el.style.minWidth = el.getBoundingClientRect().width + 'px';
-  const t0 = performance.now();
-  (function step(now) {
-    const p = Math.min(1, (now - t0) / ms);
-    let out = '';
-    for (let i = 0; i < final.length; i++) out += final[i] === ' ' || i / final.length < p * 1.1 - .1 ? final[i] : glyphs[Math.floor(Math.random() * glyphs.length)];
-    el.textContent = p < 1 ? out : final;
-    if (p < 1) requestAnimationFrame(step);
-  })(t0);
-}
-$('logo').addEventListener('click', (e) => { e.preventDefault(); decrypt($('logoWord'), 700); });
+$('logo').addEventListener('click', (e) => { e.preventDefault(); M.scramble($('logoWord'), 700); });
 
 // ---------- tabs ----------
-function showTab(name, focus = true) {
+function showTab(name, focus = true, quiet = false) {
   document.querySelectorAll('.tab-btn').forEach((b) => { const on = b.dataset.tab === name; b.classList.toggle('active', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   document.querySelectorAll('.tab-page').forEach((p) => p.hidden = true);
   $('page' + name[0].toUpperCase() + name.slice(1)).hidden = false;
   window.scrollTo(0, 0);
+  M.tabInd(document.querySelector(`.tab-btn[data-tab="${name}"]`));
+  if (!quiet) M.pageIn($('page' + name[0].toUpperCase() + name.slice(1)));
   if (focus) $('main').focus({preventScroll: true});
   document.title = {drop: 'Heute', saved: 'Gemerkt', history: 'Verlauf', profile: 'Profil'}[name] + ' - Cypher News';
   if (name === 'saved') loadSaved();
@@ -71,9 +62,20 @@ $('goProfile').addEventListener('click', () => showTab('profile'));
 async function boot() {
   const hrs = $('dropHour'); hrs.innerHTML = ''; for (let h = 0; h < 24; h++) hrs.insertAdjacentHTML('beforeend', `<option value="${h}">${String(h).padStart(2, '0')}:00 Uhr</option>`);
   try { me = await api('/api/me'); } catch (e) { me = {session: false}; }
-  if (!me.session) { $('welcome').hidden = false; $('mainApp').hidden = true; $('tabNav').hidden = true; rain(true); return; }
-  rain(false);
-  $('welcome').hidden = true; $('mainApp').hidden = false; $('tabNav').hidden = false;
+  if (!me.session) {
+    document.body.classList.remove('is-boot', 'is-app'); document.body.classList.add('is-landing');
+    $('mainApp').hidden = true; $('tabNav').hidden = true; $('skipLink').setAttribute('href', '#landMain'); rain(true);
+    const hero = M.landingStart();                 // Startzustände setzen, solange der Preloader noch deckt
+    await M.boot(false, fontsReady, () => hero.play());
+    return;
+  }
+  try { await bootApp(); } finally { M.boot(true, fontsReady); }
+}
+async function bootApp() {
+  M.landingStop(); rain(false);
+  document.body.classList.remove('is-boot', 'is-landing'); document.body.classList.add('is-app'); $('skipLink').setAttribute('href', '#main');
+  $('mainApp').hidden = false; $('tabNav').hidden = false;
+  M.tabInd(document.querySelector('.tab-btn.active'));
   applyProfile();
   // the stored UTC offset is a fixed number: refresh it when the clock changed (summer/winter time, travel), so drops keep arriving at the chosen local hour
   const tzNow = -new Date().getTimezoneOffset();
@@ -106,12 +108,14 @@ function applyProfile(keepForm) {
 }
 
 // ---------- welcome ----------
+document.querySelectorAll('[data-start]').forEach((b) => b.addEventListener('click', () => $('btnStart').click()));
 $('btnStart').addEventListener('click', async () => {
   try { const r = await api('/api/start', 'POST'); $('recoveryCode').textContent = r.recovery; openRecovery(); }
   catch (e) { toast(e.status === 409 ? 'Du hast schon ein Konto.' : 'Das hat nicht geklappt. Später noch einmal versuchen.', true); if (e.status === 409) boot(); }
 });
-function openRecovery() { $('recoveryModal').hidden = false; document.querySelector('.shell').inert = true; $('closeCode').focus(); }
-$('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; document.querySelector('.shell').inert = false; boot().then(() => $('main').focus({preventScroll: true})); });
+function setInert(on) { document.querySelector('.shell').inert = on; $('welcome').inert = on; }
+function openRecovery() { $('recoveryModal').hidden = false; setInert(true); $('closeCode').focus(); }
+$('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; setInert(false); boot().then(() => $('main').focus({preventScroll: true})); });
 $('copyCode').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('recoveryCode').textContent); toast('Kopiert'); } catch (e) { toast('Kopieren nicht möglich. Markiere den Code und kopiere ihn von Hand.', true); } });
 $('btnShowRestore').addEventListener('click', () => { const r = $('restoreBox'); r.hidden = !r.hidden; $('btnShowRestore').setAttribute('aria-expanded', String(!r.hidden)); if (!r.hidden) $('restoreCode').focus(); });
 $('btnRestore').addEventListener('click', async () => {
@@ -290,6 +294,7 @@ function renderDrop(d) {
   $('storyProgress').innerHTML = items.map((_, i) => `<span class="prog-seg ${i === 0 ? 'active' : ''}"></span>`).join('');
   $('storiesContainer').scrollLeft = 0; updateStepper();
   setView(view);
+  M.revealDrop(view === 'feed');
 }
 function setView(v) {
   view = v; try { localStorage.setItem('cn-view', v); } catch (e) {}
@@ -324,13 +329,13 @@ $('resultsArea').addEventListener('click', async (e) => {
       const was = savedTitles.has(it.title);
       await api('/api/saved', was ? 'DELETE' : 'POST', it);
       was ? savedTitles.delete(it.title) : savedTitles.add(it.title);
-      document.querySelectorAll(`#resultsArea [data-act="save"][data-i="${i}"]`).forEach((x) => { x.classList.toggle('saved', !was); x.setAttribute('aria-pressed', String(!was)); if (!was) pop(x); });
+      document.querySelectorAll(`#resultsArea [data-act="save"][data-i="${i}"]`).forEach((x) => { x.classList.toggle('saved', !was); x.setAttribute('aria-pressed', String(!was)); if (!was) { pop(x); M.burst(x, 'save'); } });
       toast(was ? 'Nicht mehr gemerkt' : 'Gemerkt');
     } else {
       const vote = b.dataset.act === 'up' ? 1 : -1;
       await api('/api/feedback', 'POST', {account: it.account, category: it.category, vote});
       votes[i] = vote;
-      document.querySelectorAll(`#resultsArea [data-i="${i}"][data-act="up"], #resultsArea [data-i="${i}"][data-act="down"]`).forEach((x) => { const on = (x.dataset.act === 'up') === (vote === 1); x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); if (on) pop(x); });
+      document.querySelectorAll(`#resultsArea [data-i="${i}"][data-act="up"], #resultsArea [data-i="${i}"][data-act="down"]`).forEach((x) => { const on = (x.dataset.act === 'up') === (vote === 1); x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); if (on) { pop(x); M.burst(x, vote === 1 ? 'up' : 'down'); } });
       toast(vote === 1 ? 'Mehr davon.' : 'Weniger davon.');
     }
   } catch (err) { toast('Das hat nicht geklappt.', true); }
@@ -364,7 +369,7 @@ async function loadHistory() {
 $('historyContainer').addEventListener('click', async (e) => {
   const g = e.target.closest('[data-go]'); if (g) { showTab(g.dataset.go); return; }
   const h = e.target.closest('.hist'); if (!h) return;
-  try { renderDrop(await api('/api/drops/' + h.dataset.id)); syncEmpty(); showTab('drop'); } catch (err) { toast('Dieser Drop konnte nicht geladen werden.', true); }
+  try { const d = await api('/api/drops/' + h.dataset.id); showTab('drop', true, true); renderDrop(d); syncEmpty(); } catch (err) { toast('Dieser Drop konnte nicht geladen werden.', true); }
 });
 
 if ('serviceWorker' in navigator) {
@@ -378,11 +383,12 @@ function setTheme(t, save) {
   document.querySelectorAll('#themeSeg [data-theme-pick]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.themePick === t)));
   $('themeSeg').style.setProperty('--idx', ['auto', 'light', 'dark'].indexOf(t));
   document.querySelectorAll('meta[name="theme-color"]').forEach((m, i) => { m.content = t === 'auto' ? (i === 0 ? meta.dark : meta.light) : meta[t]; if (t !== 'auto') m.removeAttribute('media'); else m.setAttribute('media', i === 0 ? '(prefers-color-scheme: dark)' : '(prefers-color-scheme: light)'); });
-  if (save) { try { t === 'auto' ? localStorage.removeItem('cn-theme') : localStorage.setItem('cn-theme', t); } catch (e) {} }
+  if (save) { try { localStorage.setItem('cn-theme', t); } catch (e) {} }
 }
+$('landTheme').addEventListener('click', () => { const el = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'); setTheme(el === 'dark' ? 'light' : 'dark', true); });
 $('themeSeg').addEventListener('click', (e) => { const b = e.target.closest('[data-theme-pick]'); if (b) setTheme(b.dataset.themePick, true); });
-let savedTheme = 'auto'; try { savedTheme = localStorage.getItem('cn-theme') || 'auto'; } catch (e) {}
+let savedTheme = 'dark'; try { savedTheme = localStorage.getItem('cn-theme') || 'dark'; } catch (e) {}
 setTheme(savedTheme, false);
 setEdition();
-(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => decrypt($('logoWord'), 900));
+fontsReady.then(() => M.scramble($('logoWord'), 900));
 boot();

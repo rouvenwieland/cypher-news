@@ -1,4 +1,4 @@
-/* Cypher News: Screens. Willkommen, Heute (Lesen/Karten), Profil, Verlauf, Zustände, Rechtliches. */
+/* Cypher News: Screens. Heute (Lesen/Karten), Profil, Verlauf, Zustände, Rechtliches. */
 
 /* Kategorie-Farbe als eine Variable pro Element */
 .cat-konzerte { --cat: var(--c-konzerte); }
@@ -18,18 +18,8 @@
 .tab-page { animation: pageIn .42s var(--ease) both; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(10px); } }
 
-/* ── Willkommen ── */
-.welcome { display: flex; flex-direction: column; gap: 18px; padding-top: 10px; animation: pageIn .6s var(--ease) both; }
-.hero { font-family: var(--serif); font-weight: 560; font-size: clamp(40px, 12vw, 64px); line-height: 1.02; letter-spacing: -.03em; text-wrap: balance; }
-.hero em { font-style: italic; font-weight: 400; color: var(--accent-text); }
-.lead { font-family: var(--serif); font-size: 19px; line-height: 1.55; color: var(--ink-2); max-width: 52ch; }
-.bullets { list-style: none; display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--line); }
-.bullets li { padding: 12px 0 12px 28px; border-bottom: 1px solid var(--line); font-size: 15px; line-height: 1.45; color: var(--ink-2); position: relative; }
-.bullets li::before { content: ''; position: absolute; left: 4px; top: 19px; width: 8px; height: 8px; background: var(--accent); }
-.welcome .btn-drop { margin-top: 8px; }
 .restore { display: flex; gap: 10px; flex-wrap: wrap; animation: pageIn .35s var(--ease) both; }
 .restore input { flex: 1 1 200px; font-family: var(--mono); font-size: 20px; letter-spacing: .06em; }
-@media (min-width: 960px) { .hero { font-size: 68px; } }
 
 /* ── Heute: Steuerleiste ── */
 .dropbar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 26px; }
@@ -126,7 +116,7 @@
 .art-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-top: 14px; }
 .src { flex: 1 1 130px; font-size: 13px; color: var(--dim); min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; line-height: 1.35; overflow-wrap: anywhere; }
 .acts { display: flex; align-items: center; gap: 2px; margin-right: -10px; flex: none; }
-.act { min-width: 44px; height: 44px; border-radius: 50%; display: inline-grid; place-items: center; color: var(--ink-2); text-decoration: none; transition: color .18s, background-color .18s, transform .14s var(--ease); }
+.act { position: relative; min-width: 44px; height: 44px; border-radius: 50%; display: inline-grid; place-items: center; color: var(--ink-2); text-decoration: none; transition: color .18s, background-color .18s, transform .14s var(--ease); }
 .act .ico { width: 21px; height: 21px; }
 .act:active { transform: scale(.88); }
 .act.open { width: auto; border-radius: 999px; padding: 0 14px 0 16px; gap: 4px; display: inline-flex; font-size: 14px; font-weight: 600; color: var(--accent-text); }
@@ -208,3 +198,10 @@
     .seg > button { min-height: 44px; }
 }
 #introTitle:focus { outline: none; }
+
+/* ── Kino-Schicht der App (nur wenn motion.js Bewegung aktiviert hat: body.cin) ── */
+.cin .tab-page, .cin #feedContainer .feed-card { animation: none; }
+.cin .act.pop .ico { animation: none; }
+.rv-cover { position: absolute; inset: 0; z-index: 3; background: var(--bg); border-top: 2px solid var(--accent); pointer-events: none; will-change: transform; }
+.story-card .rv-cover { background: var(--surface); }
+.spark { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--accent); pointer-events: none; }

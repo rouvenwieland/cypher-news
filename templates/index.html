@@ -18,12 +18,18 @@
     <link rel="preload" href="/static/fonts/Newsreader.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v }}">
     <link rel="stylesheet" href="/static/css/app.css?v={{ asset_v }}">
+    <link rel="stylesheet" href="/static/css/landing.css?v={{ asset_v }}">
+    <link rel="stylesheet" href="/static/vendor/lenis.css">
     <script src="/static/js/theme.js?v={{ asset_v }}"></script>
+    <script src="/static/vendor/gsap.min.js" defer></script>
+    <script src="/static/vendor/ScrollTrigger.min.js" defer></script>
+    <script src="/static/vendor/lenis.min.js" defer></script>
     <script src="/static/js/rain.js?v={{ asset_v }}" defer></script>
+    <script src="/static/js/motion.js?v={{ asset_v }}" defer></script>
     <script src="/static/js/app.js?v={{ asset_v }}" defer></script>
 </head>
-<body data-vapid="{{ vapid }}" data-model="{{ model_name }}">
-    <a class="skip" href="#main">Zum Inhalt</a>
+<body class="is-boot" data-vapid="{{ vapid }}" data-model="{{ model_name }}">
+    <a class="skip" id="skipLink" href="#landMain">Zum Inhalt</a>
     <canvas id="rainCanvas" aria-hidden="true"></canvas>
 
     <svg width="0" height="0" class="sprite" aria-hidden="true" focusable="false">
@@ -37,9 +43,110 @@
             <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 13V5H4.5v8H7Zm0 0 3.2 6.2a1.7 1.7 0 0 0 3.2-1.1L12.8 14H18a2 2 0 0 0 2-2.3l-1-5.6a2 2 0 0 0-2-1.6H7"/></symbol>
             <symbol id="i-prev" viewBox="0 0 24 24"><path d="m14.5 6-6 6 6 6"/></symbol>
             <symbol id="i-next" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+            <symbol id="i-theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor"/></symbol>
             <symbol id="i-x" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></symbol>
         </defs>
     </svg>
+
+    <div class="preloader" id="preloader" aria-hidden="true">
+        <div class="pl-top"><span class="pl-tag">Daily Drop</span><span class="pl-tag" id="plClock">08:00</span></div>
+        <div class="pl-word"><span id="plWord">Cypher News</span><i class="cursor"></i></div>
+        <div class="pl-foot"><span class="pl-num"><span id="plNum">000</span><small>%</small></span><span class="pl-bar"><i id="plBar"></i></span></div>
+    </div>
+
+    <div class="landing" id="welcome">
+        <header class="l-top">
+            <a class="l-logo" href="#landMain" aria-label="Cypher News, nach oben"><span>Cypher News</span><i class="cursor" aria-hidden="true"></i></a>
+            <div class="l-top-r">
+                <button class="l-theme" id="landTheme" type="button" aria-label="Zwischen hell und dunkel wechseln"><svg class="ico" aria-hidden="true"><use href="#i-theme"/></svg></button>
+                <button class="l-pill" type="button" data-start>Loslegen</button>
+            </div>
+        </header>
+
+        <main id="landMain" tabindex="-1">
+            <section class="l-hero" data-hero>
+                <div class="l-glow" data-glow aria-hidden="true"></div>
+                <div class="l-clock" data-clock aria-hidden="true">08:00</div>
+                <div class="l-hero-in">
+                    <p class="kicker l-kick" data-hero-in>Daily Drop · dein persönlicher Newsletter</p>
+                    <h1 class="l-h1"><span class="l-ln" data-split>Nichts mehr verpassen.</span> <span class="l-ln l-em" data-split>Kein Scrollen mehr.</span></h1>
+                    <p class="l-term" aria-hidden="true" data-hero-in><span class="pr">&gt;</span> <span id="termLine">drop --morgen 08:00</span><i class="cursor"></i></p>
+                    <p class="l-lead" data-hero-in>Sag einmal, was dich interessiert und wem du folgst. Jeden Tag scannt Cypher News Feeds, Videos und News für dich und schreibt dir einen kurzen Drop: Konzerte, Giveaways, Drops, Trends. Mit offenen KI-Modellen, ohne Anmeldung mit E-Mail oder Passwort.</p>
+                    <div class="l-actions" data-hero-in>
+                        <button class="l-btn" id="btnStart" type="button">Loslegen <svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
+                        <button class="btn-link" id="btnShowRestore" type="button" aria-expanded="false" aria-controls="restoreBox">Ich habe schon ein Konto (Wiederherstellungscode)</button>
+                    </div>
+                    <div id="restoreBox" class="restore" hidden>
+                        <label class="sr-only" for="restoreCode">Wiederherstellungscode</label>
+                        <input type="text" id="restoreCode" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
+                        <button class="btn-small" id="btnRestore" type="button">Wiederherstellen</button>
+                    </div>
+                    <noscript><p class="l-noscript">Zum Anmelden braucht Cypher News JavaScript. Lesen kannst du diese Seite auch ohne.</p></noscript>
+                </div>
+                <div class="l-cue" aria-hidden="true"><span>Scrollen</span><i></i></div>
+            </section>
+
+            <section class="l-manifest">
+                <p class="l-big" data-scrub>Dein Feed ist laut, deine Zeit knapp. Cypher News liest für dich mit und bringt dir jeden Morgen nur das, was zählt: Konzerte, Giveaways, Drops und Trends.</p>
+            </section>
+
+            <section class="l-how" aria-labelledby="howTitle">
+                <header class="l-sec-head">
+                    <p class="kicker">Drei Schritte, null Scrollen</p>
+                    <h2 class="l-h2" id="howTitle">Wie dein Drop <em>entsteht</em></h2>
+                </header>
+                <div class="l-stack" data-stack>
+                    <article class="l-card" data-card>
+                        <span class="l-no" aria-hidden="true">01</span>
+                        <div class="l-card-copy"><h3>Quellen</h3><p>Du nennst Accounts, Kanäle und Feeds. Öffentlich, ohne Login, ohne fremde Passwörter. Instagram, YouTube, Reddit, Bluesky, RSS und mehr.</p></div>
+                        <div class="viz viz-src" aria-hidden="true"><span>r/berlin</span><span>@clubnacht</span><span>YouTube</span><span>RSS</span><span>Bluesky</span><span>@streetwear</span><span>X</span><span>TikTok</span></div>
+                    </article>
+                    <article class="l-card" data-card>
+                        <span class="l-no" aria-hidden="true">02</span>
+                        <div class="l-card-copy"><h3>Auswahl</h3><p>Ein offenes KI-Modell filtert das Rauschen, schaut Bilder an und sortiert nach deinen Interessen. Dein Daumen macht es jeden Tag treffsicherer.</p></div>
+                        <ul class="viz viz-pick" aria-hidden="true"><li class="x">Werbung für Handyvertrag</li><li class="k">Techno-Nacht, Samstag, Berlin</li><li class="x">Gewinnspiel ohne Preis</li><li class="k">Sneaker-Drop, Freitag 10 Uhr</li><li class="x">Doppelte Meldung</li><li class="k">Giveaway: zwei Festivaltickets</li></ul>
+                    </article>
+                    <article class="l-card" data-card>
+                        <span class="l-no" aria-hidden="true">03</span>
+                        <div class="l-card-copy"><h3>Drop</h3><p>Zur Wunschzeit liegt dein Drop bereit: kurz, ruhig, zum Lesen, Merken und Bewerten. Auf dem Handy wie eine Zeitung, die dich kennt.</p></div>
+                        <div class="viz viz-drop" aria-hidden="true"><span class="vd-no">07</span><span class="vd-cat">Konzerte</span><span class="vd-t">Zwei Konzerte im Mauerpark, eins davon heute Abend.</span><span class="vd-s">Drop 08:00 Uhr</span></div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="l-signal" data-signal aria-labelledby="sigTitle">
+                <div class="sig-pin" data-sig-pin>
+                    <div class="sig-noise" data-noise aria-hidden="true"></div>
+                    <div class="sig-copy">
+                        <p class="kicker">Rauschen wird Signal</p>
+                        <h2 class="l-h2" id="sigTitle">Aus <span class="sig-n" data-sig-num>1248</span> Beiträgen werden <em>7</em> Treffer.</h2>
+                        <p class="sig-sub">Dafür brauchst du etwa eine Minute statt einer Stunde Scrollen.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="l-facts" aria-label="Eckdaten">
+                <article data-fact><h3>Kostenlos und offen</h3><p>Open Source (MIT), offene KI-Modelle, kein Abo.</p></article>
+                <article data-fact><h3>Keine Passwörter</h3><p>Nur öffentliche Quellen. Dein Konto hängt am Gerät, gerettet wird es per Code, ohne E-Mail.</p></article>
+                <article data-fact><h3>Teilen in die App</h3><p>Instagram-Posts und Story-Screenshots einfach an Cypher News teilen. Der nächste Drop nimmt sie mit.</p></article>
+            </section>
+
+            <section class="l-final">
+                <h2 class="l-h2 l-h2-xl" data-split>Dein erster Drop wartet.</h2>
+                <button class="l-btn" type="button" data-start>Loslegen <svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
+            </section>
+        </main>
+
+        <footer class="l-foot" data-foot>
+            <div class="l-foot-in" data-foot-in>
+                <p class="l-foot-word" aria-hidden="true">CYPHER</p>
+                <div class="l-foot-links">
+                    <p>Modell: {{ model_name }} (offenes Modell via OpenRouter)</p>
+                    <p>Cypher News 2026 · <a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="https://github.com/rouvenwieland/cypher-news" target="_blank" rel="noopener">Open Source</a></p>
+                </div>
+            </div>
+        </footer>
+    </div>
 
     <div class="shell">
         <aside class="rail">
@@ -49,6 +156,7 @@
             </header>
 
             <nav class="tabs" id="tabNav" aria-label="Bereiche" hidden>
+                <i class="tab-ind" id="tabInd" aria-hidden="true"></i>
                 <button class="tab-btn active" data-tab="drop" aria-current="page"><svg class="ico" aria-hidden="true"><use href="#i-today"/></svg><span>Heute</span></button>
                 <button class="tab-btn" data-tab="saved"><svg class="ico" aria-hidden="true"><use href="#i-saved"/></svg><span>Gemerkt</span></button>
                 <button class="tab-btn" data-tab="history"><svg class="ico" aria-hidden="true"><use href="#i-history"/></svg><span>Verlauf</span></button>
@@ -62,25 +170,6 @@
         </aside>
 
         <main class="stage" id="main" tabindex="-1">
-            <!-- Willkommen (ohne Sitzung) -->
-            <section id="welcome" class="welcome" hidden>
-                <p class="kicker">Dein persönlicher Newsletter</p>
-                <h1 class="hero">Nichts mehr verpassen.<br><em>Kein Scrollen mehr.</em></h1>
-                <p class="lead">Sag einmal, was dich interessiert und wem du folgst. Jeden Tag scannt Cypher News Feeds, Videos und News für dich und schreibt dir einen kurzen Drop: Konzerte, Giveaways, Drops, Trends. Mit offenen KI-Modellen, ohne Anmeldung mit E-Mail oder Passwort.</p>
-                <ul class="bullets">
-                    <li>Kostenlos und Open Source (MIT)</li>
-                    <li>Keine Passwörter fremder Konten, nur öffentliche Quellen</li>
-                    <li>Teilen in die App: Instagram-Posts und Story-Screenshots einfach an Cypher News teilen</li>
-                </ul>
-                <button class="btn-drop" id="btnStart">Loslegen</button>
-                <button class="btn-link" id="btnShowRestore" aria-expanded="false" aria-controls="restoreBox">Ich habe schon ein Konto (Wiederherstellungscode)</button>
-                <div id="restoreBox" class="restore" hidden>
-                    <label class="sr-only" for="restoreCode">Wiederherstellungscode</label>
-                    <input type="text" id="restoreCode" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
-                    <button class="btn-small" id="btnRestore">Wiederherstellen</button>
-                </div>
-            </section>
-
             <div id="mainApp" hidden>
                 <!-- HEUTE -->
                 <section class="tab-page" id="pageDrop">

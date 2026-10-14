@@ -1,2 +1,2 @@
-/* Farbschema vor dem ersten Zeichnen setzen (kein Aufblitzen). Auto = System. */
-(function () { try { var t = localStorage.getItem('cn-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) { /* Speicher gesperrt */ } })();
+/* Farbschema vor dem ersten Zeichnen setzen (kein Aufblitzen). Standard: dunkel. Auto = System. Markiert die Seite als JS-fähig. */
+(function () { var d = document.documentElement; d.classList.add('js'); try { var t = localStorage.getItem('cn-theme'); if (t === 'light' || t === 'dark') d.setAttribute('data-theme', t); else if (t !== 'auto') d.setAttribute('data-theme', 'dark'); } catch (e) { d.setAttribute('data-theme', 'dark'); /* Speicher gesperrt */ } })();

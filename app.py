@@ -18,7 +18,7 @@ def _asset_version():
     """Hash of the client files. It is appended to their URLs (?v=...), so every release has NEW urls and no old service worker
     or browser cache can ever serve stale code."""
     h = hashlib.md5()
-    for rel in ('js/app.js', 'js/rain.js', 'js/theme.js', 'css/style.css', 'css/app.css'):
+    for rel in ('js/app.js', 'js/motion.js', 'js/rain.js', 'js/theme.js', 'css/style.css', 'css/app.css', 'css/landing.css'):
         try:
             with open(os.path.join(app.static_folder, rel), 'rb') as f:
                 h.update(f.read())
