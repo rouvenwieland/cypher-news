@@ -152,13 +152,18 @@ def test_backup_nudge_uploads_soon_but_not_more_often_than_min_gap(client, tmp_p
 
 # R2-C5 (client): the browser knows the real time zone rules; app.js computes the next offset changes and sends them.
 @pytest.mark.skipif(shutil.which('node') is None, reason='node not installed')
-def test_client_finds_the_berlin_transitions():
+def test_client_finds_the_dst_transitions():
+    import json
     src = open(os.path.join(os.path.dirname(__file__), '..', 'static', 'js', 'app.js'), encoding='utf-8').read()
     start = src.index('function tzChanges(')
     end = src.index('\n}\n', start) + 2
-    js = src[start:end] + "\nconsole.log(JSON.stringify(tzChanges(Date.UTC(2026, 9, 14))));"
-    out = subprocess.run(['node', '-e', js], capture_output=True, text=True, env=dict(os.environ, TZ='Europe/Berlin'), timeout=30)
-    assert out.returncode == 0, out.stderr
-    import json
-    got = json.loads(out.stdout)
-    assert got[:2] == [[END_DST_2026, 60], [START_DST_2027, 120]], got
+
+    def run(tz):  # process.env.TZ inside the script: on Windows node ignores a TZ variable from outside
+        js = f"process.env.TZ = '{tz}';\n" + src[start:end] + "\nconsole.log(JSON.stringify(tzChanges(Date.UTC(2026, 9, 14))));"
+        out = subprocess.run(['node', '-e', js], capture_output=True, text=True, timeout=30)
+        assert out.returncode == 0, out.stderr
+        return json.loads(out.stdout)
+    assert run('Europe/Berlin')[:2] == [[END_DST_2026, 60], [START_DST_2027, 120]]
+    assert run('America/New_York')[:2] == [[1793512800, -300], [1805007600, -240]]  # 1.11.2026 / 14.3.2027
+    assert run('Australia/Lord_Howe')[0] == [1806764400, 630]                       # half-hour switch
+    assert run('Asia/Tokyo') == []
