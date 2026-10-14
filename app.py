@@ -98,7 +98,7 @@ def profile(u):
         free_left = max(0, scheduler.FREE_PER_DAY - (u['free_used'] if u['free_used_day'] == day else 0))
     return {'notes': u['notes'], 'sources': json.loads(u['sources'] or '[]'), 'drop_hour': u['drop_hour'], 'quality': u['quality'],
             'has_key': bool(db.decrypt(u['key_enc'])), 'free_left': free_left, 'push': bool(u['push_sub']),
-            'last_drop_day': u['last_drop_day'], 'tz_offset': u['tz_offset']}
+            'last_drop_day': u['last_drop_day'], 'tz_offset': u['tz_offset'], 'tz_changes': json.loads(u['tz_changes'] or '[]')}
 
 
 # ---------- pages ----------
@@ -140,6 +140,7 @@ def start():
     if db.user_by_token(request.cookies.get(COOKIE)):
         return jsonify(error='exists'), 409
     uid, token, recovery = db.create_user()
+    backup.nudge()  # the recovery code is shown once: do not lose the new account to a restart
     return set_cookie(make_response(jsonify(ok=True, recovery=recovery)), token)
 
 
@@ -151,6 +152,7 @@ def restore():
     token = db.restore(code) if re.fullmatch(r'[0-9a-f]{4}(-[0-9a-f]{4}){3}', code) else None
     if not token:
         return jsonify(error='bad_code'), 404
+    backup.nudge()
     return set_cookie(make_response(jsonify(ok=True)), token)
 
 
@@ -183,6 +185,18 @@ def export(u):
 
 
 # ---------- profile ----------
+def _tz_changes(v):
+    """[[utc_seconds, offset_minutes], ...] from the browser (next summer/winter time switches). Raises ValueError if malformed."""
+    if not isinstance(v, list) or len(v) > 8:
+        raise ValueError('tz_changes')
+    out = []
+    for e in v:
+        if not (isinstance(e, list) and len(e) == 2 and all(type(x) is int for x in e)):
+            raise ValueError('tz_changes')
+        out.append([e[0], max(-840, min(840, e[1]))])
+    return json.dumps(sorted(out))
+
+
 @app.route('/api/profile', methods=['PUT'])
 @api
 def put_profile(u):
@@ -192,7 +206,11 @@ def put_profile(u):
         return jsonify(error='bad_request'), 400
     try:
         if 'drop_hour' in b: f['drop_hour'] = max(0, min(23, int(b['drop_hour'])))
-        if 'tz_offset' in b: f['tz_offset'] = max(-840, min(840, int(b['tz_offset'])))
+        if 'tz_offset' in b:
+            f['tz_offset'] = max(-840, min(840, int(b['tz_offset'])))
+            f['tz_changes'] = ''  # a client that sends only the offset knows no switch table (old app version, other zone)
+        if 'tz_changes' in b:
+            f['tz_changes'] = _tz_changes(b['tz_changes'])
     except (TypeError, ValueError):
         return jsonify(error='bad_request'), 400
     if 'notes' in b: f['notes'] = str(b['notes'])[:4000]

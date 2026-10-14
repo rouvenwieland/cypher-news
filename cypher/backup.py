@@ -5,6 +5,9 @@ import hashlib, os, shutil, sqlite3, tempfile, threading, time
 from . import db
 
 FILE = 'cypher.db'
+_wake = threading.Event()        # nudge(): upload soon instead of waiting for the next interval
+_saved = threading.Condition()
+_saved_at = [0.0]                # when the newest snapshot that is stored remotely was taken
 STATE = {'enabled': False, 'last_upload': None, 'last_error': '', 'restore': ''}  # shown on /healthz (never contains secrets)
 
 
@@ -64,14 +67,35 @@ def snapshot():
     return tmp
 
 
+def nudge():
+    """Something important was just written (a drop, a new account): upload soon. A restart before the next upload would
+    restore the older backup and lose it (a drop would then be built and announced twice, see verify/DropRestart.tla)."""
+    _wake.set()
+
+
+def wait_saved(since, timeout=180):
+    """Upload soon and wait until a snapshot taken at or after `since` is stored remotely. True if so, False on timeout."""
+    nudge()
+    with _saved:
+        return _saved.wait_for(lambda: _saved_at[0] >= since, timeout)
+
+
+def _mark_saved(taken):
+    with _saved:
+        _saved_at[0] = max(_saved_at[0], taken)
+        _saved.notify_all()
+
+
 def upload_if_changed(last_hash, upload=None):
     """Returns the new hash. Raises nothing."""
     snap = None
     try:
+        taken = time.time()
         snap = snapshot()
         with open(snap, 'rb') as f:
             h = hashlib.sha256(f.read()).hexdigest()
-        if h == last_hash:
+        if h == last_hash:  # the remote copy already has exactly this content
+            _mark_saved(taken)
             return h
         if upload is None:
             api = _api()
@@ -79,6 +103,7 @@ def upload_if_changed(last_hash, upload=None):
             upload = lambda p: api.upload_file(path_or_fileobj=p, path_in_repo=FILE, repo_id=os.environ['BACKUP_REPO'], repo_type='dataset')
         upload(snap)
         STATE.update(last_upload=time.time(), last_error='')
+        _mark_saved(taken)
         return h
     except Exception as e:
         STATE['last_error'] = f'{type(e).__name__}: {str(e)[:160]}'
@@ -103,12 +128,20 @@ def restore_or_die(retries=(2, 5, 10, 20)):
     return status
 
 
-def start_thread(interval=300):
+def start_thread(interval=300, min_gap=60, upload=None, stop=None):
+    """Uploads every `interval` seconds if the DB changed, and soon after a nudge(). Never more often than every `min_gap`
+    seconds: a burst of nudges (many drops at 08:00) becomes one upload."""
     STATE['enabled'] = True
+    stop = stop or threading.Event()
 
     def loop():
         h = None
-        while True:
-            h = upload_if_changed(h)
-            time.sleep(interval)
-    threading.Thread(target=loop, daemon=True).start()
+        while not stop.is_set():
+            h = upload_if_changed(h, upload)
+            if stop.wait(min_gap):
+                break
+            _wake.wait(max(0, interval - min_gap))
+            _wake.clear()  # cleared BEFORE the next snapshot: a nudge after this point is in it or triggers the next round
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+    return t

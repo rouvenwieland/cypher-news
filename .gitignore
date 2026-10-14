@@ -14,3 +14,6 @@ data/*.db-*
 .pytest_cache/
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# TLC work directories
+verify/states/

@@ -2,7 +2,7 @@
 import json, os, threading, time, traceback
 from datetime import datetime, timedelta, timezone
 
-from . import ai, db, pipeline, push
+from . import ai, backup, db, pipeline, push
 
 _run_slots = threading.BoundedSemaphore(2)  # at most 2 drops at once (free-tier rate limits), never one global blocking lock
 _fails = {}  # uid -> (day, attempts, last_try): transient failures are retried, not dropped for the whole day
@@ -14,8 +14,25 @@ FREE_PER_DAY = int(os.environ.get('FREE_DROPS_PER_DAY', '1'))
 _inflight, _inflight_lock = set(), threading.Lock()  # users whose drop is being built right now (one build per user at a time)
 
 
+def offset_at(u, now_utc):
+    """UTC offset in minutes at `now_utc`. tz_offset is the offset when the app was last opened; tz_changes lists the next
+    summer/winter time switches the browser computed ([[utc_seconds, offset], ...]), so the drop stays at the chosen local
+    hour after a switch even if the app is not opened (25.10.2026 used to bring it one hour early)."""
+    off = u['tz_offset'] or 0
+    try:
+        changes = json.loads(u['tz_changes'] or '[]')
+    except (IndexError, KeyError, ValueError, TypeError):
+        changes = []
+    ts = now_utc.timestamp()
+    for t, o in changes:
+        if t <= ts:
+            off = o
+    return off
+
+
 def local_now(u):
-    return datetime.now(timezone.utc) + timedelta(minutes=u['tz_offset'] or 0)
+    now = datetime.now(timezone.utc)
+    return now + timedelta(minutes=offset_at(u, now))
 
 
 def pick_key(u):
@@ -50,7 +67,8 @@ def _run_for_user(uid, manual):
         u = c.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()
     if not u:
         return False, 'no_user', None
-    if not manual and u['last_drop_day'] == local_now(u).strftime('%Y-%m-%d'):
+    day = local_now(u).strftime('%Y-%m-%d')  # the day this drop is FOR; a build running past midnight still counts for it
+    if not manual and (u['last_drop_day'] or '') >= day:  # ">=": the local date can go back (travel west), never redo a day
         return False, 'already_done', None
     if not (u['notes'] or '').strip() and not json.loads(u['sources'] or '[]'):
         return False, 'no_profile', None
@@ -66,8 +84,7 @@ def _run_for_user(uid, manual):
     except Exception:
         print(f'drop crashed for {uid}:\n' + traceback.format_exc(), flush=True)
         return False, 'internal', None
-    day = local_now(u).strftime('%Y-%m-%d')
-    fields = {'last_drop_day': day}
+    fields = {'last_drop_day': max(day, u['last_drop_day'] or '')}
     if free:
         fields.update(free_used_day=day, free_used=(u['free_used'] if u['free_used_day'] == day else 0) + 1)
     drop['id'] = None
@@ -78,10 +95,24 @@ def _run_for_user(uid, manual):
         drop['id'] = cur.lastrowid
         c.execute('DELETE FROM drops WHERE user_id=? AND id NOT IN (SELECT id FROM drops WHERE user_id=? ORDER BY created DESC LIMIT 30)', (uid, uid))
     db.update_user(uid, **fields)
+    saved = time.time()
+    backup.nudge()
     if u['push_sub'] and not manual:
-        if push.send(u['push_sub'], 'Dein Drop ist da', f"{len(drop['items'])} Treffer: {drop['title']}"[:120]) is False:
-            db.update_user(uid, push_sub='')
+        args = (uid, u['push_sub'], f"{len(drop['items'])} Treffer: {drop['title']}"[:120], saved)
+        if backup.STATE['enabled']:  # wait for the upload in the background, the next user's drop must not wait
+            threading.Thread(target=_notify, args=args, daemon=True).start()
+        else:
+            _notify(*args)
     return True, '', drop
+
+
+def _notify(uid, sub, body, saved):
+    """Announce a drop only once it is in the backup: after a restart before the upload the drop would be gone (and built and
+    announced a second time) although the push already said it is there. On a backup timeout the push goes out anyway."""
+    if backup.STATE['enabled']:
+        backup.wait_saved(saved)
+    if push.send(sub, 'Dein Drop ist da', body) is False:
+        db.update_user(uid, push_sub='')
 
 
 def due_users(now_utc=None):
@@ -89,7 +120,7 @@ def due_users(now_utc=None):
     for u in db.all_users():
         ln = local_now(u)
         day = ln.strftime('%Y-%m-%d')
-        if u['last_drop_day'] == day or ln.hour < (u['drop_hour'] if u['drop_hour'] is not None else 8):
+        if (u['last_drop_day'] or '') >= day or ln.hour < (u['drop_hour'] if u['drop_hour'] is not None else 8):
             continue
         fday, attempts, last = _fails.get(u['id'], (day, 0, 0))
         if fday == day and (attempts >= MAX_ATTEMPTS or now - last < RETRY_AFTER):

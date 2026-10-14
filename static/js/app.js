@@ -77,15 +77,29 @@ async function bootApp() {
   $('mainApp').hidden = false; $('tabNav').hidden = false;
   M.tabInd(document.querySelector('.tab-btn.active'));
   applyProfile();
-  // the stored UTC offset is a fixed number: refresh it when the clock changed (summer/winter time, travel), so drops keep arriving at the chosen local hour
-  const tzNow = -new Date().getTimezoneOffset();
-  if (me.tz_offset !== tzNow) api('/api/profile', 'PUT', {tz_offset: tzNow}).catch(() => {});
+  // the stored UTC offset is a fixed number: refresh it when the clock changed (travel), and send the next summer/winter time
+  // switches with it, so the server keeps the drop at the chosen local hour even if the app is not opened after a switch
+  const tzNow = -new Date().getTimezoneOffset(), tzc = tzChanges();
+  if (me.tz_offset !== tzNow || JSON.stringify(me.tz_changes || []) !== JSON.stringify(tzc)) api('/api/profile', 'PUT', {tz_offset: tzNow, tz_changes: tzc}).catch(() => {});
   const sh = new URLSearchParams(location.search).get('share');
   if (sh) { toast(sh === 'ok' ? 'Geteilt! Kommt in deinen nächsten Drop.' : sh === 'login' ? 'Bitte erst die App öffnen und loslegen.' : 'Nichts zum Teilen gefunden.', sh !== 'ok'); history.replaceState(null, '', '/'); }
   try { (await api('/api/saved')).saved.forEach((s) => savedTitles.add(s.title)); } catch (e) {}
   try { const ds = (await api('/api/drops')).drops; if (ds.length) renderDrop(await api('/api/drops/' + ds[0].id)); } catch (e) {}
   syncEmpty();
   if (!me.notes && !sources.length) showTab('profile', false);
+}
+// Next changes of the UTC offset (summer/winter time) within about a year: [[utc_seconds, offset_minutes], ...].
+// The browser knows the real time zone rules, the server only gets these numbers (no time zone database needed there).
+function tzChanges(from = Date.now()) {
+  const off = (t) => -new Date(t).getTimezoneOffset(), M = 60e3, D = 1440 * M, out = [];
+  let t = Math.floor(from / M) * M, o = off(t);
+  for (let i = 0; i < 400 && out.length < 8; i++, t += D) {
+    if (off(t + D) === o) continue;
+    let lo = t, hi = t + D;                          // switches happen on a full minute: search it to the minute
+    while (hi - lo > M) { const mid = lo + Math.max(1, Math.floor((hi - lo) / (2 * M))) * M; if (off(mid) === o) lo = mid; else hi = mid; }
+    o = off(hi); out.push([hi / 1000, o]);
+  }
+  return out;
 }
 function syncEmpty() { $('todayEmpty').hidden = !!current; $('dropBar').classList.toggle('compact', !!current); }
 
@@ -171,7 +185,7 @@ function setQuality(q) {
 }
 document.querySelectorAll('.q-btn').forEach((b) => b.addEventListener('click', () => setQuality(b.dataset.q)));
 async function saveProfile(quiet) {
-  await api('/api/profile', 'PUT', {notes: $('notes').value, sources, drop_hour: +$('dropHour').value, quality, tz_offset: -new Date().getTimezoneOffset()});
+  await api('/api/profile', 'PUT', {notes: $('notes').value, sources, drop_hour: +$('dropHour').value, quality, tz_offset: -new Date().getTimezoneOffset(), tz_changes: tzChanges()});
   me = await api('/api/me'); applyProfile(); if (!quiet) toast('Gespeichert');
 }
 $('saveProfile').addEventListener('click', async () => { const b = $('saveProfile'); setBusy(b, true); try { await saveProfile(); } catch (e) { toast('Speichern fehlgeschlagen.', true); } finally { setBusy(b, false); } });
