@@ -35,6 +35,16 @@ Geteilter Text: Original als `sr-only`, sichtbare Wörter `aria-hidden`. Touch-Z
 ## Qualitätsregeln
 Keine Konsolenfehler, kein horizontaler Überlauf bei 375 px, Kontrast der Textpaare mindestens 4,5:1 in beiden Modi, Fokus sichtbar. Neue Schriften nur lokal.
 
+## Barrierefreiheit: bewusste Entscheidungen
+- Segment-Schalter: Auswahl = 2-px-Rahmen in `--accent` + Fettdruck + Haken, nicht nur ein blasser Daumen (Nicht-Text-Kontrast mindestens 3:1).
+- Fehler an Feldern sind dauerhaft (`role=alert`, `aria-describedby`, `aria-invalid`) und verschwinden erst beim Tippen oder bei Erfolg. Toasts sind nur noch Bestätigungen (`role=status`) oder kurze Fehler ohne Feld (`role=alert`, 8 s).
+- Gesperrte Knöpfe (Drop erzeugen, Speichern, Kartenpfeil am Ende) nutzen `aria-disabled` und ignorieren Klicks. `disabled` würde den Fokus verlieren.
+- Tabwechsel setzt den Fokus auf die Überschrift der neuen Seite. Entfernen in "Gemerkt" geschieht an Ort und Stelle, der Fokus springt auf den nächsten Eintrag.
+- Code-Dialog: Der Wiederherstellungscode wird nur einmal gezeigt. Der Dialog schließt deshalb **nur** mit "Gespeichert", nicht mit Escape oder Klick auf den Hintergrund. Escape erklärt das in einer Statuszeile und setzt den Fokus auf "Gespeichert". Startfokus ist die Überschrift (ein versehentliches Enter schließt nichts), Tab bleibt im Dialog.
+- Karten wachsen mit ihrem Text (Mindesthöhe statt fester Höhe, keine Zeilenbegrenzung): nichts wird bei Zoom, Textabstand oder 400 % abgeschnitten.
+- Touch-Ziele (Chips, Segment-Schalter, Quellen-Chips) sind für jeden Zeiger mindestens 44 px hoch.
+- Prüfung: `tests/e2e_a11y.py` (Browser, axe optional) und `tests/test_a11y_static.py`.
+
 ---
 ## Anhang: Fassung 1b (Morgenausgabe), weiterhin gültig für die App
 ## Typografie (alles lokal, keine Anfragen an Dritte)
@@ -60,7 +70,7 @@ Ein Signalton (Orange) für Aktionen und Zahl. Kategorien sind kleine Punkte mit
 | Leer (kein Drop) | großes "00", Erklärung, Button "Zum Profil" |
 | Leer (Gemerkt, Verlauf, keine Treffer) | Serif-Satz mit Akzentstrich und nächstem Schritt |
 | Laden | Terminal mit Zeilen alle 6 s, Zeitzähler, Hinweis "meist 30 bis 90 Sekunden", Regen an, Button gesperrt mit Spinner |
-| Fehler | dauerhafte Meldung (`role=alert`) plus Toast; früherer Drop bleibt sichtbar |
+| Fehler | dauerhafte Meldung (`role=alert`) direkt am Feld oder auf der Seite, kein zweiter Toast; früherer Drop bleibt sichtbar |
 | Teilweise | "Nicht erreichbar: ..." mit gelbem Punkt unter dem Titelblatt |
 | Erfolg | Toast "Dein Drop ist fertig", Fokus auf Titel, Merken/Daumen mit Zustand und kleiner Bestätigungsbewegung |
 | Offline | eigene Offline-Seite im Service Worker |

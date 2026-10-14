@@ -76,10 +76,12 @@
                         <button class="l-btn" id="btnStart" type="button">Loslegen <svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
                         <button class="btn-link" id="btnShowRestore" type="button" aria-expanded="false" aria-controls="restoreBox">Ich habe schon ein Konto (Wiederherstellungscode)</button>
                     </div>
+                    <p class="field-error" id="startError" role="alert" hidden></p>
                     <div id="restoreBox" class="restore" hidden>
                         <label class="sr-only" for="restoreCode">Wiederherstellungscode</label>
                         <input type="text" id="restoreCode" placeholder="xxxx-xxxx-xxxx-xxxx" autocomplete="off" autocapitalize="off" spellcheck="false">
                         <button class="btn-small" id="btnRestore" type="button">Wiederherstellen</button>
+                        <p class="field-error" id="restoreError" role="alert" hidden></p>
                     </div>
                     <noscript><p class="l-noscript">Zum Anmelden braucht Cypher News JavaScript. Lesen kannst du diese Seite auch ohne.</p></noscript>
                 </div>
@@ -134,6 +136,7 @@
             <section class="l-final">
                 <h2 class="l-h2 l-h2-xl" data-split>Dein erster Drop wartet.</h2>
                 <button class="l-btn" type="button" data-start>Loslegen <svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
+                <p class="field-error" id="startErrorFinal" role="alert" hidden></p>
             </section>
         </main>
 
@@ -185,7 +188,7 @@
                     </div>
                     <div class="today-empty" id="todayEmpty" hidden>
                         <span class="big-no" aria-hidden="true">00</span>
-                        <h1>Noch kein Drop.</h1>
+                        <h1 tabindex="-1">Noch kein Drop.</h1>
                         <p>Speichere unter Profil, was dich interessiert und welchen Quellen du folgst. Dann schreibt Cypher News dir deine erste Ausgabe.</p>
                         <button class="btn-small" id="goProfile">Zum Profil</button>
                     </div>
@@ -218,7 +221,7 @@
 
                 <!-- PROFIL -->
                 <section class="tab-page" id="pageProfile" hidden>
-                    <h1 class="page-title">Profil</h1>
+                    <h1 class="page-title" tabindex="-1">Profil</h1>
                     <div class="onboarding">
                         <section class="sec">
                             <h2 class="sec-title"><span class="no">01</span> Interessen</h2>
@@ -235,6 +238,7 @@
                                 <input type="text" id="sourceInput" aria-label="Account oder Link" placeholder="@account, r/berlin, Link ..." autocomplete="off" autocapitalize="off" spellcheck="false">
                                 <button class="btn-small icon" id="sourceAdd" aria-label="Quelle hinzufügen">+</button>
                             </div>
+                            <p class="field-error" id="sourceError" role="alert" hidden></p>
                             <div class="source-chips" id="sourceChips"></div>
                             <details class="more">
                                 <summary>Viele Accounts auf einmal importieren</summary>
@@ -242,6 +246,7 @@
                                 <select id="importPlatform" aria-label="Plattform der Liste"><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="youtube">YouTube</option><option value="reddit">Reddit</option><option value="x">X</option><option value="bluesky">Bluesky</option></select>
                                 <textarea id="importText" rows="4" aria-label="Follow-Liste" placeholder="@account1&#10;@account2"></textarea>
                                 <button class="btn-small" id="importBtn">Importieren</button>
+                                <p class="field-error" id="importError" role="alert" hidden></p>
                             </details>
                             <p class="hint warn">Hinweis: Instagram und TikTok blockieren automatisches Lesen oft. Was nicht erreichbar ist, siehst du im Drop. Sicher klappt es mit <b>Teilen in die App</b>: Post oder Story-Screenshot teilen und „Cypher News“ wählen.</p>
                         </section>
@@ -253,6 +258,7 @@
                             <div class="quality-row"><span class="quality-label" id="modusLabel">Modus</span>
                                 <div class="seg quality-toggle" id="qualitySeg" role="group" aria-labelledby="modusLabel"><button class="q-btn active" data-q="fast" aria-pressed="true">Schnell</button><button class="q-btn" data-q="high" aria-pressed="false">Genau</button></div></div>
                             <button class="btn-drop" id="saveProfile">Speichern</button>
+                            <p class="field-error" id="saveError" role="alert" hidden></p>
                         </section>
 
                         <section class="sec" id="keyBox">
@@ -262,12 +268,14 @@
                             <label class="sr-only" for="keyInput">OpenRouter-Schlüssel</label>
                             <input type="password" id="keyInput" placeholder="sk-or-..." autocomplete="off" autocapitalize="off" spellcheck="false">
                             <div class="btn-row"><button class="btn-small" id="keySave">Speichern</button><button class="btn-small ghost" id="keyDelete">Entfernen</button></div>
+                            <p class="field-error" id="keyError" role="alert" hidden></p>
                         </section>
 
                         <section class="sec">
                             <h2 class="sec-title"><span class="no">05</span> Benachrichtigung</h2>
                             <p class="hint" id="pushInfo">Bekomme eine Nachricht, wenn dein Drop fertig ist. Auf dem iPhone muss die App zuerst zum Home-Bildschirm hinzugefügt werden.</p>
                             <div class="btn-row"><button class="btn-small" id="pushBtn">Push aktivieren</button></div>
+                            <p class="field-error" id="pushError" role="alert" hidden></p>
                         </section>
 
                         <section class="sec">
@@ -279,25 +287,28 @@
                             <h2 class="sec-title"><span class="no">07</span> Konto &amp; Daten</h2>
                             <p class="hint">Du hast kein Passwort. Dein Konto hängt an diesem Gerät. Mit dem Wiederherstellungscode kommst du auf einem anderen Gerät hinein. Du bekommst ihn nur einmal angezeigt.</p>
                             <div class="btn-row"><a class="btn-small" href="/api/export">Daten exportieren</a><button class="btn-small ghost danger" id="deleteAccount">Konto löschen</button></div>
+                            <p class="field-error" id="accountError" role="alert" hidden></p>
                             <p class="hint"><a href="/datenschutz">Datenschutz</a> · <a href="/impressum">Impressum</a> · <a href="https://github.com/rouvenwieland/cypher-news" target="_blank" rel="noopener">Open Source</a></p>
                         </section>
                     </div>
                 </section>
 
-                <section class="tab-page" id="pageSaved" hidden><h1 class="page-title">Gemerkt</h1><div id="savedContainer" class="feed"></div></section>
-                <section class="tab-page" id="pageHistory" hidden><h1 class="page-title">Verlauf</h1><div id="historyContainer" class="feed"></div></section>
+                <section class="tab-page" id="pageSaved" hidden><h1 class="page-title" tabindex="-1">Gemerkt</h1><div id="savedContainer" class="feed"></div></section>
+                <section class="tab-page" id="pageHistory" hidden><h1 class="page-title" tabindex="-1">Verlauf</h1><div id="historyContainer" class="feed"></div></section>
             </div>
         </main>
     </div>
 
-    <div class="modal-overlay" id="recoveryModal" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle" hidden>
+    <div class="modal-overlay" id="recoveryModal" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle" aria-describedby="recoveryHint recoveryCode" hidden>
         <div class="modal-card">
-            <h2 class="modal-title" id="recoveryTitle">Dein Code</h2>
-            <p class="modal-hint">Speichere diesen Wiederherstellungscode (Screenshot oder Passwortmanager). Ohne ihn kannst du dein Konto auf einem neuen Gerät nicht öffnen. Er wird nicht noch einmal angezeigt.</p>
+            <h2 class="modal-title" id="recoveryTitle" tabindex="-1">Dein Code</h2>
+            <p class="modal-hint" id="recoveryHint">Speichere diesen Wiederherstellungscode (Screenshot oder Passwortmanager). Ohne ihn kannst du dein Konto auf einem neuen Gerät nicht öffnen. Er wird nicht noch einmal angezeigt.</p>
             <div class="code" id="recoveryCode"></div>
+            <p class="modal-note" id="recoveryNote" role="status"></p>
             <div class="modal-actions"><button class="modal-btn cancel" id="copyCode">Kopieren</button><button class="modal-btn confirm" id="closeCode">Gespeichert</button></div>
         </div>
     </div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="toast error" id="toastErr" role="alert"></div>
 </body>
 </html>

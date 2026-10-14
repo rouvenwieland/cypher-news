@@ -25,7 +25,23 @@ try { const v = localStorage.getItem('cn-view'); if (v === 'stories' || v === 'f
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
 function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : ''; }
 function ico(n) { return `<svg class="ico" aria-hidden="true"><use href="#i-${n}"/></svg>`; }
-function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (bad ? ' error' : ''); clearTimeout(toast.t); toast.t = setTimeout(() => { t.className = 'toast'; setTimeout(() => { if (!t.classList.contains('show')) t.textContent = ''; }, 400); }, 3800); }
+// Short confirmations: polite status toast. Errors: assertive alert toast that stays longer (8 s). Errors tied to a control use setErr instead (they stay until fixed).
+function toast(msg, bad) {
+  const t = $(bad ? 'toastErr' : 'toast'), o = $(bad ? 'toast' : 'toastErr');
+  clearTimeout(toast.t); o.classList.remove('show'); o.textContent = '';
+  t.textContent = msg; t.classList.add('show');
+  toast.t = setTimeout(() => { t.classList.remove('show'); setTimeout(() => { if (!t.classList.contains('show')) t.textContent = ''; }, 400); }, bad ? 8000 : 3800);
+}
+// Persistent error text next to its control (WCAG 3.3.1, 3.3.3, 4.1.3): role=alert text, linked with aria-describedby; inputs also get aria-invalid.
+// An empty msg clears it. opts.invalid=false: warning only, the field itself is not wrong.
+function setErr(ctrl, errId, msg, opts = {}) {
+  const e = $(errId), ids = new Set((ctrl.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+  const field = /^(INPUT|TEXTAREA|SELECT)$/.test(ctrl.tagName) && opts.invalid !== false;
+  if (msg) { e.textContent = msg; e.hidden = false; ids.add(errId); if (field) ctrl.setAttribute('aria-invalid', 'true'); }
+  else { e.textContent = ''; e.hidden = true; ids.delete(errId); ctrl.removeAttribute('aria-invalid'); }
+  if (ids.size) ctrl.setAttribute('aria-describedby', [...ids].join(' ')); else ctrl.removeAttribute('aria-describedby');
+}
+const clearOnInput = (input, errId) => input.addEventListener('input', () => { if (!$(errId).hidden) setErr(input, errId, ''); });
 async function api(path, method = 'GET', body) {
   const o = {method, credentials: 'same-origin', headers: {'X-Client': '2'}};
   if (body instanceof FormData) o.body = body; else if (body !== undefined) { o.headers['Content-Type'] = 'application/json'; o.body = JSON.stringify(body); }
@@ -34,7 +50,9 @@ async function api(path, method = 'GET', body) {
   if (!r.ok) { const e = new Error(data.error || 'http_' + r.status); e.code = data.error || ''; e.status = r.status; throw e; }
   return data;
 }
-function setBusy(btn, on) { btn.disabled = on; btn.classList.toggle('is-busy', on); btn.setAttribute('aria-busy', on ? 'true' : 'false'); }
+// Busy/disabled controls use aria-disabled, not disabled: a disabled button that has focus drops the focus (keyboard and screen reader users lose their place).
+function setBusy(btn, on) { btn.setAttribute('aria-disabled', on ? 'true' : 'false'); btn.classList.toggle('is-busy', on); btn.setAttribute('aria-busy', on ? 'true' : 'false'); }
+const isOff = (btn) => btn.getAttribute('aria-disabled') === 'true';
 function stagger(container) { [...container.children].forEach((el, i) => el.style.setProperty('--i', Math.min(i, 9))); }
 function rain(on) { document.body.classList.toggle('rain-on', on); if (window.CypherRain) on ? window.CypherRain.start() : window.CypherRain.stop(); }
 
@@ -43,6 +61,15 @@ function setEdition() { try { $('editionDate').textContent = new Date().toLocale
 $('logo').addEventListener('click', (e) => { e.preventDefault(); M.scramble($('logoWord'), 700); });
 
 // ---------- tabs ----------
+const TITLES = {drop: 'Heute', saved: 'Gemerkt', history: 'Verlauf', profile: 'Profil'};
+const setTitle = (name) => { document.title = TITLES[name] + ' - Cypher News'; };
+// After a tab change the focus goes to the heading of the new page (screen readers announce where they are, the next Tab continues in the content).
+function focusPage(name) {
+  let el = null;
+  if (name === 'drop') el = !$('resultsArea').hidden ? $('introTitle') : !$('todayEmpty').hidden ? document.querySelector('#todayEmpty h1') : $('dropBtn');
+  else el = document.querySelector('#page' + name[0].toUpperCase() + name.slice(1) + ' .page-title');
+  (el || $('main')).focus({preventScroll: true});
+}
 function showTab(name, focus = true, quiet = false) {
   document.querySelectorAll('.tab-btn').forEach((b) => { const on = b.dataset.tab === name; b.classList.toggle('active', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   document.querySelectorAll('.tab-page').forEach((p) => p.hidden = true);
@@ -50,8 +77,8 @@ function showTab(name, focus = true, quiet = false) {
   window.scrollTo(0, 0);
   M.tabInd(document.querySelector(`.tab-btn[data-tab="${name}"]`));
   if (!quiet) M.pageIn($('page' + name[0].toUpperCase() + name.slice(1)));
-  if (focus) $('main').focus({preventScroll: true});
-  document.title = {drop: 'Heute', saved: 'Gemerkt', history: 'Verlauf', profile: 'Profil'}[name] + ' - Cypher News';
+  if (focus) focusPage(name);
+  setTitle(name);
   if (name === 'saved') loadSaved();
   if (name === 'history') loadHistory();
 }
@@ -76,6 +103,7 @@ async function bootApp() {
   document.body.classList.remove('is-boot', 'is-landing'); document.body.classList.add('is-app'); $('skipLink').setAttribute('href', '#main');
   $('mainApp').hidden = false; $('tabNav').hidden = false;
   M.tabInd(document.querySelector('.tab-btn.active'));
+  setTitle(document.querySelector('.tab-btn.active').dataset.tab);   // direct entry: the tab title instead of the landing title
   applyProfile();
   // the stored UTC offset is a fixed number: refresh it when the clock changed (travel), and send the next summer/winter time
   // switches with it, so the server keeps the drop at the chosen local hour even if the app is not opened after a switch
@@ -122,18 +150,42 @@ function applyProfile(keepForm) {
 }
 
 // ---------- welcome ----------
-document.querySelectorAll('[data-start]').forEach((b) => b.addEventListener('click', () => $('btnStart').click()));
-$('btnStart').addEventListener('click', async () => {
+let starting = false;
+async function startAccount(btn) {
+  if (starting) return;
+  const errId = btn.closest('.l-final') ? 'startErrorFinal' : 'startError';        // the message appears next to the button that was used
+  setErr(btn, errId, ''); starting = true;
   try { const r = await api('/api/start', 'POST'); $('recoveryCode').textContent = r.recovery; openRecovery(); }
-  catch (e) { toast(e.status === 409 ? 'Du hast schon ein Konto.' : 'Das hat nicht geklappt. Später noch einmal versuchen.', true); if (e.status === 409) boot(); }
-});
+  catch (e) {
+    if (e.status === 409) { toast('Du hast schon ein Konto.'); boot(); }
+    else { setErr(btn, errId, e.status === 429 ? ERR.rate_limited : 'Das hat nicht geklappt. Versuche es später noch einmal.'); $(errId).scrollIntoView({block: 'nearest', behavior: reduced() ? 'auto' : 'smooth'}); }
+  } finally { starting = false; }
+}
+document.querySelectorAll('[data-start]').forEach((b) => b.addEventListener('click', () => startAccount(b)));
+$('btnStart').addEventListener('click', () => startAccount($('btnStart')));
 function setInert(on) { document.querySelector('.shell').inert = on; $('welcome').inert = on; $('skipLink').inert = on; }
-function openRecovery() { $('recoveryModal').hidden = false; setInert(true); $('closeCode').focus(); }
-$('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; setInert(false); boot().then(() => $('main').focus({preventScroll: true})); });
-$('copyCode').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('recoveryCode').textContent); toast('Kopiert'); } catch (e) { toast('Kopieren nicht möglich. Markiere den Code und kopiere ihn von Hand.', true); } });
+// Recovery code dialog. The code is shown exactly once, so the dialog closes ONLY with "Gespeichert" (a deliberate choice, not an oversight):
+// Escape and clicks on the backdrop do not close it, Escape explains why and moves to "Gespeichert". Start focus is the heading (not the
+// confirm button), so a stray Enter cannot close the dialog before the code was read. Tab stays inside the dialog.
+function openRecovery() { setNote(''); $('recoveryModal').hidden = false; setInert(true); $('recoveryTitle').focus(); }
+function setNote(t) { $('recoveryNote').textContent = t; }
+$('recoveryModal').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { e.preventDefault(); setNote('Der Code wird nur einmal angezeigt, deshalb schließt Escape diesen Dialog nicht. Wenn du ihn gesichert hast, wähle „Gespeichert“.'); $('closeCode').focus(); return; }
+  if (e.key !== 'Tab') return;
+  const first = $('copyCode'), last = $('closeCode'), a = document.activeElement;
+  if (e.shiftKey && (a === first || a === $('recoveryTitle'))) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && a === last) { e.preventDefault(); first.focus(); }
+});
+$('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; setInert(false); boot().then(() => focusPage(document.querySelector('.tab-btn.active').dataset.tab)); });
+$('copyCode').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('recoveryCode').textContent); setNote('Kopiert. Bewahre den Code sicher auf.'); } catch (e) { setNote('Kopieren nicht möglich. Markiere den Code und kopiere ihn von Hand.'); } });
 $('btnShowRestore').addEventListener('click', () => { const r = $('restoreBox'); r.hidden = !r.hidden; $('btnShowRestore').setAttribute('aria-expanded', String(!r.hidden)); if (!r.hidden) $('restoreCode').focus(); });
+const CODE_RE = /^[0-9a-f]{4}(-[0-9a-f]{4}){3}$/i;
+clearOnInput($('restoreCode'), 'restoreError');
 $('btnRestore').addEventListener('click', async () => {
-  try { await api('/api/restore', 'POST', {code: $('restoreCode').value}); boot(); } catch (e) { toast('Code nicht gefunden.', true); }
+  const inp = $('restoreCode'), v = inp.value.trim(); setErr(inp, 'restoreError', '');
+  if (!CODE_RE.test(v)) { setErr(inp, 'restoreError', 'Das sieht nicht wie ein Wiederherstellungscode aus. Er hat vier Gruppen aus je vier Zeichen, zum Beispiel 1a2b-3c4d-5e6f-7a8b.'); inp.focus(); return; }
+  try { await api('/api/restore', 'POST', {code: v}); boot(); }
+  catch (e) { setErr(inp, 'restoreError', e.status === 429 ? ERR.rate_limited : e.status === 404 ? 'Code nicht gefunden. Prüfe die Schreibweise und versuche es noch einmal.' : 'Das hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal.'); inp.focus(); }
 });
 $('restoreCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnRestore').click(); });
 
@@ -154,29 +206,32 @@ function renderSources() {
 }
 $('sourceChips').addEventListener('click', (e) => { const r = e.target.closest('.remove'); if (r) { sources.splice(+r.dataset.i, 1); renderSources(); } });
 async function addSource() {
-  const v = $('sourceInput').value.trim(); if (!v) return;
+  const inp = $('sourceInput'), v = inp.value.trim(); setErr(inp, 'sourceError', '');
+  if (!v) { setErr(inp, 'sourceError', 'Gib einen @Account, einen Namen wie r/berlin oder einen Link ein.'); inp.focus(); return; }
   try {
     const d = await api('/api/sources/detect', 'POST', {value: v, platform: $('sourcePlatform').value});
-    if (!d.platform) { toast('Plattform nicht erkannt. Wähle sie links aus oder nutze einen Link.', true); return; }
+    if (!d.platform) { setErr(inp, 'sourceError', 'Plattform nicht erkannt. Wähle sie links aus oder nutze einen Link.'); inp.focus(); return; }
     if (!sources.some((s) => s.platform === d.platform && s.value === d.value)) sources.push({platform: d.platform, value: d.value});
-    $('sourceInput').value = ''; renderSources();
+    inp.value = ''; renderSources();
     toast('Prüfe ' + d.value + ' …');
     try {
       const t = await api('/api/sources/test', 'POST', {platform: d.platform, value: d.value});
-      toast(t.count ? `${t.count} aktuelle Beiträge gefunden`
-        : (d.platform === 'x' ? 'Hinzugefügt. Die öffentlichen X-Spiegel sind gerade nicht erreichbar. Tipp: X-Links in die App teilen.'
-          : 'Hinzugefügt, aber gerade nicht erreichbar. Tipp: Teile Posts direkt in die App.'), !t.count);
+      if (t.count) toast(`${t.count} aktuelle Beiträge gefunden`);
+      else setErr(inp, 'sourceError', d.platform === 'x' ? 'Hinzugefügt. Die öffentlichen X-Spiegel sind gerade nicht erreichbar. Tipp: X-Links in die App teilen.'
+        : 'Hinzugefügt, aber gerade nicht erreichbar. Tipp: Teile Posts direkt in die App.', {invalid: false});
     } catch (e) { /* adding already worked */ }
-  } catch (e) { toast('Konnte Quelle nicht hinzufügen.', true); }
+  } catch (e) { setErr(inp, 'sourceError', 'Konnte die Quelle nicht hinzufügen. Prüfe deine Verbindung und versuche es noch einmal.'); inp.focus(); }
 }
 $('sourceAdd').addEventListener('click', addSource);
 $('sourceInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addSource(); } });
+clearOnInput($('sourceInput'), 'sourceError'); clearOnInput($('importText'), 'importError');
 $('importBtn').addEventListener('click', async () => {
+  setErr($('importText'), 'importError', '');
   try {
     const d = await api('/api/sources/import', 'POST', {text: $('importText').value, platform: $('importPlatform').value});
     let n = 0; d.found.forEach((f) => { if (!sources.some((s) => s.platform === f.platform && s.value === f.value)) { sources.push(f); n++; } });
     renderSources(); $('importText').value = ''; toast(n + ' Quellen importiert. Zum Übernehmen unten speichern.');
-  } catch (e) { toast('Import fehlgeschlagen.', true); }
+  } catch (e) { setErr($('importText'), 'importError', 'Import fehlgeschlagen. Füge pro Zeile einen Handle oder Link ein und versuche es noch einmal.'); $('importText').focus(); }
 });
 function setQuality(q) {
   quality = q;
@@ -188,31 +243,41 @@ async function saveProfile(quiet) {
   await api('/api/profile', 'PUT', {notes: $('notes').value, sources, drop_hour: +$('dropHour').value, quality, tz_offset: -new Date().getTimezoneOffset(), tz_changes: tzChanges()});
   me = await api('/api/me'); applyProfile(); if (!quiet) toast('Gespeichert');
 }
-$('saveProfile').addEventListener('click', async () => { const b = $('saveProfile'); setBusy(b, true); try { await saveProfile(); } catch (e) { toast('Speichern fehlgeschlagen.', true); } finally { setBusy(b, false); } });
+$('saveProfile').addEventListener('click', async () => {
+  const b = $('saveProfile'); if (isOff(b)) return; setBusy(b, true); setErr(b, 'saveError', '');
+  try { await saveProfile(); } catch (e) { setErr(b, 'saveError', 'Speichern fehlgeschlagen. Prüfe deine Verbindung und versuche es noch einmal.'); } finally { setBusy(b, false); }
+});
 
 // ---------- key / account ----------
+clearOnInput($('keyInput'), 'keyError');
 $('keySave').addEventListener('click', async () => {
-  try { await api('/api/key', 'POST', {key: $('keyInput').value}); $('keyInput').value = ''; me = await api('/api/me'); applyProfile(true); toast('Schlüssel gespeichert'); }
-  catch (e) { toast(e.code === 'key_rejected' ? 'OpenRouter lehnt diesen Schlüssel ab.' : 'Das sieht nicht wie ein OpenRouter-Schlüssel aus (sk-or-...).', true); }
+  const inp = $('keyInput'); setErr(inp, 'keyError', '');
+  try { await api('/api/key', 'POST', {key: inp.value}); inp.value = ''; me = await api('/api/me'); applyProfile(true); toast('Schlüssel gespeichert'); }
+  catch (e) { setErr(inp, 'keyError', e.code === 'key_rejected' ? 'OpenRouter lehnt diesen Schlüssel ab. Prüfe, ob du ihn vollständig kopiert hast.' : 'Das sieht nicht wie ein OpenRouter-Schlüssel aus. Er beginnt mit sk-or- und wird auf openrouter.ai unter Keys erstellt.'); inp.focus(); }
 });
-$('keyDelete').addEventListener('click', async () => { try { await api('/api/key', 'DELETE'); me = await api('/api/me'); applyProfile(true); toast('Schlüssel entfernt'); } catch (e) { toast('Das hat nicht geklappt.', true); } });
+$('keyDelete').addEventListener('click', async () => {
+  const b = $('keyDelete'); setErr(b, 'keyError', '');
+  try { await api('/api/key', 'DELETE'); me = await api('/api/me'); applyProfile(true); toast('Schlüssel entfernt'); } catch (e) { setErr(b, 'keyError', 'Der Schlüssel konnte nicht entfernt werden. Versuche es noch einmal.'); }
+});
 $('deleteAccount').addEventListener('click', async () => {
+  const b = $('deleteAccount'); setErr(b, 'accountError', '');
   if (!confirm('Konto und alle Daten wirklich unwiderruflich löschen?')) return;
-  try { await api('/api/me', 'DELETE'); location.reload(); } catch (e) { toast('Konto konnte nicht gelöscht werden.', true); }
+  try { await api('/api/me', 'DELETE'); location.reload(); } catch (e) { setErr(b, 'accountError', 'Das Konto konnte nicht gelöscht werden. Versuche es noch einmal.'); }
 });
 
 // ---------- push ----------
 function b64ToU8(s) { const p = '='.repeat((4 - s.length % 4) % 4); const r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map((c) => c.charCodeAt(0))); }
 $('pushBtn').addEventListener('click', async () => {
+  const b = $('pushBtn'); setErr(b, 'pushError', '');
   try {
     if (me.push) { await api('/api/push', 'DELETE'); me.push = false; applyProfile(true); return; }
     const key = document.body.dataset.vapid;
-    if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) { toast('Push wird hier nicht unterstützt (iPhone: erst zum Home-Bildschirm hinzufügen).', true); return; }
-    if (await Notification.requestPermission() !== 'granted') { toast('Benachrichtigungen nicht erlaubt.', true); return; }
+    if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) { setErr(b, 'pushError', 'Push wird hier nicht unterstützt (iPhone: erst zum Home-Bildschirm hinzufügen).'); return; }
+    if (await Notification.requestPermission() !== 'granted') { setErr(b, 'pushError', 'Benachrichtigungen sind nicht erlaubt. Erlaube sie in den Einstellungen deines Browsers und versuche es noch einmal.'); return; }
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64ToU8(key)});
     await api('/api/push', 'POST', sub.toJSON()); me.push = true; applyProfile(true); toast('Push aktiv');
-  } catch (e) { toast('Push konnte nicht aktiviert werden.', true); }
+  } catch (e) { setErr(b, 'pushError', 'Push konnte nicht umgestellt werden. Versuche es noch einmal.'); }
 });
 
 // ---------- generate ----------
@@ -233,7 +298,7 @@ async function generateDrop() {
 }
 function showDropError(msg) { const n = $('dropError'); n.textContent = msg; n.hidden = false; n.scrollIntoView({block: 'nearest', behavior: reduced() ? 'auto' : 'smooth'}); }
 $('dropBtn').addEventListener('click', async () => {
-  const btn = $('dropBtn'); setBusy(btn, true); $('resultsArea').hidden = true; $('todayEmpty').hidden = true; $('dropError').hidden = true;
+  const btn = $('dropBtn'); if (isOff(btn)) return; setBusy(btn, true); $('resultsArea').hidden = true; $('todayEmpty').hidden = true; $('dropError').hidden = true;
   const term = $('terminal'); $('terminalWrapper').classList.add('visible'); term.innerHTML = ''; rain(true);
   const t0 = Date.now(); $('elapsed').textContent = '0:00';
   const clock = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); $('elapsed').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }, 1000);
@@ -248,14 +313,15 @@ $('dropBtn').addEventListener('click', async () => {
   } catch (e) {
     failed = true;
     const msg = ERR[e.code] || (e.status === 401 ? 'Du bist nicht mehr angemeldet. Seite neu laden.' : 'Das hat nicht geklappt. Versuche es gleich noch einmal.');
-    toast(msg, true); showDropError(msg);
-    if (e.code === 'no_key' || e.code === 'key_invalid') showTab('profile');
+    if (e.code === 'no_key' || e.code === 'key_invalid') {        // the fix is on the profile page: show the message at the key field and move there
+      showTab('profile', false); setErr($('keyInput'), 'keyError', msg); $('keyInput').focus();
+    } else if ($('pageDrop').hidden) toast(msg, true);              // user left the page meanwhile: the alert toast reaches them anywhere
+    else showDropError(msg);                                        // persistent role=alert note on the page (no second toast: it would be read twice)
   } finally {
     clearInterval(tick); clearInterval(clock); setBusy(btn, false); $('terminalWrapper').classList.remove('visible'); rain(false);
     if (failed && current) $('resultsArea').hidden = false;  // keep showing the previous drop
     syncEmpty();
-    if (!failed) { $('resultsArea').scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'}); $('introTitle').focus({preventScroll: true}); }
-    else btn.focus();
+    if (!failed && !$('pageDrop').hidden) { $('resultsArea').scrollIntoView({block: 'start', behavior: reduced() ? 'auto' : 'smooth'}); if ([document.body, btn].includes(document.activeElement)) $('introTitle').focus({preventScroll: true}); }
   }
 });
 
@@ -266,12 +332,13 @@ function actions(item, i, o = {}) {
   const url = safeUrl(item.url), t = esc(item.title);
   const saved = o.unsave || savedTitles.has(item.title);
   return `<div class="acts">${url ? `<a class="act open" href="${esc(url)}" target="_blank" rel="noopener noreferrer" aria-label="Öffnen: ${t} (neues Fenster)">Öffnen ${ico('open')}</a>` : ''}
-    <button type="button" class="act ${saved ? 'saved' : ''}" ${o.unsave ? `data-act="unsave" data-title="${t}"` : `data-act="save" data-i="${i}"`} aria-pressed="${saved}" aria-label="${o.unsave ? 'Gemerkt, zum Entfernen tippen' : 'Merken'}: ${t}">${ico('saved')}</button>
+    ${o.unsave ? `<button type="button" class="act saved" data-act="unsave" data-title="${t}" aria-label="Aus Gemerkt entfernen: ${t}">${ico('saved')}</button>`
+      : `<button type="button" class="act ${saved ? 'saved' : ''}" data-act="save" data-i="${i}" aria-pressed="${saved}" aria-label="Merken: ${t}">${ico('saved')}</button>`}
     ${o.votes ? `<button type="button" class="act ${votes[i] === 1 ? 'on' : ''}" data-act="up" data-i="${i}" aria-pressed="${votes[i] === 1}" aria-label="Mehr davon: ${t}">${ico('up')}</button><button type="button" class="act ${votes[i] === -1 ? 'on' : ''}" data-act="down" data-i="${i}" aria-pressed="${votes[i] === -1}" aria-label="Weniger davon: ${t}">${ico('down')}</button>` : ''}</div>`;
 }
 function card(item, i, n) {
   const cat = CATS[item.category] || 'sonstiges', img = imgOf(item), no = String(i + 1).padStart(2, '0');
-  return `<article class="story-card cat-${cat}" data-cat="${esc(item.category)}" role="group" aria-roledescription="Karte" aria-label="Karte ${i + 1} von ${n}">
+  return `<article class="story-card cat-${cat}" data-cat="${esc(item.category)}" aria-roledescription="Karte" aria-label="Karte ${i + 1} von ${n}">
     <div class="story-visual ${img ? 'has-img' : ''}">${img ? `<img src="${esc(img)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : ''}<span class="story-no" aria-hidden="true">${no}</span><span class="story-of" aria-hidden="true">${no} / ${String(n).padStart(2, '0')}</span></div>
     <div class="story-body">
       <div class="head"><span class="cat-pill">${esc(item.category)}</span><span class="art-when">${esc(item.when)}</span></div>
@@ -323,11 +390,11 @@ $('btnStories').addEventListener('click', () => setView('stories')); $('btnFeed'
 function updateStepper() {
   const c = $('storiesContainer'), n = current ? current.items.length : 0, idx = Math.round(c.scrollLeft / (c.clientWidth || 1));
   document.querySelectorAll('.prog-seg').forEach((s, i) => s.classList.toggle('active', i <= idx));
-  $('storyPrev').disabled = idx <= 0; $('storyNext').disabled = idx >= n - 1;
+  $('storyPrev').setAttribute('aria-disabled', String(idx <= 0)); $('storyNext').setAttribute('aria-disabled', String(idx >= n - 1));   // not disabled: the focus would be lost on the last card
 }
 $('storiesContainer').addEventListener('scroll', () => requestAnimationFrame(updateStepper), {passive: true});
 function stepStory(dir) { const c = $('storiesContainer'); c.scrollBy({left: dir * c.clientWidth, behavior: reduced() ? 'auto' : 'smooth'}); }
-$('storyPrev').addEventListener('click', () => stepStory(-1)); $('storyNext').addEventListener('click', () => stepStory(1));
+$('storyPrev').addEventListener('click', (e) => { if (!isOff(e.currentTarget)) stepStory(-1); }); $('storyNext').addEventListener('click', (e) => { if (!isOff(e.currentTarget)) stepStory(1); });
 $('catFilters').addEventListener('click', (e) => {
   const c = e.target.closest('.chip'); if (!c) return; const on = c.classList.toggle('active'); c.setAttribute('aria-pressed', String(on));
   const act = new Set([...document.querySelectorAll('#catFilters .chip.active')].map((x) => x.dataset.cat));
@@ -357,18 +424,28 @@ $('resultsArea').addEventListener('click', async (e) => {
 
 // ---------- saved + history ----------
 function skeleton(c) { c.innerHTML = '<div class="skel" aria-hidden="true">' + '<i class="s-l"></i><i class="s-t"></i><i class="s-p"></i><i class="s-p s-short"></i>'.repeat(3) + '</div>'; }
+const EMPTY_SAVED = '<div class="empty" tabindex="-1"><p>Noch nichts gemerkt.<small>Tippe auf das Lesezeichen an einer Meldung, dann liegt sie hier.</small></p></div>';
 async function loadSaved() {
   const c = $('savedContainer'); skeleton(c);
   try {
     const s = (await api('/api/saved')).saved;
     savedTitles = new Set(s.map((x) => x.title));
-    c.innerHTML = s.length ? s.map((x, i) => article(x, i, {unsave: true})).join('') : '<div class="empty"><p>Noch nichts gemerkt.<small>Tippe auf das Lesezeichen an einer Meldung, dann liegt sie hier.</small></p></div>';
+    c.innerHTML = s.length ? s.map((x, i) => article(x, i, {unsave: true})).join('') : EMPTY_SAVED;
     stagger(c);
   } catch (e) { c.innerHTML = '<div class="empty"><p>Gemerktes konnte nicht geladen werden.<small>Prüfe deine Verbindung und öffne den Bereich noch einmal.</small></p></div>'; }
 }
 $('savedContainer').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act="unsave"]'); if (!b) return;
-  try { await api('/api/saved', 'DELETE', {title: b.dataset.title}); loadSaved(); } catch (err) { toast('Das hat nicht geklappt.', true); }
+  const c = $('savedContainer'), card = b.closest('.feed-card');
+  try {
+    await api('/api/saved', 'DELETE', {title: b.dataset.title}); savedTitles.delete(b.dataset.title);
+    const all = [...c.querySelectorAll('.feed-card')], at = all.indexOf(card);
+    card.remove();                                            // in place, no reload: the focus is not thrown back to the top
+    const rest = [...c.querySelectorAll('.feed-card [data-act="unsave"]')];
+    if (rest.length) rest[Math.min(at, rest.length - 1)].focus();   // the next entry, or the previous one when the last was removed
+    else { c.innerHTML = EMPTY_SAVED; c.firstElementChild.focus(); }
+    toast('Aus Gemerkt entfernt');
+  } catch (err) { toast('Das hat nicht geklappt.', true); }
 });
 function dayParts(day) { const d = new Date(String(day) + 'T12:00:00'); return isNaN(d) ? {d: '', m: esc(day), long: esc(day)} : {d: d.getDate(), m: esc(d.toLocaleDateString('de-DE', {month: 'short'}).replace('.', '')), long: esc(d.toLocaleDateString('de-DE', {weekday: 'long', day: 'numeric', month: 'long'}))}; }
 async function loadHistory() {
@@ -384,7 +461,7 @@ async function loadHistory() {
 $('historyContainer').addEventListener('click', async (e) => {
   const g = e.target.closest('[data-go]'); if (g) { showTab(g.dataset.go); return; }
   const h = e.target.closest('.hist'); if (!h) return;
-  try { const d = await api('/api/drops/' + h.dataset.id); showTab('drop', true, true); renderDrop(d); syncEmpty(); } catch (err) { toast('Dieser Drop konnte nicht geladen werden.', true); }
+  try { const d = await api('/api/drops/' + h.dataset.id); showTab('drop', false, true); renderDrop(d); syncEmpty(); $('introTitle').focus({preventScroll: true}); } catch (err) { toast('Dieser Drop konnte nicht geladen werden.', true); }
 });
 
 if ('serviceWorker' in navigator) {

@@ -1,4 +1,4 @@
-const CACHE = 'cypher-news-v7';  // bump on every release that changes cached files
+const CACHE = 'cypher-news-v8';  // bump on every release that changes cached files
 const SHELL = ['/static/css/style.css', '/static/css/app.css', '/static/css/landing.css', '/static/vendor/lenis.css', '/static/vendor/gsap.min.js', '/static/vendor/ScrollTrigger.min.js', '/static/vendor/lenis.min.js', '/static/js/rain.js', '/static/js/motion.js', '/static/js/app.js', '/static/icon-192.png', '/static/icon-512.png',
   '/static/fonts/Newsreader.woff2', '/static/fonts/Newsreader-Italic.woff2', '/static/fonts/VT323.ttf', '/static/fonts/SpaceGrotesk.ttf'];
 const OFFLINE = '<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - Cypher News</title>' +
