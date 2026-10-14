@@ -41,7 +41,7 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 .l-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; padding: 120px var(--lp) 84px; overflow: clip; }
 .l-glow { position: absolute; z-index: 0; width: 90vmax; height: 90vmax; right: -38vmax; top: -34vmax; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in oklab, var(--accent) 34%, transparent), color-mix(in oklab, var(--accent) 9%, transparent) 55%, transparent); pointer-events: none; }
 :root[data-theme="light"] .l-glow { opacity: .55; }
-.l-clock { position: absolute; z-index: 0; right: calc(var(--lp) * .5); bottom: 7svh; font-family: var(--serif); font-weight: 300; font-size: clamp(110px, 21vw, 320px); line-height: .85; letter-spacing: -.05em; color: transparent; -webkit-text-stroke: 1.5px color-mix(in oklab, var(--ink) 20%, transparent); white-space: nowrap; user-select: none; pointer-events: none; font-variant-numeric: tabular-nums lining-nums; }
+.l-clock { position: absolute; z-index: 0; right: calc(var(--lp) * .5); bottom: 7svh; font-family: var(--serif); font-weight: 300; font-size: clamp(110px, 21vw, 320px); line-height: .85; letter-spacing: -.05em; color: transparent; -webkit-text-stroke: 1.5px color-mix(in oklab, var(--ink) 12%, transparent); white-space: nowrap; user-select: none; pointer-events: none; font-variant-numeric: tabular-nums lining-nums; }
 .l-hero-in { position: relative; z-index: 1; max-width: 1240px; display: flex; flex-direction: column; gap: 22px; align-items: flex-start; }
 .l-kick { color: var(--ink-2); }
 .l-h1 { font-family: var(--serif); font-weight: 560; font-size: clamp(46px, 13.4vw, 148px); line-height: .96; letter-spacing: -.04em; font-optical-sizing: auto; text-wrap: balance; }
@@ -81,10 +81,11 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 .l-card-copy h3 { font-family: var(--serif); font-weight: 580; font-size: clamp(34px, 5vw, 60px); line-height: 1; letter-spacing: -.03em; margin-bottom: 12px; }
 .l-card-copy p { font-family: var(--serif); font-size: clamp(18px, 2vw, 22px); line-height: 1.5; color: var(--ink-2); max-width: 40ch; }
 @media (min-width: 900px) {
-    .l-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'no viz' 'copy viz'; align-content: space-between; min-height: min(66svh, 560px); padding: 40px 44px; gap: 28px 40px; }
+    .l-card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'no viz' 'copy viz'; align-content: space-between; min-height: min(54svh, 480px); padding: 40px 44px; gap: 28px 40px; }
     .l-no { grid-area: no; } .l-card-copy { grid-area: copy; align-self: end; } .viz { grid-area: viz; }
 }
 .viz { align-self: center; }
+.l-card:nth-child(3) .viz { align-self: end; }
 .viz-src { display: flex; flex-wrap: wrap; gap: 10px; align-content: center; }
 .viz-src span { font-family: var(--mono); font-size: 22px; line-height: 1; color: var(--ink); padding: 11px 16px 9px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--control); background: color-mix(in oklab, var(--bg) 60%, transparent); }
 .viz-src span:nth-child(3n+1) { color: var(--ok); }
@@ -108,7 +109,7 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 .sig-noise span { white-space: nowrap; }
 .sig-noise .hit { color: var(--accent-text); }
 .sig-copy { position: relative; z-index: 1; max-width: 1000px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-.sig-copy::before { content: ''; position: absolute; z-index: -1; inset: -12% -14%; background: radial-gradient(closest-side, var(--bg) 40%, transparent); }
+.sig-copy::before { content: ''; position: absolute; z-index: -1; inset: -26% -22%; background: radial-gradient(closest-side, var(--bg) 62%, transparent); }
 .sig-n { font-variant-numeric: tabular-nums lining-nums; color: var(--ink-2); }
 .sig-sub { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2.4vw, 26px); color: var(--ink-2); }
 
