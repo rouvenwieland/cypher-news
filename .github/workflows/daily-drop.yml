@@ -1,31 +1,39 @@
-# Keeps the free Render service awake in the morning, so the built-in scheduler can build the daily drops.
-# GitHub throttles frequent cron schedules (a "*/10" cron really ran only every 3-6 h), so instead one run
-# pings every 4.5 minutes from its start until 10:00 UTC (11/12 o'clock in Germany). The service sleeps outside that window
-# (this also keeps it far below Render's free 750 instance hours per month, which are shared with other free services).
-# Drops that fall outside the window are built as soon as the app wakes up (visit or ping).
+# Keeps the free Render service awake ALL DAY, so the built-in scheduler can build every user's drop at their chosen hour.
+# GitHub throttles frequent cron schedules (a "*/10" cron really ran only every 3-6 h) and limits one job to 6 h, so instead
+# each run pings /healthz every 10 minutes for 5 h 40 min. Several cron entries (every 3 h) start runs; the concurrency group
+# lets only one run work at a time and queues the next, so the chain of runs covers the whole day without gaps.
+# Render's free service sleeps after 15 min without traffic, so a 10-minute ping keeps it awake. Public repository: Actions minutes are free.
+# Limits are checked by tests/test_keepawake.py. NOTE: a service that is awake 24/7 uses about 730 of Render's 750 free instance hours per month.
 name: keep-awake
 on:
   schedule:
+    - cron: '5 0 * * *'
     - cron: '5 3 * * *'
-    - cron: '5 5 * * *'
-    - cron: '5 7 * * *'
+    - cron: '5 6 * * *'
+    - cron: '5 9 * * *'
+    - cron: '5 12 * * *'
+    - cron: '5 15 * * *'
+    - cron: '5 18 * * *'
+    - cron: '5 21 * * *'
   workflow_dispatch:
 concurrency:
   group: keep-awake
   cancel-in-progress: false
 env:
   APP_URL: https://cypher-news.onrender.com
+  PING_INTERVAL_S: 600
+  RUN_SECONDS: 20400
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 480
+    timeout-minutes: 350
     steps:
-      - name: Ping until 10:00 UTC
+      - name: Ping every 10 minutes for 5 h 40 min
         run: |
-          end=$(date -u -d 'today 10:00' +%s)
+          end=$(( $(date -u +%s) + RUN_SECONDS ))
           n=0
           while [ "$(date -u +%s)" -lt "$end" ]; do
             curl -fsS -m 90 --retry 2 --retry-delay 15 "$APP_URL/healthz" > /dev/null || echo "ping failed at $(date -u +%H:%M)"
-            n=$((n+1)); sleep 270
+            n=$((n+1)); sleep "$PING_INTERVAL_S"
           done
           echo "done after $n pings"

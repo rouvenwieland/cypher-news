@@ -83,6 +83,7 @@
 
   function landingStart() {
     if (!live || landing) return {play: function () {}};
+    var prevRestore = history.scrollRestoration; history.scrollRestoration = 'manual'; window.scrollTo(0, 0);
     var root = $('welcome'), lenis = null, tickFn = null, intervals = [], offs = [], splits = [];
     if (window.Lenis) {
       lenis = new window.Lenis({lerp: .09, wheelMultiplier: .95});
@@ -151,7 +152,7 @@
       var cnt = {n: 1248};
       var sig = G.timeline({defaults: {ease: 'none'}})
         .to(junk, {autoAlpha: 0, duration: 1, stagger: {amount: .8, from: 'random'}}, 0)
-        .to(hits, {scale: 1.35, duration: 1}, .2)
+        .to(hits, {scale: window.innerWidth < 600 ? 1.1 : 1.35, duration: 1}, .2)
         .to(noise, {opacity: .8, duration: 1}, 0)
         .to(cnt, {n: 7, duration: 1.3, snap: {n: 1}, onUpdate: function () { num.textContent = cnt.n; }}, 0);
       mm = G.matchMedia();
@@ -159,7 +160,7 @@
         ST.create({animation: sig, trigger: sec, start: 'top top', end: '+=120%', scrub: 1, pin: true, anticipatePin: 1});
       });
       mm.add('(max-width: 899.98px)', function () {
-        ST.create({animation: sig, trigger: sec, start: 'top 70%', end: 'bottom 45%', scrub: .8});
+        ST.create({animation: sig, trigger: sec, start: 'top 55%', end: 'bottom 30%', scrub: .8});
       });
       // Footer: Wortmarke fährt wie ein Vorhang hoch
       var foot = $$('[data-foot]', root)[0];
@@ -176,7 +177,7 @@
         if (mm) mm.revert(); ctx.revert(); splits.forEach(unsplit);
         if (lenis) { G.ticker.remove(tickFn); lenis.destroy(); }
         $$('[data-clock]', root).forEach(function (c) { c.textContent = '08:00'; });
-        landing = null;
+        history.scrollRestoration = prevRestore; landing = null;
       }
     };
     return {play: function () { hero.play(0); }};

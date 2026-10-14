@@ -342,8 +342,9 @@ $('resultsArea').addEventListener('click', async (e) => {
 });
 
 // ---------- saved + history ----------
+function skeleton(c) { c.innerHTML = '<div class="skel" aria-hidden="true">' + '<i class="s-l"></i><i class="s-t"></i><i class="s-p"></i><i class="s-p s-short"></i>'.repeat(3) + '</div>'; }
 async function loadSaved() {
-  const c = $('savedContainer');
+  const c = $('savedContainer'); skeleton(c);
   try {
     const s = (await api('/api/saved')).saved;
     savedTitles = new Set(s.map((x) => x.title));
@@ -357,7 +358,7 @@ $('savedContainer').addEventListener('click', async (e) => {
 });
 function dayParts(day) { const d = new Date(String(day) + 'T12:00:00'); return isNaN(d) ? {d: '', m: esc(day), long: esc(day)} : {d: d.getDate(), m: esc(d.toLocaleDateString('de-DE', {month: 'short'}).replace('.', '')), long: esc(d.toLocaleDateString('de-DE', {weekday: 'long', day: 'numeric', month: 'long'}))}; }
 async function loadHistory() {
-  const c = $('historyContainer');
+  const c = $('historyContainer'); skeleton(c);
   try {
     const ds = (await api('/api/drops')).drops;
     c.innerHTML = ds.length ? ds.map((d) => { const p = dayParts(d.day);

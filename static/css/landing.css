@@ -44,7 +44,7 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 .l-clock { position: absolute; z-index: 0; right: calc(var(--lp) * .5); bottom: 7svh; font-family: var(--serif); font-weight: 300; font-size: clamp(110px, 21vw, 320px); line-height: .85; letter-spacing: -.05em; color: transparent; -webkit-text-stroke: 1.5px color-mix(in oklab, var(--ink) 20%, transparent); white-space: nowrap; user-select: none; pointer-events: none; font-variant-numeric: tabular-nums lining-nums; }
 .l-hero-in { position: relative; z-index: 1; max-width: 1240px; display: flex; flex-direction: column; gap: 22px; align-items: flex-start; }
 .l-kick { color: var(--ink-2); }
-.l-h1 { font-family: var(--serif); font-weight: 560; font-size: clamp(46px, 11.4vw, 148px); line-height: .96; letter-spacing: -.04em; font-optical-sizing: auto; text-wrap: balance; }
+.l-h1 { font-family: var(--serif); font-weight: 560; font-size: clamp(46px, 13.4vw, 148px); line-height: .96; letter-spacing: -.04em; font-optical-sizing: auto; text-wrap: balance; }
 .l-ln { display: block; }
 .l-em { font-style: italic; font-weight: 400; color: var(--accent-text); }
 .l-term { font-family: var(--mono); font-size: 24px; line-height: 1; color: var(--ok); display: flex; align-items: center; gap: 8px; min-height: 28px; }
@@ -104,7 +104,7 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 /* ── Rauschen wird Signal ── */
 .l-signal { position: relative; background: var(--bg); }
 .sig-pin { position: relative; min-height: 100svh; display: grid; place-items: center; padding: 90px var(--lp); overflow: clip; text-align: center; }
-.sig-noise { position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 6px 22px; padding: 0 2vw; font-family: var(--mono); font-size: 21px; line-height: 1.15; color: var(--dim); opacity: .3; user-select: none; }
+.sig-noise { position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; gap: 6px 22px; padding: 0 2vw; font-family: var(--mono); font-size: clamp(16px, 2.4vw, 21px); line-height: 1.15; color: var(--dim); opacity: .3; user-select: none; }
 .sig-noise span { white-space: nowrap; }
 .sig-noise .hit { color: var(--accent-text); }
 .sig-copy { position: relative; z-index: 1; max-width: 1000px; display: flex; flex-direction: column; align-items: center; gap: 18px; }

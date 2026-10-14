@@ -205,3 +205,10 @@
 .rv-cover { position: absolute; inset: 0; z-index: 3; background: var(--bg); border-top: 2px solid var(--accent); pointer-events: none; will-change: transform; }
 .story-card .rv-cover { background: var(--surface); }
 .spark { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--accent); pointer-events: none; }
+
+/* ── Ruhige Ladezustände: Platzhalterzeilen mit langsamem Schimmer (nur transform) ── */
+.skel { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; }
+.skel i { display: block; position: relative; overflow: hidden; border-radius: 6px; background: var(--surface-2); height: 16px; }
+.skel i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--ink) 9%, transparent), transparent); transform: translateX(-100%); animation: shimmer 1.6s var(--ease) infinite; }
+.skel .s-l { width: 28%; height: 11px; margin-top: 22px; } .skel .s-t { height: 28px; width: 82%; } .skel .s-p { width: 100%; } .skel .s-short { width: 64%; }
+@keyframes shimmer { to { transform: translateX(100%); } }
