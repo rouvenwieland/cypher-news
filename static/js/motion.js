@@ -49,8 +49,10 @@
   // ── Preloader: endet immer (Schutz 4,5 s hier, 6 s per CSS) ──
   var pl = $('preloader'), plResolve, ready = new Promise(function (r) { plResolve = r; }), started = performance.now(), prog = {v: 0};
   function paint() { var n = $('plNum'), b = $('plBar'); if (n) n.textContent = String(Math.round(prog.v)).padStart(3, '0'); if (b) b.style.transform = 'scaleX(' + prog.v / 100 + ')'; }
-  function removePl() { if (pl) pl.classList.add('gone'); plResolve(); }
+  function lock(on) { var w = $('welcome'), k = $('skipLink'); if (w) w.inert = on; if (k) k.inert = on; }
+function removePl() { if (pl) pl.classList.add('gone'); lock(false); plResolve(); }
   if (pl && live) {
+    lock(true);
     scramble($('plWord'), 900); scramble($('plClock'), 1100, '08:00');
     G.to(prog, {v: 88, duration: 1.5, ease: 'power2.out', onUpdate: paint});
     setTimeout(removePl, 4500);
@@ -97,12 +99,12 @@
       // Hero: Wörter steigen aus der Maske, Rest folgt gestaffelt
       var words = [];
       $$('[data-hero] [data-split]', root).forEach(function (el) { splits.push(el); words = words.concat(split(el, true)); });
-      G.set(words, {yPercent: 118}); G.set('[data-hero-in]', {autoAlpha: 0, y: 26}); G.set('[data-clock]', {autoAlpha: 0});
+      G.set(words, {yPercent: 118}); G.set('[data-hero-in]', {opacity: 0, y: 26}); G.set('[data-clock]', {opacity: 0});
       var clock = $$('[data-clock]', root)[0];
       hero = G.timeline({paused: true, defaults: {ease: 'power4.out'}})
         .to(words, {yPercent: 0, duration: 1.15, stagger: .07}, 0)
-        .to('[data-hero-in]', {autoAlpha: 1, y: 0, duration: .95, stagger: .09}, .4)
-        .to(clock, {autoAlpha: 1, duration: 1.6}, .2)
+        .to('[data-hero-in]', {opacity: 1, y: 0, duration: .95, stagger: .09}, .4)
+        .to(clock, {opacity: 1, duration: 1.6}, .2)
         .add(function () { scramble(clock, 1300, '08:00'); }, .25);
       clock.textContent = '00:00'; clock.dataset.final = '08:00';
       // Terminalzeile wechselt ruhig alle 3,4 s (nur sichtbar im Hero)
@@ -113,7 +115,7 @@
       var st = {trigger: heroEl, start: 'top top', end: 'bottom top', scrub: true};
       G.to('[data-glow]', {yPercent: 28, ease: 'none', scrollTrigger: st});
       G.to(clock, {yPercent: -26, ease: 'none', scrollTrigger: st});
-      G.to('.l-hero-in', {y: -50, autoAlpha: .15, ease: 'none', scrollTrigger: {trigger: heroEl, start: '55% top', end: 'bottom top', scrub: true}});
+      G.to('.l-hero-in', {y: -50, opacity: .15, ease: 'none', scrollTrigger: {trigger: heroEl, start: '55% top', end: 'bottom top', scrub: true}});
       // Zeiger-Parallax der Glut (nur feiner Zeiger)
       if (window.matchMedia('(pointer: fine)').matches) {
         var gx = G.quickTo('[data-glow]', 'x', {duration: 1.2, ease: 'power3'}), gy = G.quickTo('[data-glow]', 'y', {duration: 1.2, ease: 'power3'});
@@ -123,7 +125,7 @@
       // Manifest: Wörter werden beim Scrollen hell
       $$('[data-scrub]', root).forEach(function (el) {
         splits.push(el); var ws = split(el, false);
-        G.set(ws, {opacity: .16});
+        G.set(ws, {opacity: .4});
         G.to(ws, {opacity: 1, ease: 'none', stagger: {each: .12}, duration: .3, scrollTrigger: {trigger: el, start: 'top 80%', end: 'bottom 52%', scrub: .5}});
       });
       // Überschriften und Fakten: einmalig einblenden
@@ -132,13 +134,13 @@
         G.from(split(el, true), {yPercent: 118, duration: 1.1, stagger: .08, ease: 'power4.out', scrollTrigger: {trigger: el, start: 'top 85%', once: true}});
       });
       $$('.l-sec-head > *, [data-fact], .l-final .l-btn, .sig-sub', root).forEach(function (el) {
-        G.from(el, {y: 44, autoAlpha: 0, duration: 1, ease: 'power4.out', scrollTrigger: {trigger: el, start: 'top 88%', once: true}});
+        G.from(el, {y: 44, opacity: 0, duration: 1, ease: 'power4.out', scrollTrigger: {trigger: el, start: 'top 88%', once: true}});
       });
       // Karten-Stapel: Inhalt erscheint, die vorige Karte tritt zurück
       var cards = $$('[data-card]', root);
       cards.forEach(function (card, i) {
         var kids = $$('.viz-src span, .viz-pick li, .viz-drop > *', card);
-        G.from(kids, {y: 22, autoAlpha: 0, duration: .8, stagger: .07, ease: 'power3.out', scrollTrigger: {trigger: card, start: 'top 78%', once: true}});
+        G.from(kids, {y: 22, opacity: 0, duration: .8, stagger: .07, ease: 'power3.out', scrollTrigger: {trigger: card, start: 'top 78%', once: true}});
         var next = cards[i + 1];
         if (next) G.to(card, {scale: .93 + i * .02, y: -10, ease: 'none', scrollTrigger: {trigger: next, start: 'top 92%', end: function () { return 'top ' + (76 + (i + 1) * 16) + 'px'; }, scrub: true, invalidateOnRefresh: true}});
       });
@@ -151,7 +153,7 @@
       noise.appendChild(frag); offs.push(function () { noise.textContent = ''; });
       var cnt = {n: 1248};
       var sig = G.timeline({defaults: {ease: 'none'}})
-        .to(junk, {autoAlpha: 0, duration: 1, stagger: {amount: .8, from: 'random'}}, 0)
+        .to(junk, {opacity: 0, duration: 1, stagger: {amount: .8, from: 'random'}}, 0)
         .to(hits, {scale: window.innerWidth < 600 ? 1.1 : 1.35, duration: 1}, .2)
         .to(noise, {opacity: .8, duration: 1}, 0)
         .to(cnt, {n: 7, duration: 1.3, snap: {n: 1}, onUpdate: function () { num.textContent = cnt.n; }}, 0);
@@ -188,7 +190,7 @@
   function pageIn(el) {
     if (!live || !el) return;
     var kids = $$(':scope > *', el); G.killTweensOf(kids);
-    G.fromTo(kids, {y: 14, autoAlpha: 0}, {y: 0, autoAlpha: 1, duration: .55, stagger: .05, ease: 'power3.out', clearProps: 'transform,opacity,visibility'});
+    G.fromTo(kids, {y: 14, opacity: 0}, {y: 0, opacity: 1, duration: .55, stagger: .05, ease: 'power3.out', clearProps: 'transform,opacity'});
   }
   function tabInd(btn) {
     var ind = $('tabInd'); if (!ind || !btn || !btn.offsetWidth) return;
@@ -219,11 +221,11 @@
       var title = $('introTitle'), strong = $$('#introCount strong')[0], n = strong ? +strong.textContent : 0, c = {n: 0};
       var tw = split(title, true); G.set(tw, {yPercent: 118});
       var tl = G.timeline({defaults: {ease: 'power4.out'}});
-      tl.from('.lede-date', {autoAlpha: 0, y: 12, duration: .6}, 0)
+      tl.from('.lede-date', {opacity: 0, y: 12, duration: .6}, 0)
         .to(tw, {yPercent: 0, duration: 1.05, stagger: .06}, .08);
       if (strong) tl.to(c, {n: n, duration: .9, ease: 'power2.out', snap: {n: 1}, onUpdate: function () { strong.textContent = c.n; }}, .25);
-      tl.from('#introCount, #introText, #introModel, #introFailed', {autoAlpha: 0, y: 16, duration: .7, stagger: .08}, .4)
-        .from('.toolbar, #storyProgress, #catFilters', {autoAlpha: 0, y: 12, duration: .6, stagger: .05, clearProps: 'transform,opacity,visibility'}, .6);
+      tl.from('#introCount, #introText, #introModel, #introFailed', {opacity: 0, y: 16, duration: .7, stagger: .08}, .4)
+        .from('.toolbar, #storyProgress, #catFilters', {opacity: 0, y: 12, duration: .6, stagger: .05, clearProps: 'transform,opacity'}, .6);
       var cards = viewIsFeed ? $$('#feedContainer .feed-card') : $$('#storiesInner .story-card').slice(0, 2);
       if (cards.length) wipeCards(cards);
     });
@@ -239,7 +241,7 @@
     for (var i = 0; i < 7; i++) {
       var s = document.createElement('i'); s.className = 'spark'; b.appendChild(s);
       var a = (i / 7) * Math.PI * 2 + Math.random() * .5, d = 20 + Math.random() * 12;
-      G.fromTo(s, {x: 0, y: 0, scale: 1, autoAlpha: 1}, {x: Math.cos(a) * d, y: Math.sin(a) * d, scale: 0, autoAlpha: 0, duration: .6 + Math.random() * .2, ease: 'power3.out', onComplete: (function (el) { return function () { el.remove(); }; })(s)});
+      G.fromTo(s, {x: 0, y: 0, scale: 1, opacity: 1}, {x: Math.cos(a) * d, y: Math.sin(a) * d, scale: 0, opacity: 0, duration: .6 + Math.random() * .2, ease: 'power3.out', onComplete: (function (el) { return function () { el.remove(); }; })(s)});
     }
   }
 

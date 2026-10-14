@@ -113,7 +113,7 @@ $('btnStart').addEventListener('click', async () => {
   try { const r = await api('/api/start', 'POST'); $('recoveryCode').textContent = r.recovery; openRecovery(); }
   catch (e) { toast(e.status === 409 ? 'Du hast schon ein Konto.' : 'Das hat nicht geklappt. Später noch einmal versuchen.', true); if (e.status === 409) boot(); }
 });
-function setInert(on) { document.querySelector('.shell').inert = on; $('welcome').inert = on; }
+function setInert(on) { document.querySelector('.shell').inert = on; $('welcome').inert = on; $('skipLink').inert = on; }
 function openRecovery() { $('recoveryModal').hidden = false; setInert(true); $('closeCode').focus(); }
 $('closeCode').addEventListener('click', () => { $('recoveryModal').hidden = true; setInert(false); boot().then(() => $('main').focus({preventScroll: true})); });
 $('copyCode').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('recoveryCode').textContent); toast('Kopiert'); } catch (e) { toast('Kopieren nicht möglich. Markiere den Code und kopiere ihn von Hand.', true); } });

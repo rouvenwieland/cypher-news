@@ -134,3 +134,5 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
     .l-cue i::after { animation: none; transform: none; }
 }
 @media (forced-colors: active) { .l-glow, .l-clock { display: none; } .l-btn, .l-pill { border: 1px solid ButtonText; } }
+
+html:has(body.is-landing) { scroll-padding-top: 84px; }
