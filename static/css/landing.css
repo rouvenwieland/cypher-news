@@ -74,7 +74,7 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 .l-h2 { font-family: var(--serif); font-weight: 560; font-size: clamp(36px, 7vw, 96px); line-height: .98; letter-spacing: -.035em; text-wrap: balance; font-optical-sizing: auto; }
 .l-h2 em { color: var(--accent-text); font-weight: 400; }
 .l-stack { position: relative; display: flex; flex-direction: column; gap: 16svh; padding-bottom: 8svh; }
-.l-card { --n: 0; position: sticky; top: calc(76px + var(--n) * 16px); transform-origin: 50% 0; display: grid; gap: 22px; padding: 26px 22px 24px; border-radius: 28px; background: color-mix(in oklab, var(--surface) 92%, var(--accent)); border: 1px solid var(--line-strong); box-shadow: 0 -18px 50px rgba(0, 0, 0, .35); overflow: clip; }
+.l-card { --n: 0; position: sticky; top: calc(76px + var(--n) * 16px); transform-origin: 50% 0; display: grid; gap: 22px; padding: 26px 22px 24px; border-radius: 28px; background: color-mix(in oklab, var(--surface) 92%, var(--accent)); border: 1px solid var(--line-strong); box-shadow: 0 -14px 40px color-mix(in oklab, var(--ink) 10%, transparent); overflow: clip; }
 .l-card:nth-child(2) { --n: 1; background: color-mix(in oklab, var(--surface-2) 96%, var(--c-tech)); }
 .l-card:nth-child(3) { --n: 2; background: color-mix(in oklab, var(--surface) 86%, var(--accent)); }
 .l-no { font-family: var(--serif); font-style: italic; font-weight: 300; font-size: clamp(64px, 11vw, 150px); line-height: .8; letter-spacing: -.05em; color: transparent; -webkit-text-stroke: 1.5px var(--accent-text); }
@@ -115,7 +115,7 @@ body.is-landing #rainCanvas, body.is-boot #rainCanvas { z-index: 0; }
 /* ── Fakten ── */
 .l-facts { display: grid; gap: 0; padding: clamp(48px, 10svh, 110px) var(--lp); background: var(--bg); position: relative; }
 .l-facts article { padding: 26px 0 28px; border-top: 1px solid var(--line-strong); }
-.l-facts h3 { font-family: var(--serif); font-weight: 580; font-size: clamp(26px, 3vw, 38px); line-height: 1.05; letter-spacing: -.02em; margin-bottom: 10px; }
+.l-facts h2 { font-family: var(--serif); font-weight: 580; font-size: clamp(26px, 3vw, 38px); line-height: 1.05; letter-spacing: -.02em; margin-bottom: 10px; }
 .l-facts p { font-family: var(--serif); font-size: 18px; line-height: 1.55; color: var(--ink-2); max-width: 36ch; }
 @media (min-width: 900px) { .l-facts { grid-template-columns: repeat(3, 1fr); gap: 0 clamp(24px, 4vw, 64px); } }
 
