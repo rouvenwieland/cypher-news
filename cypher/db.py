@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users(
   id TEXT PRIMARY KEY, token_hash TEXT UNIQUE, recovery_hash TEXT UNIQUE, created REAL,
   notes TEXT DEFAULT '', sources TEXT DEFAULT '[]', drop_hour INTEGER DEFAULT 8, tz_offset INTEGER DEFAULT 60,
   quality TEXT DEFAULT 'fast', key_enc TEXT DEFAULT '', x_token_enc TEXT DEFAULT '', push_sub TEXT DEFAULT '', last_drop_day TEXT DEFAULT '',
-  free_used_day TEXT DEFAULT '', free_used INTEGER DEFAULT 0, feedback TEXT DEFAULT '{}', tz_changes TEXT DEFAULT '');
+  free_used_day TEXT DEFAULT '', free_used INTEGER DEFAULT 0, feedback TEXT DEFAULT '{}', tz_changes TEXT DEFAULT '', last_seen REAL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS drops(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, day TEXT, created REAL, data TEXT);
 CREATE INDEX IF NOT EXISTS drops_user ON drops(user_id, created);
 CREATE TABLE IF NOT EXISTS saved(id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, created REAL, item TEXT);
@@ -62,6 +62,9 @@ def conn():
                 c.execute("ALTER TABLE users ADD COLUMN x_token_enc TEXT DEFAULT ''")
             if 'tz_changes' not in cols:  # migrate DBs created before the summer/winter time table
                 c.execute("ALTER TABLE users ADD COLUMN tz_changes TEXT DEFAULT ''")
+            if 'last_seen' not in cols:  # migrate DBs created before the 14-day pause: everyone counts as "just seen" (grace period)
+                c.execute('ALTER TABLE users ADD COLUMN last_seen REAL DEFAULT 0')
+                c.execute('UPDATE users SET last_seen=?', (time.time(),))
             yield c
             c.commit()
         finally:
@@ -73,7 +76,8 @@ def create_user():
     uid, token = secrets.token_hex(8), secrets.token_urlsafe(32)
     recovery = '-'.join(secrets.token_hex(2) for _ in range(4))
     with conn() as c:
-        c.execute('INSERT INTO users(id,token_hash,recovery_hash,created) VALUES(?,?,?,?)', (uid, _h(token), _h(recovery), time.time()))
+        now = time.time()
+        c.execute('INSERT INTO users(id,token_hash,recovery_hash,created,last_seen) VALUES(?,?,?,?,?)', (uid, _h(token), _h(recovery), now, now))
     return uid, token, recovery
 
 
@@ -100,6 +104,14 @@ def update_user(uid, **f):
         return
     with conn() as c:
         c.execute('UPDATE users SET ' + ','.join(f'{k}=?' for k in f) + ' WHERE id=?', (*f.values(), uid))
+
+
+def touch(uid, every=3600, now=None):
+    """The user's own browser used the app (opened it, opened or built a drop): remember when. At most one write per `every`
+    seconds and user, so a busy session does not turn into a stream of writes. Returns True if it wrote."""
+    now = time.time() if now is None else now
+    with conn() as c:
+        return c.execute('UPDATE users SET last_seen=? WHERE id=? AND COALESCE(last_seen,0)<?', (now, uid, now - every)).rowcount > 0
 
 
 def delete_user(uid):

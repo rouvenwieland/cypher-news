@@ -125,7 +125,7 @@ function removePl() { if (pl) pl.classList.add('gone'); lock(false); plResolve()
       // Manifest: Wörter werden beim Scrollen hell
       $$('[data-scrub]', root).forEach(function (el) {
         splits.push(el); var ws = split(el, false);
-        G.set(ws, {opacity: .4});
+        G.set(ws, {opacity: .55});   // Startwert gedimmt, aber großer Text braucht 3:1 in beiden Themen (hell: .4 ergab nur 2,5:1, .55 ergibt 3,8:1)
         G.to(ws, {opacity: 1, ease: 'none', stagger: {each: .12}, duration: .3, scrollTrigger: {trigger: el, start: 'top 80%', end: 'bottom 52%', scrub: .5}});
       });
       // Überschriften und Fakten: einmalig einblenden

@@ -86,8 +86,41 @@ $('tabNav').addEventListener('click', (e) => { const b = e.target.closest('.tab-
 $('goProfile').addEventListener('click', () => showTab('profile'));
 
 // ---------- boot ----------
+// The free server sleeps at night: a keep-awake job pings it from 05:50 to 23:50 Berlin time (DEPLOY.md). Drops can only be
+// scheduled inside that window: the first start is 06:00, the last 23:00 Berlin time (the last hour is the build reserve).
+const DROP_FROM_MIN = 6 * 60, DROP_TO_MIN = 23 * 60;
+let berlinFmt = null;
+try { berlinFmt = new Intl.DateTimeFormat('en-GB', {timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'}); } catch (e) {}
+const hh = (h) => String(h).padStart(2, '0');
+function dropHourOk(h, now = new Date()) {                       // is local h:00 inside the window? (the browser knows the summer/winter time rules)
+  if (!berlinFmt) return true;
+  const p = berlinFmt.formatToParts(new Date(now.getFullYear(), now.getMonth(), now.getDate(), h));
+  const m = +p.find((x) => x.type === 'hour').value * 60 + +p.find((x) => x.type === 'minute').value;
+  return m >= DROP_FROM_MIN && m <= DROP_TO_MIN;
+}
+function allowedHours(now) { const out = []; for (let h = 0; h < 24; h++) if (dropHourOk(h, now)) out.push(h); return out; }
+function dropRanges(hours) {                                      // [0,1,2,13,14] -> "00:00 bis 02:00 und 13:00 bis 14:00 Uhr"
+  const runs = [];
+  hours.forEach((h) => { const r = runs[runs.length - 1]; if (r && r[1] === h - 1) r[1] = h; else runs.push([h, h]); });
+  return runs.map(([a, b]) => `${hh(a)}:00${a === b ? '' : ' bis ' + hh(b) + ':00'}`).join(' und ') + ' Uhr';
+}
+function setupDropHours() {
+  const ok = allowedHours(), hrs = $('dropHour');
+  hrs.replaceChildren();
+  for (let h = 0; h < 24; h++) { const o = new Option(`${hh(h)}:00 Uhr`, h); o.toggleAttribute('disabled', !ok.includes(h)); hrs.add(o); }   // options only, buttons never use disabled
+  const berlinLike = ok.length === 18 && ok[0] === 6 && ok[17] === 23;
+  $('dropHint').textContent = berlinLike ? 'Möglich sind 06:00 bis 23:00 Uhr Berlin-Zeit. Nachts schläft der kostenlose Server.'
+    : `Möglich bei dir: ${dropRanges(ok)}. Das sind 06:00 bis 23:00 Uhr Berlin-Zeit, nachts schläft der kostenlose Server.`;
+}
+function effectiveDropHour(h) {                                   // a saved hour outside the window (set before) arrives at the start of the window
+  h = h == null ? 8 : h;
+  const ok = allowedHours();
+  if (!ok.length || ok.includes(h)) return h;
+  const next = ok.find((x) => x > h);
+  return next === undefined ? ok[0] : next;
+}
 async function boot() {
-  const hrs = $('dropHour'); hrs.innerHTML = ''; for (let h = 0; h < 24; h++) hrs.insertAdjacentHTML('beforeend', `<option value="${h}">${String(h).padStart(2, '0')}:00 Uhr</option>`);
+  setupDropHours();
   try { me = await api('/api/me'); } catch (e) { me = {session: false}; }
   if (!me.session) {
     document.body.classList.remove('is-boot', 'is-app'); document.body.classList.add('is-landing');
@@ -96,7 +129,8 @@ async function boot() {
     await M.boot(false, fontsReady, () => hero.play());
     return;
   }
-  try { await bootApp(); } finally { M.boot(true, fontsReady); }
+  const resumed = !!me.resumed;                    // the server paused this profile's drops (14 days without a visit); this visit resumes them
+  try { await bootApp(); } finally { M.boot(true, fontsReady).then(() => { if (resumed) toast('Willkommen zurück – Drops laufen wieder'); }); }
 }
 async function bootApp() {
   M.landingStop(); rain(false);
@@ -137,7 +171,7 @@ function applyProfile(keepForm) {
     $('notes').value = me.notes || '';
     sources = me.sources || []; quality = me.quality || 'fast';
     topics = new Set(CHIPS.filter((c) => (me.notes || '').toLowerCase().includes(c.toLowerCase())));
-    $('dropHour').value = me.drop_hour == null ? 8 : me.drop_hour;
+    $('dropHour').value = effectiveDropHour(me.drop_hour);
     setQuality(quality);
     renderChips(); renderSources();
   }
@@ -146,7 +180,7 @@ function applyProfile(keepForm) {
   const need = !me.has_key && me.free_left <= 0;
   const hint = $('setupHint'); hint.hidden = !need;
   if (need) hint.innerHTML = '<b>Fast fertig.</b> Trag unter <b>Profil &gt; KI-Schlüssel</b> deinen kostenlosen OpenRouter-Schlüssel ein, dann kann es losgehen.';
-  $('dropInfo').textContent = `Dein täglicher Drop kommt um ${String(me.drop_hour == null ? 8 : me.drop_hour).padStart(2, '0')}:00 Uhr.`;
+  $('dropInfo').textContent = `Dein täglicher Drop kommt um ${hh(effectiveDropHour(me.drop_hour))}:00 Uhr.`;
 }
 
 // ---------- welcome ----------

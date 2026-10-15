@@ -76,6 +76,7 @@ def api(fn):
         u = db.user_by_token(request.cookies.get(COOKIE))
         if not u:
             return jsonify(error='no_session'), 401
+        db.touch(u['id'])  # the user's own browser is using the app: this keeps the daily drops running (see scheduler.is_paused)
         return fn(u, *a, **kw)
     return w
 
@@ -161,7 +162,11 @@ def me():
     u = db.user_by_token(request.cookies.get(COOKIE))
     if not u:
         return jsonify(session=False, model=PRIMARY, vapid=push.public_key())
-    return jsonify(session=True, model=PRIMARY, vapid=push.public_key(), **profile(u))
+    # `resumed`: the drops of this profile were paused (14 days without a visit) and this visit switches them on again. Only said
+    # to a profile that has drops to deliver, and only once: the touch below ends the pause.
+    resumed = scheduler.is_paused(u) and bool((u['notes'] or '').strip() or json.loads(u['sources'] or '[]'))
+    db.touch(u['id'])
+    return jsonify(session=True, model=PRIMARY, vapid=push.public_key(), resumed=resumed, **profile(u))
 
 
 @app.route('/api/me', methods=['DELETE'])

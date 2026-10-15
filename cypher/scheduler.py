@@ -9,6 +9,20 @@ _fails = {}  # uid -> (day, attempts, last_try): transient failures are retried,
 HARD_ERRORS = ('no_user', 'no_profile', 'no_key', 'key_invalid', 'no_credit', 'no_model_configured')
 RETRY_AFTER, MAX_ATTEMPTS = 20 * 60, 4
 FREE_PER_DAY = int(os.environ.get('FREE_DROPS_PER_DAY', '1'))
+PAUSE_AFTER_DAYS = int(os.environ.get('PAUSE_AFTER_DAYS', '14'))  # nobody opened the app for this long: no daily drops until they do
+
+
+def last_active(u):
+    """When the user last used the app (epoch seconds): opened it, opened a drop or built one (db.touch). A user row from before
+    the column existed counts as seen when the column was added; `created` is the floor."""
+    return max(u['last_seen'] or 0, u['created'] or 0)
+
+
+def is_paused(u, now=None):
+    """Daily drops pause for a profile that has been inactive for PAUSE_AFTER_DAYS days (free-tier AI quota and build time are
+    not spent on drops nobody reads). The next visit makes the user active again, nothing has to be switched on."""
+    now = time.time() if now is None else now
+    return now - last_active(u) > PAUSE_AFTER_DAYS * 86400
 
 
 _inflight, _inflight_lock = set(), threading.Lock()  # users whose drop is being built right now (one build per user at a time)
@@ -70,6 +84,8 @@ def _run_for_user(uid, manual):
     day = local_now(u).strftime('%Y-%m-%d')  # the day this drop is FOR; a build running past midnight still counts for it
     if not manual and (u['last_drop_day'] or '') >= day:  # ">=": the local date can go back (travel west), never redo a day
         return False, 'already_done', None
+    if not manual and is_paused(u):  # inactive profile: not a failure, nothing is booked, the next visit resumes the drops
+        return False, 'paused', None
     if not (u['notes'] or '').strip() and not json.loads(u['sources'] or '[]'):
         return False, 'no_profile', None
     key, free = pick_key(u)
@@ -118,6 +134,8 @@ def _notify(uid, sub, body, saved):
 def due_users(now_utc=None):
     out, now = [], time.time()
     for u in db.all_users():
+        if is_paused(u, now):
+            continue
         ln = local_now(u)
         day = ln.strftime('%Y-%m-%d')
         if (u['last_drop_day'] or '') >= day or ln.hour < (u['drop_hour'] if u['drop_hour'] is not None else 8):
@@ -137,7 +155,7 @@ def run_due():
             n += 1
             _fails.pop(uid, None)
             continue
-        if err in ('busy', 'already_done'):  # another run owns / has finished this user: not a failure
+        if err in ('busy', 'already_done', 'paused'):  # another run owns / has finished this user, or the profile is paused: not a failure
             continue
         with db.conn() as c:
             u = c.execute('SELECT * FROM users WHERE id=?', (uid,)).fetchone()

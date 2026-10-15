@@ -254,7 +254,8 @@
                         <section class="sec">
                             <h2 class="sec-title"><span class="no">03</span> Rhythmus</h2>
                             <div class="quality-row"><label class="quality-label" for="dropHour">Uhrzeit</label>
-                                <select id="dropHour"></select></div>
+                                <select id="dropHour" aria-describedby="dropHint"></select></div>
+                            <p class="hint" id="dropHint">Möglich sind 06:00 bis 23:00 Uhr Berlin-Zeit. Nachts schläft der kostenlose Server.</p>
                             <div class="quality-row"><span class="quality-label" id="modusLabel">Modus</span>
                                 <div class="seg quality-toggle" id="qualitySeg" role="group" aria-labelledby="modusLabel"><button class="q-btn active" data-q="fast" aria-pressed="true">Schnell</button><button class="q-btn" data-q="high" aria-pressed="false">Genau</button></div></div>
                             <button class="btn-drop" id="saveProfile">Speichern</button>

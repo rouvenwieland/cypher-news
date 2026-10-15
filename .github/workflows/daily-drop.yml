@@ -1,10 +1,13 @@
-# Keeps the free Render service awake ALL DAY, so the built-in scheduler can build every user's drop at their chosen hour.
+# Keeps the free Render service awake only from 05:50 to 23:50 Berlin time (the window is in .github/keepawake.py), so the built-in
+# scheduler builds every drop at the user's chosen hour (06:00-23:00 Berlin time can be chosen) and the service sleeps at night.
+# Reason: Render's 750 free instance hours per month are shared by the whole account; a service awake 24/7 would use ~730 of them
+# (calculation in DEPLOY.md). The window follows the Berlin clock inside the script, so this workflow needs no change at summer/winter time.
 # GitHub throttles frequent cron schedules (a "*/10" cron really ran only every 3-6 h) and limits one job to 6 h, so instead
-# each run pings /healthz every 10 minutes for 5 h 40 min. A cron entry every 2 h starts runs; the concurrency group lets only
-# one run work at a time and queues the next (a newer queued run replaces an older queued one), so the chain of runs covers
-# the whole day without gaps, even if GitHub drops one scheduled start. Minute 23: GitHub delays/drops most at the full hour.
-# Render's free service sleeps after 15 min without traffic, so a 10-minute ping keeps it awake. Public repository: Actions minutes are free.
-# Limits are checked by tests/test_keepawake.py. NOTE: a service that is awake 24/7 uses about 730 of Render's 750 free instance hours per month.
+# each run pings /healthz every 10 minutes for 5 h 40 min (while the window is open; outside it the run just waits). A cron entry
+# every 2 h starts runs; the concurrency group lets only one run work at a time and queues the next (a newer queued run replaces an
+# older queued one), so the chain of runs has no gaps, even if GitHub drops one scheduled start. Minute 23: GitHub delays/drops most
+# at the full hour. Render's free service sleeps after 15 min without traffic, so a 10-minute ping keeps it awake.
+# Public repository: Actions minutes are free. Limits and the window are checked by tests/test_keepawake.py.
 name: keep-awake
 on:
   schedule:
@@ -13,6 +16,8 @@ on:
 concurrency:
   group: keep-awake
   cancel-in-progress: false
+permissions:
+  contents: read
 env:
   APP_URL: https://cypher-news.onrender.com
   PING_INTERVAL_S: 600
@@ -20,14 +25,8 @@ env:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 358   # loop (5 h 40) + last sleep (10 min) + a slow last ping with retries (5 min) + setup; GitHub max 360
+    timeout-minutes: 358   # loop (5 h 40) + a slow last ping with retries (5 min) + setup; GitHub max 360
     steps:
-      - name: Ping every 10 minutes for 5 h 40 min
-        run: |
-          end=$(( $(date -u +%s) + RUN_SECONDS ))
-          n=0
-          while [ "$(date -u +%s)" -lt "$end" ]; do
-            curl -fsS -m 90 --retry 2 --retry-delay 15 "$APP_URL/healthz" > /dev/null || echo "ping failed at $(date -u +%H:%M)"
-            n=$((n+1)); sleep "$PING_INTERVAL_S"
-          done
-          echo "done after $n pings"
+      - uses: actions/checkout@v4
+      - name: Ping every 10 minutes while the Berlin-time window is open (05:50-23:50), for 5 h 40 min
+        run: python3 .github/keepawake.py

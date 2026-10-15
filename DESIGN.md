@@ -15,7 +15,7 @@ Dunkel: `--bg #0c0a08`, Fläche `#15120f`, Text `#f4eee3`, Akzent Glut-Orange `#
 ## Seiten und Szenen (Willkommen, `templates/index.html` `#welcome`, `static/css/landing.css`, `static/js/motion.js`)
 0. Preloader: schwarz, Wortmarke entschlüsselt sich, Zähler 000 bis 100, Orange-Balken, fährt nach oben weg (Angemeldete: nur kurzes Ausblenden, 0,45 s Minimum). Endet immer (Schutz 4,5 s in JS, 6 s per CSS).
 1. Hero: Überschrift Wort für Wort aus Masken, Terminalzeile wechselt alle 3,4 s, riesige Outline-Uhr "08:00" (entschlüsselt sich), Glut mit Parallax und Zeigerfolge, Regen.
-2. Manifest: Wörter werden beim Scrollen hell (gescrubbt).
+2. Manifest: Wörter werden beim Scrollen hell (gescrubbt). Startwert 55 % Deckkraft: großer Text braucht 3:1 in beiden Modi (bei 40 % hatte Hell nur 2,5:1).
 3. "Wie dein Drop entsteht": Sticky-Karten-Stapel (Quellen, Auswahl, Drop), vorige Karte tritt skaliert zurück.
 4. "Rauschen wird Signal": Desktop angeheftet und gescrubbt (Rauschwörter verblassen, 7 Treffer bleiben, Zähler 1248 bis 7), Mobil frei laufend ohne Pinning.
 5. Fakten, Abschluss-CTA, Footer-Enthüllung (Wortmarke fährt wie ein Vorhang hoch).
@@ -74,6 +74,8 @@ Ein Signalton (Orange) für Aktionen und Zahl. Kategorien sind kleine Punkte mit
 | Teilweise | "Nicht erreichbar: ..." mit gelbem Punkt unter dem Titelblatt |
 | Erfolg | Toast "Dein Drop ist fertig", Fokus auf Titel, Merken/Daumen mit Zustand und kleiner Bestätigungsbewegung |
 | Offline | eigene Offline-Seite im Service Worker |
+| Rückkehr nach 14 Tagen | Toast (`role=status`) "Willkommen zurück – Drops laufen wieder", erst nachdem der Preloader weg ist; nur wenn das Profil Inhalte hat (Server meldet `resumed` in `/api/me`) |
+| Uhrzeit außerhalb des Fensters | Optionen vor 06:00 und nach 23:00 Uhr (Berlin-Zeit) sind `disabled`, darunter ein Hinweis (`aria-describedby`) "Möglich sind 06:00 bis 23:00 Uhr Berlin-Zeit. Nachts schläft der kostenlose Server."; in anderen Zeitzonen die passenden Ortszeiten; eine ältere Einstellung außerhalb zeigt den Fensterbeginn |
 
 ## Bewegung
 Easing `cubic-bezier(.22,.9,.24,1)`, Eintritt gestaffelt (55 ms), Segment-Schalter mit gleitendem Daumen, Tab-Balken, Press-Zustand `scale(.97)`. Nur transform/opacity. Hover nur auf Zeigergeräten. `prefers-reduced-motion`: alles auf Minimum, Regen und Scramble aus.
